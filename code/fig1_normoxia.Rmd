@@ -41,6 +41,10 @@ library(edgeR)
 a209_col = "#009E73"
 si3e_col = "#56B4E9"
 si3d_col = "#E69F00"
+
+theme(axis.title.y=element_text(size=11),
+      axis.title.x=element_text(size=11))
+
 ```
 
 
@@ -237,23 +241,6 @@ res_te_3e <- lfcShrink(
 ## plotting Neel's example genes here
 ```{r plot genes, fig.width=8, fig.height=7}
 
-# d <- allCountsNorm[myG,] %>%
-#   as.data.frame() %>%
-#   rownames_to_column(var = "gene_id") %>%
-#   left_join(., unique(geneInfo[,c(1,4)])) %>%
-#   reshape2::melt(value.name = "CPM", variable.name = "info") %>%
-#   separate(col = info, into = c("tx","sirna","type","rep"))
-# 
-# d$sirna <- relevel(x = factor(d$sirna), ref = "sictrl")
-# d$type <- relevel(x = factor(d$type), ref = "rna")
-
-# ggokabeito::palette_okabe_ito()
-
-# ggbarplot(data = d, x = "type", y = "CPM", fill = "sirna", add = "mean_se", position = position_dodge(0.9), facet.by = "symbol", scales="free_y", palette = c("#999999","#E69F00","#56B4E9"))
-
-
-# ggbarplot(data = d, x = "sirna", y = "CPM", fill = "type", add = "mean_se", position = position_dodge(0.9), facet.by = "symbol", scales="free_y", palette = c("#0072B2","#CC79A7"))
-
 myG <- c("ENSG00000128272.14","ENSG00000090621.13","ENSG00000177606.6","ENSG00000197111.15","ENSG00000133639.4","ENSG00000125107.17","ENSG00000100219.16","ENSG00000060237.16","ENSG00000123066.7","ENSG00000106636.7","ENSG00000082701.14","ENSG00000137843.11","ENSG00000134899.18","ENSG00000173511.9","ENSG00000023287.12","ENSG00000148730.6")
 
 
@@ -269,7 +256,9 @@ e$sirna <- relevel(x = factor(e$sirna), ref = "sictrl")
 
 
 ggstripchart(data = e, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
-  ylab(expression("log"[2]*" TE (ribo/rna)")) 
+  ylab(expression("log"[2]*" TE (ribo/rna)")) +
+  xlab("")
+
 
 
 # ggbarplot(data = e, x = "sirna", y = "TE", fill = "sirna", add = "mean_se", position = position_dodge(0.9), facet.by = "symbol", scales="free_y", palette = c("#999999","#0072B2","#CC79A7"))
@@ -281,7 +270,7 @@ ggstripchart(data = e, x = "sirna", y = "TE", color = "sirna", facet.by = "symbo
 
 ## Kate finding different gene targets here
 
-e specific targets have to not change at all with d
+e and d specific targets
 
 ```{r}
 #merge gene names
@@ -320,6 +309,9 @@ res_te_total <- res_te_total %>%
 no_d_change <- res_te_total %>% 
   filter(log2FC_d < 0.01 & log2FC_d > -0.01)
 
+no_e_change <- res_te_total %>% 
+  filter(log2FC_e < 0.01 & log2FC_e > -0.01)
+
 
 ```
 
@@ -347,17 +339,87 @@ ggstripchart(data = e_only, x = "sirna", y = "TE", color = "sirna", facet.by = "
 
 ```
 
-Interesting genes:
+d only genes
 
-PABPC1
+```{r}
 
-maybe
-TORIAIP2
-APLP2
-BDP1
+d_only_genes <- no_e_change$gene_id
+
+d_only <- TE[d_only_genes,] %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "gene_id") %>%
+  left_join(., unique(geneInfo[,c(1,4)])) %>%
+  reshape2::melt(value.name = "TE", variable.name = "info") %>%
+  separate(col = info, into = c("tx","sirna","type","rep"))
+
+d_only$sirna <- relevel(x = factor(d_only$sirna), ref = "sictrl")
+
+d_only <- d_only %>% 
+  filter(symbol != "NA")
+
+
+ggstripchart(data = d_only, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
+  ylab(expression("log"[2]*" TE (ribo/rna)")) 
+
+```
 
 
 
+
+```{r}
+d_genes <- c("CLDN9", "CLIC1", "EIF3D")
+e_genes <- c("APLP2", "PABPC1", "TOR1AIP2")
+common <- c("ATF4", "EIF4EBP2", "GSK3B", "JUN", "MED13L", "PCBP2", "WNK1", "XBP1", "YKT6")
+```
+
+
+
+
+## More gene options
+
+Genes to plot
+```{r}
+
+
+plot_genes <- no_d_change$gene_id
+
+e_only <- TE[e_only_genes,] %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "gene_id") %>%
+  left_join(., unique(geneInfo[,c(1,4)])) %>%
+  reshape2::melt(value.name = "TE", variable.name = "info") %>%
+  separate(col = info, into = c("tx","sirna","type","rep"))
+
+e_only$sirna <- relevel(x = factor(e_only$sirna), ref = "sictrl")
+
+e_only <- e_only %>% 
+  filter(symbol != "NA")
+
+
+ggstripchart(data = e_only, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
+  ylab(expression("log"[2]*" TE (ribo/rna)")) 
+
+
+```
+
+
+
+
+
+Common
+```{r}
+
+```
+
+3d specific
+```{r}
+
+```
+
+3e specific
+```{r}
+
+```
 
 
 
