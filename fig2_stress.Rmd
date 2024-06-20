@@ -1,0 +1,261 @@
+---
+title: "eIF3e and eIF3d are important for the stress response"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+# ATF4 + any other individual genes shown in figure 2
+TE normoxic only. For this figure. Hypoxia is still in here for now. We can decide to remove it with the finished paper.
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+```
+
+```{r install packages, echo=FALSE}
+library(here)
+library(janitor)
+library(tximport)
+library(tidyverse)
+library(EnhancedVolcano)
+library(msigdbr)
+library(viridis)
+library(gridExtra)
+library(ggthemes)
+library(ggrepel)
+library(scales)
+library(DESeq2)
+library(limma)
+library(clusterProfiler)
+library(plotly)
+library(ggokabeito)
+library(ggvenn)
+library(ggpubr)
+library(DT)
+library(edgeR)
+library(preprocessCore)
+```
+
+```{r}
+a209_col = "#009E73"
+si3e_col = "#56B4E9"
+si3d_col = "#E69F00"
+```
+# import tpm data
+
+### Load metadata
+```{r meta data, message=FALSE, warning=FALSE}
+
+metadata <- read_csv(here("accessories","metadata_NM.csv"), skip = 0) %>% 
+  clean_names()
+
+metadata <- metadata %>% 
+  mutate(library = ifelse(library_prep_kit=="Qiagen_miRNA", "riboseq", "rnaseq"))
+
+#Remove outlier from metadata
+
+metadata <- metadata %>% 
+  filter(sample_id != "NM2023_0113") %>%
+  dplyr::rename("treatment" = "treatment1") %>% 
+  dplyr::rename("rep" = "treatment2") %>% 
+  dplyr::rename("hypoxia" = "genotype")
+
+```
+
+### Load transcript and gene info
+```{r load alignment file, message=FALSE, warning=FALSE}
+
+geneInfo <- read_csv(here("accessories","gencode.v26.primary.info.csv.gz"), col_names = F) %>%
+  filter(!str_detect(X2, "pre_"))
+
+colnames(geneInfo) <- c("gene_id","transcript_id","biotype","symbol")
+
+#map transcripts to gene
+tx2gene <- geneInfo[,c(2,1)]
+gene_symbol <- geneInfo %>% dplyr::select(gene_id, symbol) %>% unique()
+
+```
+
+### Load quant files
+Note: These salmon files were generated used the tpm option in salmon
+```{r load in salmon files, message=FALSE, warning=FALSE}
+#load quant files based on metadata names
+myquantfiles <- paste(here(), "/tpm_salmon/",
+                      metadata$sample_id,
+                      "/quant.sf.gz",
+                      sep = "")
+
+names(myquantfiles) <- paste(metadata$hypoxia, metadata$treatment, metadata$rep, metadata$library, sep = "_")
+
+txiCPM <- tximport(myquantfiles, type = 'salmon', tx2gene = tx2gene, dropInfReps = TRUE) 
+#Making TPM into its own table in case that is needed. Includes GeneID. 
+```
+
+### Clean data
+```{r}
+#distribution of counts histogram
+hist_count <- hist(log2(rowSums(txiCPM$counts)), breaks = 50)
+#determine threshold
+
+#distribution of abundance histogram
+hist_abundance <- hist(log2(rowSums(txiCPM$abundance)), breaks = 50)
+
+#only keeping rows with counts  log2> 7 across all samples - want around 10-15k genes - want genes that are highly expressed
+keepGenes <- rownames(txiCPM$counts[log2(rowSums(txiCPM$counts)) > 10 ,])
+
+#removes noise
+# results show bimodal distribution
+#1 RNA per cell = 1 TPM
+```
+
+### Remove noncoding RNA
+```{r blacklist set up, echo=TRUE, message=FALSE, warning=FALSE}
+
+
+nonpolyA <- readxl::read_xlsx(path = here("accessories","polyAminus.xlsx"), sheet = 1) %>% 
+   pull(Gene)
+
+nonpolyA_ID <- geneInfo %>%
+  filter(symbol %in% nonpolyA) %>% 
+  pull(gene_id) %>% 
+  unique()
+
+
+# we want to remove any genes that match these annotation categories # before we do DE analysis
+blacklist_smRNA <- c("snoRNA","miRNA","snRNA","rRNA","Mt_tRNA","scaRNA","Mt_tRNA","Mt_rRNA")
+
+# there are 5,355 genes we want to exclude
+blacklist_smRNA_ID <-geneInfo %>%
+  filter(biotype %in% blacklist_smRNA) %>% 
+  pull(gene_id) %>% 
+  unique()
+
+
+genes_to_kill <- unique(c(blacklist_smRNA_ID,nonpolyA_ID))
+head(keepGenes)
+head(genes_to_kill)
+
+
+genes_to_kill_df <- as.data.frame(genes_to_kill)
+```
+
+### Compile gene abundance as counts per million
+```{r}
+
+allCPM <- txiCPM$abundance %>% 
+   as.data.frame() %>% 
+  rownames_to_column(var = "gene") %>% 
+  dplyr::filter(gene %in% keepGenes) %>%
+  dplyr::filter(!gene %in% genes_to_kill) %>%
+  column_to_rownames(var = "gene") %>% 
+  as.matrix()
+
+
+cpms <- allCPM %>% 
+  as.data.frame()
+
+```
+
+### Get TE values
+```{r}
+
+te_norm_df <- as.data.frame(normalize.quantiles(as.matrix(cpms)))
+colnames(te_norm_df) <- colnames(cpms)
+
+rownames(te_norm_df) <- rownames(cpms)
+
+#pivot to get to TE values, then don't forget to log TE values
+
+te_norm_long <- te_norm_df %>% 
+  rownames_to_column("gene_id") %>% 
+  pivot_longer(2:60, names_to = "sample", values_to = "CPM") %>% 
+    separate(sample, into=c("hypoxia", "treatment", "rep", "seq_type"))
+
+  
+te_norm_long2 <- te_norm_long %>% 
+  pivot_wider(names_from = seq_type, values_from = CPM)
+
+
+te_norm_long2 <- te_norm_long2 %>% 
+  mutate(te = riboseq/rnaseq)
+
+cols_to_concat <- c("hypoxia", "treatment", "rep")
+
+te_norm_long2 <- te_norm_long2 %>% 
+  left_join(gene_symbol, by="gene_id") %>% 
+  filter(na.rm=TRUE) %>% 
+  mutate(group = paste(hypoxia, treatment, rep, sep = "_")) %>% 
+  filter(te != "Inf") %>% 
+  mutate(log10te = log10(te+0.001))
+
+te_norm_long2$group <- as.factor(te_norm_long2$group)
+levels(te_norm_long2$group)
+
+ggdensity(te_norm_long2, x = 'log10te', color = 'group', xlim=c(-2,2))
+
+```
+
+# Individual gene TE analysis
+
+### ATF4 data
+```{r}
+#te_norm_long2
+
+levels <- c("sictrl", "si3e","si3d","DMSO", "a209")
+
+te_norm_long2$treatment <- factor(te_norm_long2$treatment, levels= levels)
+te_norm_long2$hypoxia <- factor(te_norm_long2$hypoxia, levels= c("Normoxic", "Hypoxic"))
+
+atf4_values <- te_norm_long2 %>% 
+  mutate('-log10te' = log10te*-1) %>% 
+  filter(symbol=="ATF4")
+
+```
+
+### ATF4 plot - all data
+```{r}
+
+ggplot(atf4_values, aes(x = treatment, y = te)) +
+  stat_summary(fun.data = mean_se, geom = "bar", position = "dodge", fill="#93C4C4") +
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = "dodge", width = 0.25) +
+  facet_wrap(~ hypoxia) +
+  labs(y = "te") +
+  theme_cowplot()+
+  theme(legend.position = "none") +
+  ggtitle("ATF4")
+
+
+
+```
+
+### Figure 2 ATF4 - plot
+```{r}
+
+#knockdowns only
+
+knockdowns_atf4 <- atf4_values %>% 
+  filter(treatment=="sictrl"|
+           treatment=="si3e"|
+           treatment=="si3d") %>% 
+  filter(hypoxia=="Normoxic")
+
+knockdowns_norm_atf4 <-
+ggplot(knockdowns_atf4, aes(x = treatment, y = te)) +
+  stat_summary(fun.data = mean_se, geom = "bar", position = "dodge", fill=c("grey", si3e_col, si3d_col)) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = "dodge", width = 0.25) +
+  facet_wrap(~ hypoxia) +
+  labs(y = "te") +
+  theme_prism()+
+  theme(legend.position = "none") +
+  ggtitle("ATF4")
+
+knockdowns_norm_atf4
+
+```
+
+### export plot
+
+```{r}
+ggsave("plots/atf4_normoxic_kds.pdf", knockdowns_norm_atf4)
+```
+

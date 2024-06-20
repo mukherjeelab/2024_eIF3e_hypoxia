@@ -1,0 +1,434 @@
+---
+title: "QC"
+author: "Kate"
+date: "2023-11-01"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# Part 1: Quality Control
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r install packages, include=FALSE}
+
+library(here)
+library(tximport)
+library(tidyverse)
+library(EnhancedVolcano)
+library(janitor)
+library(ggthemes)
+library(DESeq2)
+library(plotly)
+
+```
+
+## Load transcript-level data
+
+```{r meta data}
+
+metadata <- read_csv(here("accessories","metadata_NM.csv"), skip = 0) %>% 
+  clean_names()
+
+metadata <- metadata %>% 
+  mutate(library = ifelse(library_prep_kit=="Qiagen_miRNA", "riboseq", "rnaseq"))
+
+#ribosome lysate = ribosome seq
+#rRNA depletion = RNA seq
+
+
+```
+
+```{r load alignment file}
+
+#add dataset on RNA type, remove premRNA
+geneInfo <- read_csv(here("accessories","gencode.v26.primary.info.csv.gz"), col_names = F) %>%
+  filter(!str_detect(X2, "pre_"))
+
+colnames(geneInfo) <- c("gene_id","transcript_id","biotype","symbol")
+
+#import transcripts for gene to transcript mapping
+tx2gene <- geneInfo[,c(2,1)]
+gene_symbol <- geneInfo %>% dplyr::select(gene_id, symbol) %>% unique()
+
+```
+
+
+```{r load in salmon files}
+#set up names of quant files based on metadata names
+myquantfiles <- paste(here(), "/salmon/",
+                      metadata$sample_id,
+                      "/quant.sf.gz",
+                      sep = "")
+
+names(myquantfiles) <- paste(metadata$genotype, metadata$treatment1, metadata$treatment2, metadata$library, sep = "_")
+
+```
+
+
+```{r txi import, include=FALSE}
+#import transcripts
+myTxi <- tximport(myquantfiles, type = "salmon", tx2gene = tx2gene)
+# Look at distribution of sum of counts
+
+#distribution of counts histogram
+hist_count <- hist(log2(rowSums(myTxi$counts)), breaks = 50)
+#determine threshold
+
+#distribution of abundance histogram
+hist_abundance <- hist(log2(rowSums(myTxi$abundance)), breaks = 50)
+
+#only keeping rows with counts  log2> 7 across all samples - want around 10-15k genes - want genes that are highly expressed
+keepGenes <- rownames(myTxi$counts[log2(rowSums(myTxi$counts)) > 10 ,])
+
+#removes noise
+# results show bimodal distribution
+#1 RNA per cell = 1 TPM
+
+
+```
+
+
+```{r standard deviation filtering}
+# log transforming with pseudocount to avoid undefined numbers
+qcinput <- log2(myTxi$abundance[keepGenes,] + 1) 
+
+qcinput <- qcinput[rowSds(qcinput) > 1,] 
+
+dim(qcinput)
+```
+
+
+## Heatmap of total samples
+### We identified an outlier: hypoxia, si3e, repB, rna seq. That RNA sample also has a very low qubit and yield as well. It will be excluded in further analysis.
+
+```{r correlation coefficient, fig.height=10, fig.width=11}
+
+mycor <- cor(qcinput, method = "pearson")
+
+pheatmap::pheatmap(mat = mycor)
+
+```
+
+
+# PCA plot with outlier
+
+```{r pca}
+
+pca_res_orig <- prcomp(scale(x = qcinput,center = T, scale = T))
+
+#pca plot by hypoxia and rep
+
+pca_res_data <- 
+  pca_res_orig$rotation %>%
+  as.data.frame() 
+
+
+pca_res_data <- pca_res_data %>% 
+  rownames_to_column("sample") %>%
+  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
+
+
+#first by hypoxia and rep
+
+pca <- ggplot(data = pca_res_data, aes(x=PC1, y = PC2, color = treatment, shape = hypoxia))+ 
+  geom_point(size=3) +
+  theme_few()
+
+ggplotly(pca)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Heatmap without outlier
+### We removed the outlier and reran the correlation plot
+
+```{r remove outlier from qcinput2}
+
+#remake qcinput as qcinput2 without the outlier
+
+qcinput2 <- qcinput[,colnames(qcinput) != "Hypoxic_si3e_RepB_rnaseq"] 
+
+
+qcinput2 <- qcinput2[rowSds(qcinput2) > 1,] 
+
+dim(qcinput2)
+
+```
+
+
+```{r remake heat map without the outlier, fig.height=10, fig.width=11}
+
+#heatmap sans outlier
+
+mycor2 <- cor(qcinput2, method = "pearson")
+
+pheatmap::pheatmap(mat = mycor2)
+
+
+```
+
+
+
+## PCA plot without the outlier.
+
+```{r pca}
+
+pca_res <- prcomp(scale(x = qcinput2,center = T, scale = T))
+
+#pca plot by hypoxia and rep
+
+pca_res_data <- 
+  pca_res$rotation %>%
+  as.data.frame() 
+
+
+pca_res_data <- pca_res_data %>% 
+  rownames_to_column("sample") %>%
+  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
+
+
+```
+
+
+```{r pca plot}
+#first by hypoxia and rep
+
+pca <- ggplot(data = pca_res_data, aes(x=PC1, y = PC2, color = treatment, shape = hypoxia))+ 
+  geom_point(size=5) +
+  theme_few()
+
+ggplotly(pca)
+
+```
+
+
+## Heatmap of ribosome profiling data
+```{r ribosome heatmap}
+
+ribonames <- qcinput2[ , grep("riboseq", colnames(qcinput2))]
+
+ribocolnames <- colnames(ribonames)
+
+qcinput_ribo <- qcinput2[,colnames(qcinput2) %in% ribocolnames] 
+
+
+qcinput_ribo <- qcinput_ribo[rowSds(qcinput_ribo) > 1,] 
+
+dim(qcinput_ribo)
+
+```
+
+
+```{r ribo heatmap, fig.height=9, fig.width=10}
+
+#heatmap sans outlier
+mycor_ribo <- cor(qcinput_ribo, method = "pearson")
+
+pheatmap::pheatmap(mat = mycor_ribo)
+
+
+```
+
+
+
+## PCA plot for ribosome profiling data
+```{r ribo pca plot}
+
+pca_res_ribo <- prcomp(scale(x = qcinput_ribo,center = T, scale = T))
+
+#pca plot by hypoxia and rep
+
+pca_res_data_ribo <- 
+  pca_res_ribo$rotation %>%
+  as.data.frame() 
+
+
+pca_res_data_ribo <- pca_res_data_ribo %>% 
+  rownames_to_column("sample") %>%
+  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
+
+
+pca <- ggplot(data = pca_res_data_ribo, aes(x=PC1, y = PC2))+ 
+  geom_point(aes(color = treatment, shape=hypoxia)) +
+  theme_few()
+
+ggplotly(pca)
+
+```
+
+## Heatmap for RNA sequencing data
+```{r rna heatmap setup}
+
+rnanames <- qcinput2[ , grep("rnaseq", colnames(qcinput2))]
+
+rnacolnames <- colnames(rnanames)
+
+qcinput_rna <- qcinput2[,colnames(qcinput2) %in% rnacolnames] 
+
+
+qcinput_rna <- qcinput_rna[rowSds(qcinput_rna) > 1,] 
+
+dim(qcinput_rna)
+
+```
+
+
+```{r rna heatmap, fig.height=9, fig.width=10}
+
+#heatmap sans outlier
+
+mycor_rna <- cor(qcinput_rna, method = "pearson")
+
+pheatmap::pheatmap(mat = mycor_rna)
+
+
+```
+
+
+## PCA plot for RNA sequencing data
+```{r rna pca plot}
+
+pca_res_rna <- prcomp(scale(x = qcinput_rna,center = T, scale = T))
+
+
+#pca plot by hypoxia and rep
+
+pca_res_data_rna <- 
+  pca_res_rna$rotation %>%
+  as.data.frame() 
+
+
+pca_res_data_rna <- pca_res_data_rna %>% 
+  rownames_to_column("sample") %>%
+  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
+
+
+pca <- ggplot(data = pca_res_data_rna, aes(x=PC1, y = PC2))+ 
+  geom_point(aes(color = treatment, shape=hypoxia)) +
+  theme_few()
+
+ggplotly(pca)
+
+```
+
+## Confirm knockdowns
+```{r blacklist set up, echo=TRUE, message=FALSE, warning=FALSE}
+nonpolyA <- readxl::read_xlsx(path = here("accessories","polyAminus.xlsx"), sheet = 1) %>% 
+   pull(Gene)
+
+nonpolyA_ID <- geneInfo %>%
+  filter(symbol %in% nonpolyA) %>% 
+  pull(gene_id) %>% 
+  unique()
+
+
+# we want to remove any genes that match these annotation categories # before we do DE analysis
+blacklist_smRNA <- c("snoRNA","miRNA","snRNA","rRNA","Mt_tRNA","scaRNA","Mt_tRNA","Mt_rRNA")
+
+# there are 5,355 genes we want to exclude
+blacklist_smRNA_ID <-geneInfo %>%
+  filter(biotype %in% blacklist_smRNA) %>% 
+  pull(gene_id) %>% 
+  unique()
+
+
+genes_to_kill <- unique(c(blacklist_smRNA_ID,nonpolyA_ID))
+head(keepGenes)
+head(genes_to_kill)
+
+```
+
+
+### Set up translational efficiency analysis
+RNA and ribo counts are separated out
+
+```{r deltaTE count setup, message=FALSE, warning=FALSE}
+# separate out RNA counts versus ribo count
+# from https://currentprotocols.onlinelibrary.wiley.com/doi/full/10.1002/cpmb.108
+
+allCounts <- myTxi$counts %>%
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene") %>% 
+  filter(gene %in% keepGenes) %>%
+  filter(!gene %in% genes_to_kill) %>%
+  column_to_rownames(var = "gene") %>% 
+  as.matrix() %>%
+  round(.,0)
+
+allCountsNorm <- edgeR::cpm(allCounts)
+
+
+
+ribo_counts_norm <- as.matrix(allCounts[,grep(pattern = "ribo",colnames(allCountsNorm))])
+rna_counts_norm <- as.matrix(allCounts[,grep(pattern = "rna",colnames(allCountsNorm))])
+```
+
+```{r gene-specific, fig.height=11, fig.width=10, warning=FALSE}
+
+myGs <- c("EIF3E", "EIF3D")
+
+myGtable <- geneInfo %>% 
+  filter(symbol %in% myGs) %>%
+  select(gene_id,symbol) %>% 
+  unique()
+
+myGdata <- allCountsNorm[myGtable$gene_id,] %>%
+  reshape2::melt() %>% 
+  separate(col = Var2, into = c("condition", "treatment", "rep", "library")) 
+  
+colnames(myGdata)[1] <- "gene_id"
+colnames(myGdata)[6] <- "cpm"
+myGdata$cpm <- log2(myGdata$cpm + 1)
+
+myGdata <- left_join(myGdata, myGtable)
+
+genestoplot <- myGdata %>% 
+  filter(treatment== "sictrl" |
+           treatment== "si3e" |
+           treatment == "si3d") %>% 
+  filter(library =="rnaseq") %>% 
+  filter(condition=="Hypoxic")
+
+
+
+ggpubr::ggdotplot(data = genestoplot, x = "symbol", y = "cpm", fill = "symbol", facet.by = "treatment")
+```
+
+
+```{r filter out outlier in analysis for part 2, eval=FALSE, warning=FALSE, include=FALSE}
+
+#remove outlier from metadata
+
+metadata2 <- metadata %>% 
+  filter(metadata$sample_id != "NM2023_0113")
+```
+
+
+
+
+# RIBOCODE ----------------------------------------------------------------------
+# load bam files
+
