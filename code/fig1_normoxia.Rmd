@@ -35,6 +35,9 @@ library(ggvenn)
 library(ggpubr)
 library(DT)
 library(edgeR)
+library(ggprism)
+library(ggExtra)
+
 ```
 
 ```{r}
@@ -260,12 +263,6 @@ ggstripchart(data = e, x = "sirna", y = "TE", color = "sirna", facet.by = "symbo
   xlab("")
 
 
-
-# ggbarplot(data = e, x = "sirna", y = "TE", fill = "sirna", add = "mean_se", position = position_dodge(0.9), facet.by = "symbol", scales="free_y", palette = c("#999999","#0072B2","#CC79A7"))
- 
-# ggstripchart(data = e, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", scales="free_y", palette = c("#999999","#0072B2","#CC79A7"), position = position_jitterdodge(1.2), add = "boxplot")
-
-
 ```
 
 ## Kate finding different gene targets here
@@ -380,24 +377,43 @@ common <- c("ATF4", "EIF4EBP2", "GSK3B", "JUN", "MED13L", "PCBP2", "WNK1", "XBP1
 Genes to plot
 ```{r}
 
+plot_chart <- res_te_total %>% 
+  mutate(category = ifelse(symbol %in% d_genes == TRUE, "eIF3d-specific", 
+                           ifelse(symbol %in% e_genes == TRUE, "eIF3e-specific",
+                                  ifelse(symbol %in% common == TRUE, "eIF3d and eIF3e", "NA")))) %>% 
+  filter(category != "NA")
 
-plot_genes <- no_d_change$gene_id
+chart_genes <- plot_chart %>% 
+  select(gene_id, category)
 
-e_only <- TE[e_only_genes,] %>%
+paper_genes <- chart_genes$gene_id %>% unique()
+
+
+
+chart <- TE[paper_genes,] %>%
   as.data.frame() %>%
   rownames_to_column(var = "gene_id") %>%
   left_join(., unique(geneInfo[,c(1,4)])) %>%
   reshape2::melt(value.name = "TE", variable.name = "info") %>%
   separate(col = info, into = c("tx","sirna","type","rep"))
 
-e_only$sirna <- relevel(x = factor(e_only$sirna), ref = "sictrl")
 
-e_only <- e_only %>% 
+
+chart <- chart %>% 
+left_join(chart_genes)
+
+
+
+chart$sirna <- relevel(x = factor(chart$sirna), ref = "sictrl")
+
+chart <- chart %>% 
+  filter(category != "NA") %>% 
   filter(symbol != "NA")
 
 
-ggstripchart(data = e_only, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
-  ylab(expression("log"[2]*" TE (ribo/rna)")) 
+ggstripchart(data = chart, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
+  ylab(expression("log"[2]*" TE (ribo/rna)")) %>% 
+  facet_wrap(~category)
 
 
 ```
@@ -409,15 +425,145 @@ ggstripchart(data = e_only, x = "sirna", y = "TE", color = "sirna", facet.by = "
 Common
 ```{r}
 
+chart_genes <- plot_chart %>% 
+  select(gene_id, category) %>% unique()
+
+common <- chart_genes %>% 
+  filter(category=="eIF3d and eIF3e")
+
+common_genes <- common$gene_id
+
+########################
+
+
+common_only <- TE[common_genes,] %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "gene_id") %>%
+  left_join(., unique(geneInfo[,c(1,4)])) %>%
+  reshape2::melt(value.name = "TE", variable.name = "info") %>%
+  separate(col = info, into = c("tx","sirna","type","rep"))
+
+common_only$sirna <- relevel(x = factor(common_only$sirna), ref = "sictrl")
+
+common_only <- common_only %>% 
+  filter(symbol != "NA")
+
+plot<-
+ggstripchart(data = common_only, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
+  ylab(expression("log"[2]*" TE (ribo/rna)"))
+  
+  
+  
+  ggpar(plot, title= "eIF3e and eIF3d regulated genes")
+
+
 ```
 
 3d specific
 ```{r}
 
+d_spec <- chart_genes %>% 
+  filter(category=="eIF3d-specific")
+
+d_spec_genes <- d_spec$gene_id
+
+########################
+
+
+d_spec_only <- TE[d_spec_genes,] %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "gene_id") %>%
+  left_join(., unique(geneInfo[,c(1,4)])) %>%
+  reshape2::melt(value.name = "TE", variable.name = "info") %>%
+  separate(col = info, into = c("tx","sirna","type","rep"))
+
+d_spec_only$sirna <- relevel(x = factor(d_spec_only$sirna), ref = "sictrl")
+
+d_spec_only <- d_spec_only %>% 
+  filter(symbol != "NA")
+
+plot<-
+ggstripchart(data = d_spec_only, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
+  ylab(expression("log"[2]*" TE (ribo/rna)"))
+  
+  
+  
+  ggpar(plot, title= "eIF3d-only regulated genes")
+
+
+
+
 ```
 
 3e specific
 ```{r}
+
+
+e_spec <- chart_genes %>% 
+  filter(category=="eIF3e-specific")
+
+e_spec_genes <- e_spec$gene_id
+
+########################
+
+
+e_spec_only <- TE[e_spec_genes,] %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "gene_id") %>%
+  left_join(., unique(geneInfo[,c(1,4)])) %>%
+  reshape2::melt(value.name = "TE", variable.name = "info") %>%
+  separate(col = info, into = c("tx","sirna","type","rep"))
+
+e_spec_only$sirna <- relevel(x = factor(e_spec_only$sirna), ref = "sictrl")
+
+e_spec_only <- e_spec_only %>% 
+  filter(symbol != "NA")
+
+plot<-
+ggstripchart(data = e_spec_only, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
+  ylab(expression("log"[2]*" TE (ribo/rna)"))
+  
+  
+  
+  ggpar(plot, title= "eIF3e-only regulated genes")
+
+
+
+
+```
+
+
+# show 3d and 3e
+
+```{r}
+
+e_and_d <- c("ENSG00000104408.9", "ENSG00000100353.17")
+  
+
+########################
+
+
+e_d <- TE[e_and_d,] %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "gene_id") %>%
+  left_join(., unique(geneInfo[,c(1,4)])) %>%
+  reshape2::melt(value.name = "TE", variable.name = "info") %>%
+  separate(col = info, into = c("tx","sirna","type","rep"))
+
+e_d$sirna <- relevel(x = factor(e_d$sirna), ref = "sictrl")
+
+e_d <- e_d %>% 
+  filter(symbol != "NA")
+
+plot<-
+ggstripchart(data = e_d, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
+  ylab(expression("log"[2]*" TE (ribo/rna)"))
+  
+  
+  
+plot
+
+
 
 ```
 
@@ -482,8 +628,9 @@ ggscatter(data = norm_sig_te,
           x = "te_3d",
           y = "te_3e",
           alpha = 0.25,
-          title = "Compare TE of sig genes",
-xlim=c(-2,2), ylim = c(-2,2))+
+          title = "Compare TE of sig genes", 
+          xlim=c(-2,2), ylim = c(-2,2),
+  add = "reg.line")+
    stat_cor(
    aes(label =
          paste(
@@ -495,13 +642,49 @@ xlim=c(-2,2), ylim = c(-2,2))+
 
 
 
+ggscatter(data = norm_sig_te,
+          x = "te_3d",
+          y = "te_3e",
+          alpha = 0.25,
+          title = "Compare TE of sig genes", 
+          xlim=c(-2,2), ylim = c(-2,2),
+          add = "reg.line") +
+  stat_regline_equation(
+    aes(label =  paste(..eq.label.., after_stat(rr.label), sep = "~~~~")),
+    label.x = -1.5, label.y = 1.5
+  ) + 
+  stat_cor(
+    aes(label = paste(after_stat(p.label), sep = "~`,`~"))
+  ) + 
+  theme_prism()
 
-scatter <- ggMarginal(scatter, type = "histogram",
-           xparams = list(binwidth = .3, fill = si3d_col),
-           yparams = list(binwidth = .3, fill = si3e_col)
-           )
+# scatter <- ggMarginal(scatter, type = "histogram",
+#            xparams = list(binwidth = .3, fill = si3d_col),
+#            yparams = list(binwidth = .3, fill = si3e_col))
+#   
 
-scatter
+
+
+
+
+# label the genes that we are pointing out in the prior fig
+
+
+# make it density instead
+
+plot <- ggplot(norm_sig_te, aes(x = te_3d, y = te_3e)) +
+ geom_point() +
+ xlim(-2, 2) +
+ ylim(-2, 2)
+
+plot + geom_density_2d_filled(alpha = 0.5)
+
+
+plot + geom_density_2d_filled(contour_var = "ndensity")+
+  labs(x = "eIF3d delta TE", y = "eIF3e delta TE")
+
+
+
 
 
 
@@ -515,13 +698,13 @@ can label genes in figure B (individual gene plots) in E (te/buffer etc plot)
 ```{r}
 
 
-ggscatter(data = norm_sig_te,
-          x = "te_3d",
-          y = "te_3e",
-          alpha = 0.25,
-          title = "Compare TE of sig genes",
-label ="symbol", repel = FALSE, font.label = c(4, "plain"),
-xlim=)
+# ggscatter(data = norm_sig_te,
+#           x = "te_3d",
+#           y = "te_3e",
+#           alpha = 0.25,
+#           title = "Compare TE of sig genes",
+# label ="symbol", repel = FALSE, font.label = c(4, "plain"),
+# xlim=)
 
 
 ```
