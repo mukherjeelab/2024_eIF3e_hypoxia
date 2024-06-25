@@ -932,8 +932,8 @@ ggvenn(hyp_te_up, auto_scale = T, fill_color = c("#E69F00","#56B4E9"), text_size
 
 ggvenn(hyp_te_down, auto_scale = T, fill_color = c("#E69F00","#56B4E9"), text_size=8)
 
-stopifnot(
-identical(hyp_3d$gene_id,hyp_3e$gene_id))
+#stopifnot(
+#identical(hyp_3d$gene_id,hyp_3e$gene_id))
 
 hyp_sig_te <- data.frame(
   gene_id = hyp_te_3d$gene_id,
@@ -1106,6 +1106,25 @@ DT::datatable(hyp_te_h) %>%
 
 ```
 
+make chart
+```{r}
+
+hyp_hallmark <- hyp_te_h %>% 
+  mutate(category= ifelse(eif3d_pvalue< 0.05 & eif3e_pvalue <0.05, "both",
+                          ifelse(eif3d_pvalue< 0.05 & eif3e_pvalue >0.05, "d_only",
+                          ifelse(eif3d_pvalue> 0.05 & eif3e_pvalue <0.05, "e_only", "NA")))) %>% 
+  relocate(category, .after = ID)
+
+
+
+DT::datatable(hyp_hallmark) %>%
+  formatRound(which(sapply(hyp_te_h,is.numeric)), digits = 3)
+
+write_csv(hyp_hallmark, here("counts/hyphallmarkt.csv"))
+
+
+```
+
 
 
 ### KEGG
@@ -1168,6 +1187,25 @@ DT::datatable(hyp_te_kegg) %>%
 
 ```
 
+Make chart
+```{r}
+hyp_kegg <- hyp_te_kegg %>% 
+  mutate(category= ifelse(eif3d_pvalue< 0.05 & eif3e_pvalue <0.05, "both",
+                          ifelse(eif3d_pvalue< 0.05 & eif3e_pvalue >0.05, "d_only",
+                          ifelse(eif3d_pvalue> 0.05 & eif3e_pvalue <0.05, "e_only", "NA")))) %>% 
+  relocate(category, .after = ID)
+
+
+
+DT::datatable(hyp_kegg) %>%
+  formatRound(which(sapply(hyp_te_h,is.numeric)), digits = 3)
+
+
+write_csv(hyp_kegg, here("counts/hypreact.csv"))
+
+```
+
+
 
 ### REACTOME
 
@@ -1225,5 +1263,23 @@ ggscatter(data = hyp_te_react,
 
 DT::datatable(hyp_te_react) %>%
   formatRound(which(sapply(hyp_te_react,is.numeric)), digits = 3) 
+```
+
+
+Make chart
+```{r}
+hyp_reactome <- hyp_te_react %>% 
+  mutate(category= ifelse(eif3d_pvalue< 0.05 & eif3e_pvalue <0.05, "both",
+                          ifelse(eif3d_pvalue< 0.05 & eif3e_pvalue >0.05, "d_only",
+                          ifelse(eif3d_pvalue> 0.05 & eif3e_pvalue <0.05, "e_only", "NA")))) %>% 
+  relocate(category, .after = ID)
+
+
+
+DT::datatable(hyp_reactome) %>%
+  formatRound(which(sapply(hyp_te_h,is.numeric)), digits = 3)
+
+write_csv(hyp_reactome, here("counts/hyp_reactome.csv"))
+
 ```
 
