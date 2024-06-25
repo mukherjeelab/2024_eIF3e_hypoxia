@@ -34,6 +34,7 @@ library(ggpubr)
 library(DT)
 library(edgeR)
 library(preprocessCore)
+library(cowplot)
 ```
 
 ```{r}
@@ -223,6 +224,154 @@ ggplot(atf4_values, aes(x = treatment, y = te)) +
   theme_cowplot()+
   theme(legend.position = "none") +
   ggtitle("ATF4")
+
+
+
+```
+
+### Figure 2 ATF4 - plot
+```{r}
+
+#knockdowns only
+
+knockdowns_atf4 <- atf4_values %>% 
+  filter(treatment=="sictrl"|
+           treatment=="si3e"|
+           treatment=="si3d") %>% 
+  filter(hypoxia=="Normoxic")
+
+knockdowns_norm_atf4 <-
+ggplot(knockdowns_atf4, aes(x = treatment, y = te)) +
+  stat_summary(fun.data = mean_se, geom = "bar", position = "dodge", fill=c("grey", si3e_col, si3d_col)) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = "dodge", width = 0.25) +
+  facet_wrap(~ hypoxia) +
+  labs(y = "te") +
+  theme_prism()+
+  theme(legend.position = "none") +
+  ggtitle("ATF4")
+
+knockdowns_norm_atf4
+
+```
+
+### export plot
+
+```{r}
+ggsave("plots/atf4_normoxic_kds.pdf", knockdowns_norm_atf4)
+```
+
+
+
+# 3e and 3d data
+
+
+```{r}
+#te_norm_long2
+
+levels <- c("sictrl", "si3e","si3d","DMSO", "a209")
+
+te_norm_long2$treatment <- factor(te_norm_long2$treatment, levels= levels)
+te_norm_long2$hypoxia <- factor(te_norm_long2$hypoxia, levels= c("Normoxic", "Hypoxic"))
+
+e_and_d_values <- te_norm_long2 %>% 
+  mutate('-log10te' = log10te*-1) %>% 
+  filter(symbol=="EIF3E"|symbol=="EIF3D")
+
+```
+
+
+Pivot longer
+```{r}
+e_d <- e_and_d_values %>% 
+  pivot_longer(5:6, names_to = "seq_type", values_to = "value")
+```
+
+Plot
+```{r}
+
+seq_levels <- c("rnaseq", "riboseq")
+e_d$seq_type <- factor(e_d$seq_type, levels=seq_levels)
+
+norm_e_d <- e_d %>% 
+  filter(hypoxia=="Normoxic")
+
+e_norm <- norm_e_d %>% 
+  filter(symbol=="EIF3E") %>% 
+  filter(treatment=="sictrl"|
+           treatment=="si3e"|
+           treatment=="si3d")
+
+d_norm <- norm_e_d %>% 
+  filter(symbol=="EIF3D") %>% 
+  filter(treatment=="sictrl"|
+           treatment=="si3e"|
+           treatment=="si3d")
+
+hyp_e_d <- e_d %>% 
+  filter(hypoxia=="Hypoxic")
+
+e_hyp <- hyp_e_d %>% 
+  filter(symbol=="EIF3E")
+
+d_hyp <- hyp_e_d %>% 
+  filter(symbol=="EIF3D")
+
+# e in normoxia
+
+ggplot(e_norm, aes(x = seq_type, y = value)) +
+  stat_summary(fun.data = mean_se, geom = "bar", position = "dodge", fill=c("grey", "grey", si3e_col, si3e_col, si3d_col, si3d_col)
+)  +
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = "dodge", width = 0.25) +
+  facet_wrap(~treatment) +
+  labs(y = "value") +
+  theme_prism()+
+  theme(legend.position = "none") +
+  ggtitle("EIF3E - Normoxia")
+
+# d in normoxia
+
+ggplot(d_norm, aes(x = seq_type, y = value)) +
+  stat_summary(fun.data = mean_se, geom = "bar", position = "dodge", fill=c("grey", "grey", si3e_col, si3e_col, si3d_col, si3d_col)
+)  +
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = "dodge", width = 0.25) +
+  facet_wrap(~treatment) +
+  labs(y = "value") +
+  theme_prism()+
+  theme(legend.position = "none") +
+  ggtitle("EIF3D - Normoxia")
+
+
+
+
+```
+fill=c("grey", "grey", si3e_col, si3d_col, si3e_col, si3d_col)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### ATF4 plot - all data
+```{r}
+
+ggplot(e_and_d_values, aes(x = treatment, y = te)) +
+  stat_summary(fun.data = mean_se, geom = "bar", position = "dodge", fill="#93C4C4") +
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = "dodge", width = 0.25) +
+  facet_wrap(~ hypoxia) +
+  labs(y = "te") +
+  theme_cowplot()+
+  theme(legend.position = "none") +
+  ggtitle("eIF3e and eIF3d")
 
 
 
