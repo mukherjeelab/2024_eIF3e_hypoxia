@@ -652,10 +652,7 @@ ggscatter(data = norm_sig_te,
   stat_regline_equation(
     aes(label =  paste(..eq.label.., after_stat(rr.label), sep = "~~~~")),
     label.x = -1.5, label.y = 1.5
-  ) + 
-  stat_cor(
-    aes(label = paste(after_stat(p.label), sep = "~`,`~"))
-  ) + 
+  ) +
   theme_prism()
 
 # scatter <- ggMarginal(scatter, type = "histogram",
@@ -790,8 +787,10 @@ ggscatter(data = norm_te_h,
           y = "eif3e_NES",
           label = "ID",
           repel = TRUE,
-          font.label = 8,
-title = "Hallmark - Normoxia")+
+          font.label = 11,
+          xlab="eIF3d - Net Enrichment Score",
+          ylab = "eIF3e - Net Enrichment Score",
+title = "Hallmark Pathways - Normoxia")+
   scale_color_continuous(type = "viridis") +
   geom_vline(xintercept = 0, linetype = "dashed") +
   geom_hline(yintercept = 0, linetype = "dashed") +

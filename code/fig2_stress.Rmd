@@ -344,12 +344,87 @@ ggplot(d_norm, aes(x = seq_type, y = value)) +
 
 
 ```
-fill=c("grey", "grey", si3e_col, si3d_col, si3e_col, si3d_col)
+
+
+
+
+```{r}
+norm_e_d <- e_d %>% 
+  filter(hypoxia=="Normoxic")
+
+e_norm_all <- norm_e_d %>% 
+  filter(symbol=="EIF3E")
+
+d_norm_all <- norm_e_d %>% 
+  filter(symbol=="EIF3D")
+
+
+
+ggplot(e_norm_all, aes(x = seq_type, y = value)) +
+  stat_summary(fun.data = mean_se, geom = "bar", position = "dodge"
+)  +
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = "dodge", width = 0.25) +
+  facet_wrap(~treatment) +
+  labs(y = "value") +
+  theme_prism()+
+  theme(legend.position = "none") +
+  ggtitle("EIF3E - Normoxia")
+
+# d in normoxia
+
+ggplot(d_norm_all, aes(x = seq_type, y = value)) +
+  stat_summary(fun.data = mean_se, geom = "bar", position = "dodge")  +
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = "dodge", width = 0.25) +
+  facet_wrap(~treatment) +
+  labs(y = "value") +
+  theme_prism()+
+  theme(legend.position = "none") +
+  ggtitle("EIF3D - Normoxia")
+
+  
+  
+  
+  
+  
+```
+
+hyp version
+
+```{r} 
+hyp_e_d <- e_d %>% 
+  filter(hypoxia=="Hypoxic")
+
+e_hyp_all <- hyp_e_d %>% 
+  filter(symbol=="EIF3E")
+
+d_hyp_all <- hyp_e_d %>% 
+  filter(symbol=="EIF3D")
 
 
 
 
 
+ggplot(e_hyp_all, aes(x = seq_type, y = value)) +
+  stat_summary(fun.data = mean_se, geom = "bar", position = "dodge"
+)  +
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = "dodge", width = 0.25) +
+  facet_wrap(~treatment) +
+  labs(y = "value") +
+  theme_prism()+
+  theme(legend.position = "none") +
+  ggtitle("EIF3E - hypoxia")
+
+# d in hypoxia
+
+ggplot(d_hyp_all, aes(x = seq_type, y = value)) +
+  stat_summary(fun.data = mean_se, geom = "bar", position = "dodge")  +
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = "dodge", width = 0.25) +
+  facet_wrap(~treatment) +
+  labs(y = "value") +
+  theme_prism()+
+  theme(legend.position = "none") +
+  ggtitle("EIF3D - hypoxia")
+```
 
 
 
