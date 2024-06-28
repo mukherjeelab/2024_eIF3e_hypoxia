@@ -604,13 +604,20 @@ norm_te_down <-
   )
 
 
-ggvenn(norm_te_up, auto_scale = T, fill_color = c(si3d_col,si3e_col))
+ggvenn(norm_te_up, auto_scale = T, fill_color = c(si3d_col,si3e_col), text_size = 10)
 
-ggvenn(norm_te_down, auto_scale = T, fill_color = c(si3d_col,si3e_col))
+ggvenn(norm_te_down, auto_scale = T, fill_color = c(si3d_col,si3e_col), text_size = 10)
 
 stopifnot(
 identical(res_te_3d$gene_id,res_te_3e$gene_id))
 
+
+
+```
+
+### Density scatter plot
+
+```{r}
 norm_sig_te <- data.frame(
   gene_id = res_te_3d$gene_id,
   symbol = res_te_3d$symbol,
@@ -671,8 +678,8 @@ ggscatter(data = norm_sig_te,
 
 plot <- ggplot(norm_sig_te, aes(x = te_3d, y = te_3e)) +
  geom_point() +
- xlim(-2, 2) +
- ylim(-2, 2)
+ xlim(-1.5, 1.5) +
+ ylim(-1.5, 1.5)
 
 plot + geom_density_2d_filled(alpha = 0.5)
 
@@ -684,8 +691,10 @@ plot + geom_density_2d_filled(contour_var = "ndensity")+
 
 
 
-
 ```
+
+
+
 
 ## kate adding (unnecessary labels)
 filter out some of the extra stuff
@@ -789,17 +798,23 @@ ggscatter(data = norm_te_h,
           repel = TRUE,
           font.label = 11,
           xlab="eIF3d - Net Enrichment Score",
-          ylab = "eIF3e - Net Enrichment Score",
-title = "Hallmark Pathways - Normoxia")+
+          ylab = "eIF3e - Net Enrichment Score")+
   scale_color_continuous(type = "viridis") +
   geom_vline(xintercept = 0, linetype = "dashed") +
   geom_hline(yintercept = 0, linetype = "dashed") +
   ylim(-2.5,2.5) +
-  xlim(-2.5,2.5) + theme_prism()
+  xlim(-2.5,2.5) + theme_prism(base_size = 14)
 
-DT::datatable(norm_te_h) %>%
-  formatRound(which(sapply(norm_te_h,is.numeric)), digits = 3)
+ggsave(width = 4, height = 4, filename = here("plots/normoxia_halmarks.pdf"))
 
+
+norm_h_table <- norm_te_h %>% 
+  mutate(direction = ifelse(eif3d_NES < 0 & eif3e_NES < 0, "down_both",
+                            ifelse(eif3d_NES > 0 & eif3e_NES > 0, "up_both",
+                            ifelse(eif3d_NES > 0 & eif3e_NES < 0, "up_3d_down_3e",
+                            ifelse(eif3d_NES < 0 & eif3e_NES > 0, "up_3e_down_3d", "NA")))))
+
+write_csv(norm_h_table, here("counts/norm_h_table.csv"))
 
 ```
 
@@ -862,6 +877,24 @@ DT::datatable(norm_te_kegg) %>%
   formatRound(which(sapply(norm_te_kegg,is.numeric)), digits = 3) 
 
 
+
+ggsave(width = 4, height = 4, filename = here("plots/normoxia_kegg.pdf"))
+
+
+norm_kegg_table <- norm_te_kegg %>% 
+  mutate(direction = ifelse(eif3d_NES < 0 & eif3e_NES < 0, "down_both",
+                            ifelse(eif3d_NES > 0 & eif3e_NES > 0, "up_both",
+                            ifelse(eif3d_NES > 0 & eif3e_NES < 0, "up_3d_down_3e",
+                            ifelse(eif3d_NES < 0 & eif3e_NES > 0, "up_3e_down_3d", "NA")))))
+
+write_csv(norm_kegg_table, here("counts/norm_kegg_table.csv"))
+
+
+
+
+
+
+
 ```
 
 
@@ -920,4 +953,17 @@ ggscatter(data = norm_te_react,
 
 DT::datatable(norm_te_react) %>%
   formatRound(which(sapply(norm_te_react,is.numeric)), digits = 3) 
+
+
+ggsave(width = 4, height = 4, filename = here("plots/normoxia_reactome.pdf"))
+
+
+norm_react_table <- norm_te_react %>% 
+  mutate(direction = ifelse(eif3d_NES < 0 & eif3e_NES < 0, "down_both",
+                            ifelse(eif3d_NES > 0 & eif3e_NES > 0, "up_both",
+                            ifelse(eif3d_NES > 0 & eif3e_NES < 0, "up_3d_down_3e",
+                            ifelse(eif3d_NES < 0 & eif3e_NES > 0, "up_3e_down_3d", "NA")))))
+
+write_csv(norm_react_table, here("counts/norm_react_table.csv"))
+
 ```
