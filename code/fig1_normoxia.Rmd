@@ -694,28 +694,6 @@ plot + geom_density_2d_filled(contour_var = "ndensity")+
 ```
 
 
-
-
-## kate adding (unnecessary labels)
-filter out some of the extra stuff
-add fun color coding - and 
-can label genes in figure B (individual gene plots) in E (te/buffer etc plot)
-
-```{r}
-
-
-# ggscatter(data = norm_sig_te,
-#           x = "te_3d",
-#           y = "te_3e",
-#           alpha = 0.25,
-#           title = "Compare TE of sig genes",
-# label ="symbol", repel = FALSE, font.label = c(4, "plain"),
-# xlim=)
-
-
-```
-
-
 ## Pathway analysis setup
 ```{r prep GSEA analysis}
 
@@ -797,8 +775,8 @@ ggscatter(data = norm_te_h,
           label = "ID",
           repel = TRUE,
           font.label = 11,
-          xlab="eIF3d - Net Enrichment Score",
-          ylab = "eIF3e - Net Enrichment Score")+
+          xlab="eIF3d - Normalized Enrichment Score",
+          ylab = "eIF3e - Normalized Enrichment Score")+
   scale_color_continuous(type = "viridis") +
   geom_vline(xintercept = 0, linetype = "dashed") +
   geom_hline(yintercept = 0, linetype = "dashed") +
