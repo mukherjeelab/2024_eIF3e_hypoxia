@@ -364,7 +364,7 @@ ggstripchart(data = d_only, x = "sirna", y = "TE", color = "sirna", facet.by = "
 
 
 ```{r}
-d_genes <- c("CLDN9", "CLIC1", "EIF3D")
+d_genes <- c("CLDN9", "CLIC1", "PRDM4")
 e_genes <- c("APLP2", "PABPC1", "TOR1AIP2")
 common <- c("ATF4", "EIF4EBP2", "GSK3B", "JUN", "MED13L", "PCBP2", "WNK1", "XBP1", "YKT6")
 ```
@@ -410,11 +410,10 @@ chart <- chart %>%
   filter(category != "NA") %>% 
   filter(symbol != "NA")
 
-
-ggstripchart(data = chart, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
-  ylab(expression("log"[2]*" TE (ribo/rna)")) %>% 
-  facet_wrap(~category)
-
+# 
+# ggstripchart(data = chart, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
+#   ylab(expression("log"[2]*" TE (ribo/rna)"))
+# 
 
 ```
 
@@ -453,8 +452,11 @@ ggstripchart(data = common_only, x = "sirna", y = "TE", color = "sirna", facet.b
   ylab(expression("log"[2]*" TE (ribo/rna)"))
   
   
-  
+
   ggpar(plot, title= "eIF3e and eIF3d regulated genes")
+ 
+
+ggsave(width = 4, height = 4.25, filename = here("plots/commongenes.pdf"))
 
 
 ```
@@ -485,12 +487,14 @@ d_spec_only <- d_spec_only %>%
 plot<-
 ggstripchart(data = d_spec_only, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
   ylab(expression("log"[2]*" TE (ribo/rna)"))
-  
-  
-  
-  ggpar(plot, title= "eIF3d-only regulated genes")
 
 
+  
+  
+  plot <- plot + theme(legend.position = "none")
+
+ggpar(plot, title= "eIF3d-only regulated genes")
+ggsave(width = 4, height = 1.75, filename = here("plots/dgenes.pdf"))
 
 
 ```
@@ -523,10 +527,12 @@ plot<-
 ggstripchart(data = e_spec_only, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
   ylab(expression("log"[2]*" TE (ribo/rna)"))
   
-  
+  plot <-  plot + theme(legend.position = "none")
+
   
   ggpar(plot, title= "eIF3e-only regulated genes")
 
+ggsave(width = 4, height = 1.75, filename = here("plots/egenes.pdf"))
 
 
 
@@ -604,9 +610,15 @@ norm_te_down <-
   )
 
 
-ggvenn(norm_te_up, auto_scale = T, fill_color = c(si3d_col,si3e_col), text_size = 10)
+ggvenn(norm_te_up, auto_scale = T, fill_color = c(si3d_col,si3e_col), text_size = 2)
 
-ggvenn(norm_te_down, auto_scale = T, fill_color = c(si3d_col,si3e_col), text_size = 10)
+ggsave(width = 2, height = 2, filename = here("plots/vennup.pdf"))
+
+
+ggvenn(norm_te_down, auto_scale = T, fill_color = c(si3d_col,si3e_col), text_size = 3)
+
+ggsave(width = 2, height = 2, filename = here("plots/venndown.pdf"))
+
 
 stopifnot(
 identical(res_te_3d$gene_id,res_te_3e$gene_id))
