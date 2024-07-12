@@ -366,7 +366,9 @@ ggstripchart(data = d_only, x = "sirna", y = "TE", color = "sirna", facet.by = "
 ```{r}
 d_genes <- c("CLDN9", "CLIC1", "PRDM4")
 e_genes <- c("APLP2", "PABPC1", "TOR1AIP2")
-common <- c("ATF4", "EIF4EBP2", "GSK3B", "JUN", "MED13L", "PCBP2", "WNK1", "XBP1", "YKT6")
+common <- c("ATF4", "EIF4EBP2", "GSK3B", "MED13L", "PCBP2", "XBP1")
+
+genes_of_interest <- c("CLDN9", "CLIC1", "PRDM4", "APLP2", "PABPC1", "TOR1AIP2", "ATF4", "EIF4EBP2", "GSK3B", "MED13L", "PCBP2", "XBP1")
 ```
 
 
@@ -456,7 +458,7 @@ ggstripchart(data = common_only, x = "sirna", y = "TE", color = "sirna", facet.b
   ggpar(plot, title= "eIF3e and eIF3d regulated genes")
  
 
-ggsave(width = 4, height = 4.25, filename = here("plots/commongenes.pdf"))
+ggsave(width = 4, height = 3.25, filename = here("plots/commongenes.pdf"))
 
 
 ```
@@ -494,7 +496,7 @@ ggstripchart(data = d_spec_only, x = "sirna", y = "TE", color = "sirna", facet.b
   plot <- plot + theme(legend.position = "none")
 
 ggpar(plot, title= "eIF3d-only regulated genes")
-ggsave(width = 4, height = 1.75, filename = here("plots/dgenes.pdf"))
+ggsave(width = 4, height = 1.7, filename = here("plots/dgenes.pdf"))
 
 
 ```
@@ -532,7 +534,7 @@ ggstripchart(data = e_spec_only, x = "sirna", y = "TE", color = "sirna", facet.b
   
   ggpar(plot, title= "eIF3e-only regulated genes")
 
-ggsave(width = 4, height = 1.75, filename = here("plots/egenes.pdf"))
+ggsave(width = 4, height = 1.7, filename = here("plots/egenes.pdf"))
 
 
 
@@ -568,6 +570,8 @@ ggstripchart(data = e_d, x = "sirna", y = "TE", color = "sirna", facet.by = "sym
   
   
 plot
+
+ggsave(width = 3, height = 2.5, filename = here("plots/eanddgenes.pdf"))
 
 
 
@@ -659,27 +663,41 @@ ggscatter(data = norm_sig_te,
        ) + theme_prism()
    )
 
+norm_sig_te <- norm_sig_te %>% 
+  mutate(color = ifelse((symbol %in% e_genes=="TRUE"), "si3e_col", 
+                        ifelse((symbol %in% d_genes=="TRUE"), "si3d_col",
+                        ifelse((symbol %in% common=="TRUE"), "green", "z_black"))))
 
 
+
+
+scat<-
 ggscatter(data = norm_sig_te,
           x = "te_3d",
           y = "te_3e",
-          alpha = 0.25,
-          title = "Compare TE of sig genes", 
+          xlab= "si-eIF3d TE",
+          ylab= "si-eIF3e TE",
+          alpha = 0.5,
           xlim=c(-2,2), ylim = c(-2,2),
-          add = "reg.line") +
+          color="color", palette=c("green", si3d_col, si3e_col, "grey"), show.legend = FALSE) +
+  geom_smooth(method = "lm", color = "black", se = FALSE) +
   stat_regline_equation(
     aes(label =  paste(..eq.label.., after_stat(rr.label), sep = "~~~~")),
     label.x = -1.5, label.y = 1.5
   ) +
-  theme_prism()
-
-# scatter <- ggMarginal(scatter, type = "histogram",
-#            xparams = list(binwidth = .3, fill = si3d_col),
-#            yparams = list(binwidth = .3, fill = si3e_col))
-#   
+  geom_vline(xintercept=0, linetype='dotted') +
+  geom_hline(yintercept=0, linetype='dotted') +
+  theme_prism() +
+  guides(color = FALSE)
 
 
+scat
+
+ggplotly(scat, tooltip="all")
+
+
+
+ggsave(width = 4, height = 4, filename = here("plots/normoxia_quadrants.pdf"))
 
 
 
@@ -688,19 +706,19 @@ ggscatter(data = norm_sig_te,
 
 # make it density instead
 
-plot <- ggplot(norm_sig_te, aes(x = te_3d, y = te_3e)) +
- geom_point() +
- xlim(-1.5, 1.5) +
- ylim(-1.5, 1.5)
-
-plot + geom_density_2d_filled(alpha = 0.5)
-
-
-plot + geom_density_2d_filled(contour_var = "ndensity")+
-  labs(x = "eIF3d delta TE", y = "eIF3e delta TE")
-
-
-
+# plot <- ggplot(norm_sig_te, aes(x = te_3d, y = te_3e)) +
+#  geom_point() +
+#  xlim(-1.5, 1.5) +
+#  ylim(-1.5, 1.5)
+# 
+# plot + geom_density_2d_filled(alpha = 0.5)
+# 
+# 
+# plot + geom_density_2d_filled(contour_var = "ndensity")+
+#   labs(x = "eIF3d delta TE", y = "eIF3e delta TE")
+# 
+# 
+# 
 
 
 ```
@@ -778,24 +796,25 @@ norm_te_h <- dplyr::full_join(
 
 norm_te_h$ID <- gsub(pattern = "HALLMARK_", replacement = "", x = norm_te_h$ID)
 
-
+norm_te_h <- norm_te_h %>% 
+  mutate(color = ifelse(ID=="HYPOXIA", "red", "black"))
 
 
 ggscatter(data = norm_te_h,
           x = "eif3d_NES",
           y = "eif3e_NES",
+          color= "color", palette = c("black", "red"),
           label = "ID",
           repel = TRUE,
-          font.label = 11,
-          xlab="eIF3d - Normalized Enrichment Score",
-          ylab = "eIF3e - Normalized Enrichment Score")+
-  scale_color_continuous(type = "viridis") +
+          font.label = 10,
+          xlab="si-eIF3d NES",
+          ylab = "si-eIF3e NES")+
   geom_vline(xintercept = 0, linetype = "dashed") +
   geom_hline(yintercept = 0, linetype = "dashed") +
   ylim(-2.5,2.5) +
   xlim(-2.5,2.5) + theme_prism(base_size = 14)
 
-ggsave(width = 4, height = 4, filename = here("plots/normoxia_halmarks.pdf"))
+ggsave(width = 5, height = 4, filename = here("plots/normoxia_halmarks.pdf"))
 
 
 norm_h_table <- norm_te_h %>% 

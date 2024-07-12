@@ -537,8 +537,8 @@ ctrl_acute <- ggplot(data = ctrl, aes(x = LFC_rna_sictrl, y = LFC_ribo_sictrl)) 
   geom_hline(yintercept = 0, color = "grey") + 
   geom_vline(xintercept = 0, color = "grey") +
   geom_point(alpha=.25) +
-  ylab(bquote(Log[2]~"Fold Change si-CTRL"~"RIBO: hypoxia vs normoxia")) +
-  xlab(bquote(Log[2]~"Fold Change si-CTRL"~"RNA: hypoxia vs normoxia")) +
+  ylab(bquote("si-CTRL LFC"~"RIBO: hypoxia vs normoxia")) +
+  xlab(bquote("si-CTRL LFC"~"RNA: hypoxia vs normoxia")) +
     theme_cowplot(font_size = 16)+
   theme_prism()
 
@@ -548,6 +548,8 @@ ctrl_acute <- ggMarginal(ctrl_acute, type = "histogram",
            )
 
 ctrl_acute
+
+ggsave(here("plots/sictrlacute.pdf", width=4,height=4))
 
 ```
 
@@ -565,9 +567,9 @@ scatter <- ggplot(data = sig_sictrl, aes(x = LFC_te_sictrl, y = LFC_te_si3e)) +
   geom_hline(yintercept = 0, color = "grey") + 
   geom_vline(xintercept = 0, color = "grey") +
   geom_point(alpha=.25) +
-  ylab(bquote(Log[2]~"Fold Change si-eIF3e"~"TE: hypoxia vs normoxia")) +
-  xlab(bquote(Log[2]~"Fold Change si-CTRL"~"TE: hypoxia vs normoxia")) +
-    theme_cowplot(font_size = 16)+
+  ylab(bquote("LFC si-eIF3e"~"TE: hypoxia vs normoxia")) +
+  xlab(bquote("LFC si-CTRL"~"TE: hypoxia vs normoxia")) +
+    theme_cowplot(font_size = 9)+
   theme_prism()
 
 scatter <- ggMarginal(scatter, type = "histogram",
@@ -577,7 +579,7 @@ scatter <- ggMarginal(scatter, type = "histogram",
 
 scatter
 
-ggsave(here("plots/acute_3e.pdf"), scatter)
+ggsave(here("plots/acute_3e.pdf"), scatter, width=4, height=4)
 
 ```
 
@@ -595,8 +597,8 @@ dmso_acute <- ggplot(data = dmso, aes(x = LFC_rna_DMSO, y = LFC_ribo_DMSO)) +
   geom_hline(yintercept = 0, color = "grey") + 
   geom_vline(xintercept = 0, color = "grey") +
   geom_point(alpha=.25) +
-  ylab(bquote(Log[2]~"Fold Change DMSO"~"RIBO: hypoxia vs normoxia")) +
-  xlab(bquote(Log[2]~"Fold Change DMSO"~"RNA: hypoxia vs normoxia")) +
+  ylab(bquote("LFC DMSO"~"RIBO: hypoxia vs normoxia")) +
+  xlab(bquote("LFC DMSO"~"RNA: hypoxia vs normoxia")) +
     theme_cowplot(font_size = 16)+
   theme_prism()
 
@@ -606,6 +608,9 @@ ctrl_dmso <- ggMarginal(dmso_acute, type = "histogram",
            )
 
 ctrl_dmso
+
+ggsave(here("plots/dmso.pdf"), width=4, height=4)
+
 
 ```
 
@@ -620,16 +625,20 @@ ctrl_dmso
 sig_DMSO <- all_changes %>% 
   filter(padj_te_DMSO <0.05)
 
+a209_col = "#CC79A7"
+
+
 scatter <- ggplot(data = sig_DMSO, aes(x = LFC_te_DMSO, y = LFC_te_a209)) + 
   ylim(-2,2) + 
   xlim(-2,2) +
   geom_hline(yintercept = 0, color = "grey") + 
   geom_vline(xintercept = 0, color = "grey") +
   geom_point(alpha=.25) +
-  ylab(bquote(Log[2]~"Fold Change a209"~"TE: hypoxia vs normoxia")) +
-  xlab(bquote(Log[2]~"Fold Change DMSO"~"TE: hypoxia vs normoxia")) +
+  ylab(bquote("LFC a209"~"TE: hypoxia vs normoxia")) +
+  xlab(bquote("LFC DMSO"~"TE: hypoxia vs normoxia")) +
     theme_cowplot(font_size = 16)+
   theme_prism()
+
 
 scatter <- ggMarginal(scatter, type = "histogram",
            xparams = list(binwidth = .1, fill = "grey"),
@@ -880,7 +889,7 @@ eif3e_bar <- ggbarplot(data = eif3e_counts, x = "condition", y = "counts", fill 
 
 eif3e_bar
 
-ggsave(here("plots/eIF3ebars.pdf"), eif3e_bar, width = 4, height = 6)
+ggsave(here("plots/eIF3ebars.pdf"), eif3e_bar, width = 2.5, height = 3)
 
 ```
 
@@ -897,7 +906,7 @@ a209_bar <- ggbarplot(data = a209_counts, x = "condition", y = "counts", fill = 
 
 a209_bar
 
-ggsave(here("plots/eIF3ebars.pdf"), eif3e_bar, width = 4, height = 6)
+ggsave(here("plots/a209bars.pdf"), a209_bar, width = 3.5, height = 3.5)
 
 ```
 
@@ -1277,9 +1286,12 @@ odds_pval$comparison_with_a209 <- factor(odds_pval$comparison_with_a209, levels 
 odds_pval <- odds_pval %>% 
   mutate(group = ifelse(comparison== "a209, down-si3d, down" | comparison== "a209, up-si3d, up", "si3d", "si3e"))
 
+
 ggpubr::ggbarplot(odds_pval, x="comparison_with_a209", y="odds_value", fill="group", label = odds_pval$label, title="a209 overlaps in normoxia", palette = c(si3d_col, si3e_col), ylim=(c(0,6)))+
   geom_hline(aes(yintercept=1))
 
+
+ggsave(chere("plots/normoverlap.pdf", width=4, height=3))
 
 ```
 
@@ -1452,6 +1464,8 @@ norm_sig_te <- data.frame(
 scatter <- ggscatter(data = norm_sig_te,
           x = "te_a209",
           y = "te_3e",
+          xlab="a209 TE",
+          ylab="si-eIF3e TE",
           alpha = 0.25,
           title = "Compare TE of sig genes - Normoxia",
 xlim=c(-2,2), ylim = c(-2,2))+
@@ -1473,9 +1487,9 @@ scatter <- ggMarginal(scatter, type = "histogram",
 scatter
 
 
-ggsave(here("plots/norm_3e_a209_te_scatter.pdf"), scatter)
+ggsave(here("plots/norm_3e_a209_te_scatter.pdf"), scatter, width=4, height=4)
 
-a209_col = "#009E73"
+a209_col = "#CC79A7"
 si3e_col = "#56B4E9"
 si3d_col = "#E69F00"
 
@@ -1508,6 +1522,8 @@ hyp_sig_te <- data.frame(
 scatter <- ggscatter(data = hyp_sig_te,
           x = "te_a209",
           y = "te_3e",
+          xlab="a209 TE",
+          ylab="si-eIF3e TE",
           alpha = 0.25,
           title = "Compare TE of sig genes - Hypoxia", xlim=c(-2,2), ylim = c(-2,2)) +
    stat_cor(
@@ -1528,7 +1544,7 @@ scatter <- ggMarginal(scatter, type = "histogram",
 
 scatter
 
-ggsave(here("plots/hyp_3e_a209_te_scatter.pdf"), scatter)
+ggsave(here("plots/hyp_3e_a209_te_scatter.pdf"), width=4, height=4)
 
 #zoom in, add histogram to display density
 
@@ -1681,7 +1697,7 @@ hallmarks
 DT::datatable(norm_te_h) %>%
   formatRound(which(sapply(norm_te_h,is.numeric)), digits = 3)
 
-ggsave(here("plots/normoxia_hallmarks.pdf"), hallmarks)
+ggsave(here("plots/normoxia_hallmarks.pdf"), width=4, height=4)
 
 
 ```
@@ -1750,7 +1766,7 @@ scatter
 DT::datatable(hyp_te_h) %>%
   formatRound(which(sapply(hyp_te_h,is.numeric)), digits = 3)
 
-ggsave(here("plots/hypoxia_hallmarks.pdf"), hallmarks)
+ggsave(here("plots/hypoxia_hallmarks.pdf"), width=4, height = 4)
 
 
 

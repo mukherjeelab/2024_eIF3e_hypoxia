@@ -468,7 +468,29 @@ ggbarplot(long_counts, x="category", y="counts", fill="color")+
   scale_fill_identity()
 
 
+
 ```
+
+```{r}
+sictrl_counts <- total_counts %>% 
+  filter(i=="sictrl") %>% 
+  pivot_longer(2:7, names_to = "type", values_to = "counts")
+
+
+ggbarplot(sictrl_counts, x="type", y="counts", label=TRUE)
+
+ggsave(here("plots/sictrl_counts.pdf"), width=3, height=3)
+```
+
+
+
+
+
+
+
+
+
+
 
 ## One table for all genes and their acute changes
 
@@ -531,9 +553,9 @@ ctrl_acute <- ggplot(data = ctrl, aes(x = LFC_rna_sictrl, y = LFC_ribo_sictrl)) 
   geom_hline(yintercept = 0, color = "grey") + 
   geom_vline(xintercept = 0, color = "grey") +
   geom_point(alpha=.25) +
-  ylab(bquote(Log[2]~"Fold Change si-CTRL"~"RIBO: hypoxia vs normoxia")) +
-  xlab(bquote(Log[2]~"Fold Change si-CTRL"~"RNA: hypoxia vs normoxia")) +
-    theme_cowplot(font_size = 16)+
+  ylab(bquote(Log[2]~"si-CTRL LFC"~"RIBO: hypoxia vs normoxia")) +
+  xlab(bquote(Log[2]~"si-CTRL LFC"~"RNA: hypoxia vs normoxia")) +
+    theme_cowplot(font_size = 5)+
   theme_prism()
 
 ctrl_acute <- ggMarginal(ctrl_acute, type = "histogram",
@@ -558,9 +580,9 @@ scatter <- ggplot(data = sig_sictrl, aes(x = LFC_te_sictrl, y = LFC_te_si3e)) +
   geom_hline(yintercept = 0, color = "grey") + 
   geom_vline(xintercept = 0, color = "grey") +
   geom_point(alpha=.25) +
-  ylab(bquote(Log[2]~"Fold Change si-eIF3e"~"TE: hypoxia vs normoxia")) +
-  xlab(bquote(Log[2]~"Fold Change si-CTRL"~"TE: hypoxia vs normoxia")) +
-    theme_cowplot(font_size = 16)+
+  ylab(bquote(Log[2]~"si-eIF3e LFC"~"TE: hypoxia vs normoxia")) +
+  xlab(bquote(Log[2]~"si-CTRL LFC"~"TE: hypoxia vs normoxia")) +
+    theme_cowplot(font_size = 9)+
   theme_prism()
 
 scatter <- ggMarginal(scatter, type = "histogram",
@@ -570,7 +592,7 @@ scatter <- ggMarginal(scatter, type = "histogram",
 
 scatter
 
-ggsave(here("plots/acute_3e.pdf"), scatter)
+ggsave(scatter, height=4, width=4, path= here("plots/acute_3e.pdf"))
 
 ```
 
@@ -584,9 +606,9 @@ scatter <- ggplot(data = sig_sictrl, aes(x = LFC_te_sictrl, y = LFC_te_si3d)) +
   geom_hline(yintercept = 0, color = "grey") + 
   geom_vline(xintercept = 0, color = "grey") +
   geom_point(alpha=.25) +
-  ylab(bquote(Log[2]~"Fold Change si-eIF3d"~"TE: hypoxia vs normoxia")) +
-  xlab(bquote(Log[2]~"Fold Change si-CTRL"~"TE: hypoxia vs normoxia")) +
-    theme_cowplot(font_size = 16)+
+  ylab(bquote(Log[2]~"si-eIF3d LFC"~"TE: hypoxia vs normoxia")) +
+  xlab(bquote(Log[2]~"si-ctrl LFC"~"TE: hypoxia vs normoxia")) +
+    theme_cowplot(font_size = 9)+
   theme_prism()
 
 scatter <- ggMarginal(scatter, type = "histogram",
@@ -723,7 +745,6 @@ counts <- rbind(counts, new_df)
 ```
 
 # pivot counts
-counts have slightly different numbers than previous because I used gene_id rather than symbol.
 ```{r}
 long_counts <- counts %>% 
   pivot_longer(3:4, names_to = "direction", values_to = "counts")
@@ -736,12 +757,14 @@ eif3e_counts <- long_counts %>%
   filter(sample=="si3e")
 
 eif3e_bar <- ggbarplot(data = eif3e_counts, x = "condition", y = "counts", fill = "direction", palette = c("#2492a6",si3e_col), position = position_dodge(0.75), label = T, title= "eIF3e")+
+  ylab("Transcript counts")+
+  xlab("")+
   theme_prism()+
-  theme_cowplot(font_size = 16)
+  theme_cowplot(font_size = 7)
 
 eif3e_bar
 
-ggsave(here("plots/eIF3ebars.pdf"), eif3e_bar, width = 4, height = 6)
+ggsave(here("plots/eIF3ebars.pdf"), eif3e_bar, width = 2.5, height = 3)
 
 ```
 
@@ -754,10 +777,14 @@ eif3d_counts <- long_counts %>%
 
 
 eif3d_bar <- ggbarplot(data = eif3d_counts, x = "condition", y = "counts", fill = "direction", palette = c("#ffd412",si3d_col), position = position_dodge(0.75), label = T, title="eIF3d")+
-  theme_prism()
+   ylab("Transcript counts")+
+  xlab("")+
+  theme_prism()+
+    theme_cowplot(font_size = 7)
+
 eif3d_bar
 
-ggsave(here("plots/eIF3dbars.pdf"), eif3d_bar, width = 4, height = 6)
+ggsave(here("plots/eIF3dbars.pdf"), eif3d_bar, width = 2.5, height = 3)
 
 ```
 
@@ -862,13 +889,17 @@ hyp_te_down <- list(
 
 
 
-
 ## Venn diagram of changes - normoxia
 
 ```{r}
 ggvenn(norm_te_up, auto_scale = T, fill_color = c("#E69F00","#56B4E9"))
 
+ggsave(here("plots/normteup_venn.pdf"), width = 3, height=2.5)
+
 ggvenn(norm_te_down, auto_scale = T, fill_color = c("#E69F00","#56B4E9"))
+
+ggsave(here("plots/normtedown_venn.pdf"), width = 3, height=2.5)
+
 
 stopifnot(
 identical(norm_3d$gene_id,norm_3e$gene_id))
@@ -877,7 +908,9 @@ norm_sig_te <- data.frame(
   gene_id = norm_3d$gene_id,
   symbol = norm_3d$symbol,
   te_3d = norm_3d$log2FoldChange,
-  te_3e = norm_3e$log2FoldChange
+  padj_3d = norm_3d$padj,
+  te_3e = norm_3e$log2FoldChange,
+  padj_3e = norm_3e$padj
 ) %>%
   filter(gene_id %in% c(norm_3e_up,
                         norm_3e_down,
@@ -887,12 +920,19 @@ norm_sig_te <- data.frame(
 
 
 
+
+
+
 scatter <- ggscatter(data = norm_sig_te,
           x = "te_3d",
+          xlab="si-eIF3d TE",
           y = "te_3e",
+          ylab="si-eIF3e TE",
           alpha = 0.25,
           title = "Normoxia TE - sig genes",
 xlim=c(-2,2), ylim = c(-2,2))+
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_hline(yintercept = 0, linetype = "dashed")+
    stat_cor(
    aes(label =
          paste(
@@ -910,9 +950,10 @@ scatter <- ggMarginal(scatter, type = "histogram",
            yparams = list(binwidth = .3, fill = si3d_col)
            )
 
+
 scatter
 
-ggsave(here("plots/norm_e_d.pdf"), scatter)
+ggsave(here("plots/norm_e_d.pdf"), scatter, height=4, width=4)
 
 
 ```
@@ -922,9 +963,15 @@ ggsave(here("plots/norm_e_d.pdf"), scatter)
 ## Venn diagram of changes - hypoxia
 
 ```{r}
-ggvenn(hyp_te_up, auto_scale = T, fill_color = c("#E69F00","#56B4E9"), text_size = 8)
+ggvenn(hyp_te_up, auto_scale = T, fill_color = c("#E69F00","#56B4E9"))
 
-ggvenn(hyp_te_down, auto_scale = T, fill_color = c("#E69F00","#56B4E9"), text_size=8)
+ggsave(here("plots/hypteup_venn.pdf"), width = 3, height=2.5)
+
+
+ggvenn(hyp_te_down, auto_scale = T, fill_color = c("#E69F00","#56B4E9"))
+
+ggsave(here("plots/hyptedown_venn.pdf"), width = 3, height=2.5)
+
 
 setdiff(hyp_3e$gene_id, hyp_3d$gene_id)
 # remove from dataset
@@ -936,7 +983,9 @@ hyp_sig_te <- data.frame(
   gene_id = hyp_3d$gene_id,
   symbol = hyp_3d$symbol,
   te_3d = hyp_3d$log2FoldChange,
-  te_3e = hyp_3e$log2FoldChange) %>%
+  padj_3d = hyp_3d$padj,
+  te_3e = hyp_3e$log2FoldChange,
+  padj_3e = hyp_3e$padj) %>%
   filter(gene_id %in% c(hyp_3e_up,
                         hyp_3e_down,
                         hyp_3d_up,
@@ -946,10 +995,19 @@ hyp_sig_te <- data.frame(
 
 scatter <- ggscatter(data = hyp_sig_te,
           x = "te_3d",
+          xlab="si-eIF3d TE",
           y = "te_3e",
+          ylab="si-eIF3e TE",
           alpha = 0.25,
           title = "Hypoxia TE - sig genes",
 xlim=c(-2,2), ylim = c(-2,2))+
+  geom_smooth(method = "lm", color = "black", se = FALSE) +
+  stat_regline_equation(
+    aes(label =  paste(..eq.label.., after_stat(rr.label), sep = "~~~~")),
+    label.x = -1.5, label.y = 1.5
+  )+
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_hline(yintercept = 0, linetype = "dashed")+
    stat_cor(
    aes(label =
          paste(
@@ -967,15 +1025,25 @@ scatter <- ggMarginal(scatter, type = "histogram",
            yparams = list(binwidth = .3, fill = si3d_col)
            )
 
+
 scatter
 
-ggsave(here("plots/hyp_e_d.pdf"), scatter)
+ggsave(here("plots/hyp_e_d.pdf"), width=4, height=4)
 
 
 
 ```
 
 
+```{r}
+#write excel doc
+
+library(xlsx)
+
+write_xlsx(list(normoxia = norm_sig_te, hypoxia = hyp_sig_te), path= here("counts/3e_3d_te.xlsx"))
+
+
+```
 
 
 
@@ -1071,7 +1139,8 @@ hyp_te_h <- dplyr::full_join(
 
 hyp_te_h$ID <- gsub(pattern = "HALLMARK_", replacement = "", x = hyp_te_h$ID)
 
-
+hyp_te_h <- hyp_te_h %>% 
+  mutate(color= ifelse(ID=="HYPOXIA", "red", "black"))
 
 
 ggscatter(data = hyp_te_h,
@@ -1080,12 +1149,14 @@ ggscatter(data = hyp_te_h,
           title = "Hallmark pathways - Hypoxia",
           label = "ID",
           repel = TRUE,
-          font.label = 10) +
- scale_color_continuous(type = "viridis") +
+          font.label=7,
+  color="color",
+  palette=c("black", "red"))+
   geom_vline(xintercept = 0, linetype = "dashed") +
   geom_hline(yintercept = 0, linetype = "dashed") +
   ylim(-2.5,2.5) +
-  xlim(-2.5,2.5) + theme_prism()
+  xlim(-2.5,2.5) + theme_prism()+
+  guides(color = FALSE)
 
 DT::datatable(hyp_te_h) %>%
   formatRound(which(sapply(hyp_te_h,is.numeric)), digits = 3)
@@ -1093,7 +1164,6 @@ DT::datatable(hyp_te_h) %>%
 
 
 ggsave(width = 4, height = 4, filename = here("plots/hypoxia_halmarks.pdf"))
-ggsave(width = 4, height = 4, filename = here("plots/hypoxia_halmarks.png"))
 
 
 hyp_h_table <- hyp_te_h %>% 
