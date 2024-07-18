@@ -592,7 +592,7 @@ scatter <- ggMarginal(scatter, type = "histogram",
 
 scatter
 
-ggsave(scatter, height=4, width=4, path= here("plots/acute_3e.pdf"))
+#ggsave(scatter, height=4, width=4, path= here("plots/acute_3e.pdf"))
 
 ```
 
@@ -1156,7 +1156,8 @@ ggscatter(data = hyp_te_h,
   geom_hline(yintercept = 0, linetype = "dashed") +
   ylim(-2.5,2.5) +
   xlim(-2.5,2.5) + theme_prism()+
-  guides(color = FALSE)
+  guides(color = FALSE)+
+    geom_text_repel(aes(label = ID), size = 3)
 
 DT::datatable(hyp_te_h) %>%
   formatRound(which(sapply(hyp_te_h,is.numeric)), digits = 3)

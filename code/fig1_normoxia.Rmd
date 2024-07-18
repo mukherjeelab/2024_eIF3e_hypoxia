@@ -452,10 +452,28 @@ common_only <- common_only %>%
 plot<-
 ggstripchart(data = common_only, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
   ylab(expression("log"[2]*" TE (ribo/rna)"))
+
+
+plot <-
+ggstripchart(data = common_only, 
+             x = "sirna", 
+             y = "TE", 
+             color = "sirna", 
+             facet.by = "symbol", 
+             shape = "sirna", 
+             scales = "free_y", 
+             palette = c("black", si3d_col, si3e_col), 
+             position = position_jitterdodge(1.2)) + 
+  ylab(expression("log"[2]*" TE (ribo/rna)"))
+  
   
   
 
-  ggpar(plot, title= "eIF3e and eIF3d regulated genes")
+  ggpar(plot, title= "eIF3e and eIF3d regulated genes")+theme(
+    axis.title = element_text(size = 10),   
+    axis.text = element_text(size = 8),    
+    strip.text = element_text(size = 10)   
+  )
  
 
 ggsave(width = 4, height = 3.25, filename = here("plots/commongenes.pdf"))
@@ -495,7 +513,12 @@ ggstripchart(data = d_spec_only, x = "sirna", y = "TE", color = "sirna", facet.b
   
   plot <- plot + theme(legend.position = "none")
 
-ggpar(plot, title= "eIF3d-only regulated genes")
+ggpar(plot, title= "eIF3d-only regulated genes")+
+  theme(
+    axis.title = element_text(size = 10),   
+    axis.text = element_text(size = 8),    
+    strip.text = element_text(size = 10)   
+  )
 ggsave(width = 4, height = 1.7, filename = here("plots/dgenes.pdf"))
 
 
@@ -532,7 +555,11 @@ ggstripchart(data = e_spec_only, x = "sirna", y = "TE", color = "sirna", facet.b
   plot <-  plot + theme(legend.position = "none")
 
   
-  ggpar(plot, title= "eIF3e-only regulated genes")
+  ggpar(plot, title= "eIF3e-only regulated genes")+theme(
+    axis.title = element_text(size = 10),   
+    axis.text = element_text(size = 8),    
+    strip.text = element_text(size = 10)   
+  )
 
 ggsave(width = 4, height = 1.7, filename = here("plots/egenes.pdf"))
 
@@ -803,18 +830,18 @@ norm_te_h <- norm_te_h %>%
 ggscatter(data = norm_te_h,
           x = "eif3d_NES",
           y = "eif3e_NES",
-          color= "color", palette = c("black", "red"),
-          label = "ID",
-          repel = TRUE,
-          font.label = 10,
-          xlab="si-eIF3d NES",
-          ylab = "si-eIF3e NES")+
+          color = "color", palette = c("black", "red"),
+          xlab = "si-eIF3d NES",
+          ylab = "si-eIF3e NES") +
   geom_vline(xintercept = 0, linetype = "dashed") +
   geom_hline(yintercept = 0, linetype = "dashed") +
-  ylim(-2.5,2.5) +
-  xlim(-2.5,2.5) + theme_prism(base_size = 14)
+  ylim(-2.5, 2.5) +
+  xlim(-2.5, 2.5) +
+  theme_prism(base_size = 12) +
+  guides(color = "none") +
+  geom_text_repel(aes(label = ID), size = 3)
 
-ggsave(width = 5, height = 4, filename = here("plots/normoxia_halmarks.pdf"))
+ggsave(width = 4, height = 4, filename = here("plots/normoxia_halmarks.pdf"))
 
 
 norm_h_table <- norm_te_h %>% 

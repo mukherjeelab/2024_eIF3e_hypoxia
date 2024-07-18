@@ -252,7 +252,7 @@ ggplot(knockdowns_atf4, aes(x = treatment, y = te)) +
 
 knockdowns_norm_atf4
 
-ggsave(height=4, width=4, here("plots/atf4_normoxic_kds.pdf"))
+ggsave(height=3, width=3, here("plots/atf4_normoxic_kds.pdf"))
 
 ```
 
