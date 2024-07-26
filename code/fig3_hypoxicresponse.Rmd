@@ -1369,7 +1369,14 @@ for(i in condition_vector) {
     metadata_cond <- metadata_kds %>% 
     filter(condition== i) %>% 
       filter(library=="rna")
-  
+    
+    metadata_cond$treatment <- as.factor(metadata_cond$treatment)
+    
+    metadata_cond$treatment <- factor(metadata_cond$treatment, levels=c("sictrl", "si3e", "si3d"))
+    
+    levels(metadata_cond$treatment)
+    
+
 for (j in test_vector) {
 # set up data -------------------------------------------------------------------
 
@@ -1387,6 +1394,8 @@ for (j in test_vector) {
   sample_info <- sample_info %>% 
     mutate("name" = 
   paste(sample_info$condition, sample_info$treatment, sample_info$library, sample_info$rep, sep = "_"))
+  
+  
   
     # sample_info$library <- relevel(x = factor(sample_info$library), ref = "rna")
 
