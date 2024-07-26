@@ -241,6 +241,11 @@ res_te_3e <- lfcShrink(
 ```
 
 
+# Export differential RNA counts for 3e and 3d
+
+
+
+
 ## plotting Neel's example genes here
 ```{r plot genes, fig.width=8, fig.height=7}
 
