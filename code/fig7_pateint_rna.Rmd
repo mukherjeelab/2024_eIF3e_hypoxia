@@ -1,0 +1,90 @@
+---
+title: "Figure 7 RNA Patient Stuff"
+author: "Kate"
+date: "2024-07-26"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+load packages
+```{r}
+library(here)
+library(tidyverse)
+library(janitor)
+library(readxl)
+#BiocManager::install("cBioPortalData")
+library(cBioPortalData)
+library(MetaIntegrator)
+#BiocManager::install("singleCellTK")
+library(singleCellTK)
+```
+
+load hypoxic signatures from my data
+```{r}
+file_path <- here("counts/rna_values_sig.xlsx")
+
+sheet_names <- excel_sheets(file_path)
+
+all_sheets <- lapply(sheet_names, function(sheet) {
+  read_excel(file_path, sheet = sheet)
+})
+
+names(all_sheets) <- sheet_names
+
+```
+
+all_sheets now has all four signatures from our data
+
+```{r}
+sig_3d_norm <-all_sheets$normoxia_si3d
+sig_3e_norm <-all_sheets$normoxia_si3e
+sig_3d_hyp <-all_sheets$hypoxia_si3d
+sig_3e_hyp <-all_sheets$hypoxia_si3e
+```
+
+### Beginning with Normoxia 3e
+
+Transform data to get z-scores
+```{r}
+
+#Not sure if calculate Score is going to work on my data , need to caluclate z scores differently
+loop_data <- sig_3e_norm
+
+org_df <- loop_data %>%
+  
+
+
+calculateScore(sig_3e_norm, sig_3e_norm)
+```
+
+
+
+Overlay our data with public eIF3e/d KD data
+
+```{r}
+
+
+
+```
+
+
+
+### Generate gene signatures from patient cohort
+download from cbioportal
+
+Getting data from:
+
+Already transformed for z scores
+
+Can use GSVA for single sample GSEA
+
+
+ask if our gene signatures are expressed similarly in the patient samples
+
+
+
