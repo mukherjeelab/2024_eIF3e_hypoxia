@@ -275,6 +275,7 @@ all_data <- all_data %>%
 
 
 Stratifying survival data
+## eif3e signature vs survival
 
 ```{r}
 clin2 <- all_data[c(which(all_data$low_signature), which(all_data$high_signature)),]
@@ -284,6 +285,269 @@ fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ low_signature, data = clin2)
 ggsurvplot(fit, data = clin2, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("eIF3e KD signature high", "eIF3e KD signature low"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
 
 ```
+
+## Sanity check: positive-ish controls
+
+Compare lymph nodes positive to suvival-- prob should have more lymph notes positive = less survival
+
+VITAL_STATUS = living or died of disease
+
+
+```{r}
+
+clin2 <- all_data[c(which(all_data$low_signature), which(all_data$high_signature)),]
+
+all_data <- all_data %>% 
+  mutate(alive = ifelse(VITAL_STATUS=="Living", TRUE, FALSE))
+
+all_data <- all_data %>% 
+  mutate(died_from_cancer = ifelse(VITAL_STATUS=="Died of Disease", TRUE, FALSE))
+
+fit_pos <- survfit(Surv(OS_YEARS, OS_STATUS) ~ died_from_cancer, data = clin2)
+
+
+ggsurvplot(fit_pos, data = clin2, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("alive", "died_from_cancer"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
+
+```
+Good sanity check! just need to clean up some of the alive vs died data
+
+## Negative Control
+
+Now neg control -- random genes comprising signatures-- same number of genes just random
+
+pos genes = 1747 genes
+neg genes = 1638 genes
+
+pick random from all genes expressed in clinical data?? or in my data?
+
+
+for loop generating z score for each patient
+
+
+
+1. Create expression data
+```{r}
+
+exp_full <- merged_zscores_matrix %>%
+  as.data.frame()
+
+```
+
+2. Pick random up and down values
+```{r}
+
+all_genes <- rownames(exp_full)
+
+fake_pos_list <-all_genes[sample(1:length(all_genes), 1747)]
+fake_neg_list <-all_genes[sample(1:length(all_genes), 1638)]
+```
+
+# fake up signature values - neg ctrl
+
+
+Loop through each patient
+```{r}
+
+patients <- colnames(merged_zscores_all)
+patients <- patients[patients !="Hugo_Symbol"]
+
+
+fake_up_dataset <- data.frame(patient=character(), avg_z_score=numeric(), stringsAsFactors = FALSE)
+
+for (i in patients) {
+
+  #filter dataframe
+  patient_level <- exp %>% 
+    dplyr::select(i) %>%
+    rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% fake_pos_list)
+
+    all_values <- as.vector(patient_level[,2])
+  
+  
+  #geometric mean
+  
+  up_genes_z_score <- mean(all_values)
+
+  loop_dataset <- data.frame(patient=i, norm_3e_z_score_up = up_genes_z_score)
+  
+  fake_up_dataset <- rbind(fake_up_dataset, loop_dataset)
+}
+
+```
+
+
+
+
+
+#fake down sig values - neg ctrl
+
+```{r}
+
+patients <- colnames(merged_zscores_all)
+patients <- patients[patients !="Hugo_Symbol"]
+
+
+fake_down_dataset <- data.frame(patient=character(), avg_z_score=numeric(), stringsAsFactors = FALSE)
+
+for (i in patients) {
+
+  #filter dataframe
+  patient_level <- exp %>% 
+    dplyr::select(i) %>%
+    rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% fake_neg_list)
+
+    all_values <- as.vector(patient_level[,2])
+  
+  
+  #geometric mean
+  
+  down_genes_z_score <- mean(all_values)
+
+  loop_dataset <- data.frame(patient=i, norm_3e_z_score_down = down_genes_z_score)
+  
+  fake_down_dataset <- rbind(fake_down_dataset, loop_dataset)
+}
+
+
+
+```
+
+
+Merge two datasets
+```{r}
+neg_ctrl_fake_patient_scores <- left_join(fake_up_dataset, fake_down_dataset, by="patient")
+
+neg_ctrl_fake_patient_scores <- neg_ctrl_fake_patient_scores %>% 
+  mutate(total_z_score = norm_3e_z_score_up - norm_3e_z_score_down)
+
+```
+
+NEG CONTROL - visualize scores among patient cohort
+```{r}
+ggplot(neg_ctrl_fake_patient_scores, aes(x=total_z_score))+
+  geom_histogram(bins = 400)
+```
+
+
+Stratify into groups based on z score
+
+```{r}
+
+neg_ctrl_quantile_groups <- quantile(neg_ctrl_fake_patient_scores$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+neg_ctrl_fake_patient_scores$quantile <- cut(neg_ctrl_fake_patient_scores$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+neg_ctrl_fake_patient_scores$patient <- gsub("\\.", "-", as.character(neg_ctrl_fake_patient_scores$patient))
+
+
+colnames(neg_ctrl_fake_patient_scores) <- paste(colnames(neg_ctrl_fake_patient_scores),"neg_ctrl",sep="_") 
+
+names(neg_ctrl_fake_patient_scores)[names(neg_ctrl_fake_patient_scores) == "patient_neg_ctrl"] <- "patient"
+
+
+
+
+```
+
+
+Now plot neg control!
+
+
+```{r}
+all_data <- left_join(clin, neg_ctrl_fake_patient_scores, by=c("PATIENT_ID"="patient"))
+
+
+all_data <- all_data %>% 
+  mutate(neg_ctrl_high_signature = ifelse(quantile_neg_ctrl==4, TRUE, FALSE))
+
+all_data <- all_data %>% 
+  mutate(neg_ctrl_low_signature = ifelse(quantile_neg_ctrl==1, TRUE, FALSE))
+```
+
+
+
+Stratifying survival data
+## eif3e signature vs survival
+
+```{r}
+clin2 <- all_data[c(which(all_data$neg_ctrl_low_signature), which(all_data$neg_ctrl_high_signature)),]
+fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ neg_ctrl_low_signature, data = clin2)
+
+
+ggsurvplot(fit, data = clin2, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("NEG CTRL eIF3e KD signature high", "NEG CTRL eIF3e KD signature low"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+clin2 <- all_data[c(which(all_data$low_signature), which(all_data$high_signature)),]
+fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ low_signature, data = clin2)
+
+
+ggsurvplot(fit, data = clin2, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("eIF3e KD signature high", "eIF3e KD signature low"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
