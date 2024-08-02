@@ -21,8 +21,6 @@ library(readxl)
 #BiocManager::install("cBioPortalData")
 library(cBioPortalData)
 library(MetaIntegrator)
-#BiocManager::install("singleCellTK")
-#library(singleCellTK)
 library(cbioportalR)
 library(pheatmap)
 library(cowplot)
@@ -469,131 +467,12 @@ all_data <- all_data %>%
 ```
 
 
-
-Stratifying survival data
-## eif3e signature vs survival
-
 ```{r}
 clin2 <- all_data[c(which(all_data$neg_ctrl_low_signature), which(all_data$neg_ctrl_high_signature)),]
 fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ neg_ctrl_low_signature, data = clin2)
 
 
 ggsurvplot(fit, data = clin2, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("NEG CTRL eIF3e KD signature high", "NEG CTRL eIF3e KD signature low"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
-
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-```{r}
-
-clin2 <- all_data[c(which(all_data$low_signature), which(all_data$high_signature)),]
-fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ low_signature, data = clin2)
-
-
-ggsurvplot(fit, data = clin2, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("eIF3e KD signature high", "eIF3e KD signature low"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
-
-
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-```{r}
-
-clin2 <- clin[c(which(clin$NFKBlowq), which(clin$NFKBupperq)),]
-fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ NFKBlowq, data = clin2)
-
-ggsurvplot(fit, data = clin2, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("NFKB high", "NFKB low"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
-
-```
-
-
-
-
-Stratifying survival using Jim's code - surv
-
-```{r}
-#quartile stratification
-
-
-clin2 <- clin[c(which(clin$NFKBlowq), which(clin$NFKBupperq)),]
-fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ NFKBlowq, data = clin2)
-
-ggsurvplot(fit, data = clin2, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("NFKB high", "NFKB low"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
-
-clin2 <- clin[c(which(clin$EYA3lowq), which(clin$EYA3upperq)),]
-fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ EYA3lowq, data = clin2)
-ggsurvplot(fit, data = clin2, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("EYA3 high", "EYA3 low"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
-
-clin2 <- clin[c(which(clin$CCL2lowq), which(clin$CCL2upperq)),]
-fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ CCL2lowq, data = clin2)
-ggsurvplot(fit, data = clin2, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("CCL2 high", "CCL2 low"), break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10), conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
-
-clin2 <- clin[which(clin$HighLowq > 0),]
-fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ HighLowq, data = clin2)
-ggsurvplot(fit, data = clin2, size = 1, legend.labs = c("EYA3 high/CCL2 high", "EYA3 high/CCL2 low", "EYA3 low/CCL2 high", "EYA3 low/CCL2 low"), ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10), conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
-
-clin2 <- clin[which(clin$HighLowNFKBq > 0),]
-fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ HighLowNFKBq, data = clin2)
-ggsurvplot(fit, data = clin2, size = 1, legend.labs = c("EYA3 high/NFKB high", "EYA3 high/NFKB low", "EYA3 low/NFKB high", "EYA3 low/NFKB low"), ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10), conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
-
-clin2 <- clin[which(clin$HighLowTrippleq > 0),]
-fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ HighLowTrippleq, data = clin2)
-ggsurvplot(fit, data = clin2, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("Tripple high", "Tripple low"), ylab="Overall Survival", xlab = "Time in years", break.time.by = 1,  xlim = c(0,10), conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
 
 ```
 
