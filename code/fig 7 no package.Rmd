@@ -58,13 +58,14 @@ sig_3e_hyp <-all_sheets$hypoxia_si3e
 
 ### Beginning with Normoxia 3e
 
+At first, did this analysis with 3e log fold change cut off at 0 now changing to 
 separate direction
 ```{r}
 up_3e_norm <- sig_3e_norm %>% 
-  filter(log2FoldChange > 0)
+  filter(log2FoldChange > 1)
 
 down_3e_norm <- sig_3e_norm %>% 
-  filter(log2FoldChange < 0)
+  filter(log2FoldChange < -1)
 ```
 
 
@@ -162,6 +163,9 @@ for (i in patients) {
   up_3e_norm_dataset <- rbind(up_3e_norm_dataset, loop_dataset)
 }
 
+ggplot(up_3e_norm_dataset, aes(x=norm_3e_z_score_up))+
+  geom_histogram(bins = 400)
+
 ```
 Plot distribution of values
 
@@ -198,6 +202,8 @@ for (i in patients) {
   down_3e_norm_dataset <- rbind(down_3e_norm_dataset, loop_dataset)
 }
 
+ggplot(down_3e_norm_dataset, aes(x=norm_3e_z_score_down))+
+  geom_histogram(bins = 400)
 
 
 ```
@@ -266,6 +272,12 @@ all_data <- all_data %>%
 
 all_data <- all_data %>% 
   mutate(low_signature = ifelse(quantile==1, TRUE, FALSE))
+
+all_data <- all_data %>% 
+  mutate(medium_low_signature = ifelse(quantile==2, TRUE, FALSE))
+
+all_data <- all_data %>% 
+  mutate(medium_high_signature = ifelse(quantile==3, TRUE, FALSE))
 ```
 
 
@@ -286,6 +298,63 @@ coxph(formula = Surv(OS_YEARS, OS_STATUS) ~ low_signature, data = clin2)
 
 ```
 
+Look at all four groupings
+
+```{r}
+
+fit_all <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_data)
+
+#pre legend
+ggsurvplot(fit_all, data = all_data, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
+#post legend
+ggsurvplot(fit_all, data = all_data, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),legend.labs = c("depleted for eIF3e KD signature: low (Q1)","depleted: medium-low (Q2)", "enriched: medium-high (Q3)", "enriched for eIF3e KD signature: high (Q4)"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_data)
+summary(coxfit)
+
+str(survfit(coxfit))
+
+
+#report hazards ratio on plot
+
+summary_coxfit <- summary(coxfit)
+
+```
+
+
+Plotting again
+
+```{r}
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+```
+
+```{r}
+
+
+
+
+surv_plot <- ggsurvplot(fit_all, data = all_data, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),legend.labs = c("depleted for eIF3e KD signature: low (Q1)","depleted: medium-low (Q2)", "enriched: medium-high (Q3)", "enriched for eIF3e KD signature: high (Q4)"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
+
+
+
+surv_plot$plot <- surv_plot$plot + 
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 5, 
+    color = "black"
+  )
+
+surv_plot
+```
 
 
 
@@ -297,18 +366,18 @@ VITAL_STATUS = living or died of disease
 
 ```{r}
 
-clin2 <- all_data[c(which(all_data$low_signature), which(all_data$high_signature)),]
+# clin2 <- all_data[c(which(all_data$low_signature), which(all_data$high_signature)),]
 
-all_data <- all_data %>% 
+alive_data <- all_data %>% 
   mutate(alive = ifelse(VITAL_STATUS=="Living", TRUE, FALSE))
 
-all_data <- all_data %>% 
+alive_data <- alive_data %>% 
   mutate(died_from_cancer = ifelse(VITAL_STATUS=="Died of Disease", TRUE, FALSE))
 
-fit_pos <- survfit(Surv(OS_YEARS, OS_STATUS) ~ died_from_cancer, data = clin2)
+fit_pos <- survfit(Surv(OS_YEARS, OS_STATUS) ~ died_from_cancer, data = alive_data)
 
 
-ggsurvplot(fit_pos, data = clin2, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("alive", "died_from_cancer"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+ggsurvplot(fit_pos, data = alive_data, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("alive", "died_from_cancer"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
 
 
 
@@ -569,7 +638,7 @@ for (i in patients) {
   
   #geometric mean
   
-  up_genes_z_score <- mean(all_values)
+  up_genes_z_score <- mean(all_values, na.rm=TRUE)
 
   loop_dataset <- data.frame(patient=i, norm_3e_z_score_up = up_genes_z_score)
   
@@ -605,7 +674,7 @@ for (i in patients) {
   
   #geometric mean
   
-  down_genes_z_score <- mean(all_values)
+  down_genes_z_score <- mean(all_values, na.rm=TRUE)
 
   loop_dataset <- data.frame(patient=i, norm_3e_z_score_down = down_genes_z_score)
   
@@ -657,14 +726,14 @@ Read in and clean up clin data
   
 ```{r}
 
-clin <- read.table(here("cbioportal_data/data_clinical_patient.txt"), sep="\t", header=T)
+clin_tcga <- read.table(here("cbioportal_data/brca_tcga/data_clinical_patient.txt"), header=T, sep="t")
 
 
-clin$OS_STATUS[which(clin$OS_STATUS == "1:DECEASED" & clin$OS_MONTHS > 120)] <- "0:LIVING"
-clin$OS_STATUS <- clin$OS_STATUS == "1:DECEASED"
-clin <- cbind(clin, OS_YEARS = clin$OS_MONTHS/12)
-clin$OS_YEARS[which(clin$OS_YEARS >= 10)] <- 10
-dim(clin)
+clin_tcga$OS_STATUS[which(clin_tcga$OS_STATUS == "1:DECEASED" & clin_tcga$OS_MONTHS > 120)] <- "0:LIVING"
+clin_tcga$OS_STATUS <- clin_tcga$OS_STATUS == "1:DECEASED"
+clin_tcga <- cbind(clin_tcga, OS_YEARS = clin_tcga$OS_MONTHS/12)
+clin_tcga$OS_YEARS[which(clin_tcga$OS_YEARS >= 10)] <- 10
+dim(clin_tcga)
 
 
 ```
