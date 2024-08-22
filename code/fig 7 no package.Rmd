@@ -1494,6 +1494,11 @@ ggplot(patient_ye_and_3e_hyp, aes(x=ye_hyp_sig_up, y= total_z_score))+
 
 ggsave("3e_hyp_and_ye.pdf", path=here("plots"),width = 5, height=4)
 
+# remove z scores less than 0.2, 0.2
+
+patient_ye_and_3e_hyp <- patient_ye_and_3e_hyp %>% 
+  mutate(change = ifelse(abs(total_z_score) < 0.1 & abs(ye_hyp_sig_up) < 0.1, "small_change", "big_change"))
+
 
 
 
@@ -1559,6 +1564,102 @@ ggsave("surv_plot_3e_hyp_ye.pdf", path=here("plots"),width = 11.5, height=8)
 
 ```
 
+
+Also excluding points in the middle as a negative control for the survival curve analysis
+```{r}
+big_changes_hyp <- patient_ye_and_3e_hyp %>% 
+  filter(change=="big_change")
+
+ggplot(big_changes_hyp, aes(x=ye_hyp_sig_up, y= total_z_score))+
+  geom_point()+
+  xlab("Ye Hypoxia z score")+
+  ylab("eIF3e (hypoxia) z score")+
+  theme_cowplot() +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0)+
+  theme(text = element_text(size = 14))
+
+# ggsave("3e_hyp_and_ye_big_changes.pdf", path=here("plots"),width = 5, height=4)
+
+cor.test(big_changes_hyp$ye_hyp_sig_up, big_changes_hyp$total_z_score)
+
+
+# make four groups
+
+big_changes_hyp <- big_changes_hyp %>% 
+  mutate(quadrant = ifelse(ye_hyp_sig_up < 0 & total_z_score < 0, "depleted hypoxia sig and depleted eIF3e (hypoxia) sig",
+                           ifelse(ye_hyp_sig_up > 0 & total_z_score < 0, "enriched hypoxia sig and depleted eIF3e (hypoxia) sig",
+                                  ifelse(ye_hyp_sig_up > 0 & total_z_score > 0, "enriched hypoxia sig and enriched eIF3e (hypoxia) sig",
+                                         ifelse(ye_hyp_sig_up < 0 & total_z_score > 0, "depleted hypoxia sig and enriched eIF3e (hypoxia) sig", "other")))))
+
+
+# plot surival curve with those groups
+
+#bind with clin data
+patient_ye_and_3e_hyp_clin_big_changes <- left_join(clin, big_changes_hyp, by=c("PATIENT_ID"="patient"))
+
+
+#plot
+
+fit_all_hypoxia <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = patient_ye_and_3e_hyp_clin_big_changes)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, patient_ye_and_3e_hyp_clin_big_changes)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+patient_ye_and_3e_hyp_clin$quadrant <- as.factor(patient_ye_and_3e_hyp_clin_big_changes$quadrant)
+
+quadrant_levels <- levels(patient_ye_and_3e_hyp_clin_big_changes$quadrant)
+
+
+surv_plot <- ggsurvplot(fit_all_hypoxia, data = patient_ye_and_3e_hyp_clin, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),legend.labs = quadrant_levels,  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
+
+surv_plot$plot <- surv_plot$plot + 
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 5, 
+    color = "black"
+  )+ theme(text = element_text(size = 14))
+
+surv_plot
+
+ggsave("surv_plot_3e_hyp_ye_big changes.pdf", path=here("plots"),width = 11.5, height=8)
+
+
+
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Pretty cool!!!!
 
 #a209
@@ -1583,8 +1684,15 @@ ggsave("a209_hyp_and_ye.pdf", path=here("plots"),width = 5, height=4)
 
 
 
+cor.test(patient_ye_and_a209_hyp$ye_hyp_sig_up, big_changes_hyp$total_z_score)
 
-cor.test(patient_ye_and_a209_hyp$ye_hyp_sig_up, patient_ye_and_a209_hyp$total_z_score)
+
+patient_ye_and_a209_hyp <- patient_ye_and_a209_hyp %>% 
+  mutate(change = ifelse(abs(total_z_score) < 0.1 & abs(ye_hyp_sig_up) < 0.1, "small_change", "big_change"))
+
+
+
+
 ```
 
 Make four groups based on quandrants
@@ -1647,7 +1755,84 @@ surv_plot
 
 ```
 
+Limit to changes over 0.1 as a control
+```{r}
+big_changes_hyp <- patient_ye_and_a209_hyp %>% 
+  filter(change=="big_change")
 
+ggplot(big_changes_hyp, aes(x=ye_hyp_sig_up, y= total_z_score))+
+  geom_point()+
+  xlab("Ye Hypoxia z score")+
+  ylab("a209 (hypoxia) z score")+
+  theme_cowplot() +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0)+
+  theme(text = element_text(size = 14))
+
+ggsave("a209_hyp_and_ye_big_changes.pdf", path=here("plots"),width = 5, height=4)
+
+
+cor.test(big_changes_hyp$ye_hyp_sig_up, big_changes_hyp$total_z_score)
+
+
+# make four groups
+big_changes_hyp <- big_changes_hyp %>% 
+  mutate(quadrant = ifelse(ye_hyp_sig_up < 0 & total_z_score < 0, "depleted hypoxia sig and depleted a209 (hypoxia) sig",
+                           ifelse(ye_hyp_sig_up > 0 & total_z_score < 0, "enriched hypoxia sig and depleted a209 (hypoxia) sig",
+                                  ifelse(ye_hyp_sig_up > 0 & total_z_score > 0, "enriched hypoxia sig and enriched a209 (hypoxia) sig",
+                                         ifelse(ye_hyp_sig_up < 0 & total_z_score > 0, "depleted hypoxia sig and enriched a209 (hypoxia) sig", "other")))))
+
+
+
+
+# plot surival curve with those groups
+#bind with clin data
+patient_ye_and_a209_hyp_clin <- left_join(clin, big_changes_hyp, by=c("PATIENT_ID"="patient"))
+
+
+#plot
+
+fit_all_hypoxia <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = patient_ye_and_a209_hyp_clin)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, patient_ye_and_a209_hyp_clin)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+patient_ye_and_a209_hyp_clin$quadrant <- as.factor(patient_ye_and_a209_hyp_clin$quadrant)
+
+quadrant_levels <- levels(patient_ye_and_a209_hyp_clin$quadrant)
+
+
+surv_plot <- ggsurvplot(fit_all_hypoxia, data = patient_ye_and_a209_hyp_clin, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),legend.labs = quadrant_levels,  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
+
+surv_plot$plot <- surv_plot$plot + 
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 5, 
+    color = "black"
+  )+theme(text = element_text(size = 14))
+
+surv_plot
+
+ggsave("big_changes_surv_plot_a209_hyp_ye.pdf", path=here("plots"),width = 11.5, height=8)
+
+
+
+
+
+
+
+
+
+```
 
 
 
