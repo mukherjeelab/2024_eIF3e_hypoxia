@@ -55,7 +55,14 @@ si3d_col = "#E69F00"
 ```{r}
 metadata <- read_csv(here("metadata.csv"))
 
+metadata$treatment <- factor(metadata$treatment, levels = c("sictrl", "si3e", "si3d", "DMSO", "a209"))
+metadata$condition <- factor(metadata$condition, levels = c("normoxia", "hypoxia"))
+metadata$library <- factor(metadata$library, levels= c("rna", "ribo"))
+
+
 metadata_treat <- metadata
+
+
 ```
 
 ## load salmon files
@@ -432,7 +439,7 @@ all_counts_ribo <- rbind(all_counts_ribo, data.frame(i,upreg_ribo, downreg_ribo)
 
 }
 
-  # writexl::write_xlsx(x = res_te, path = here("counts","si3e_normoxiatohypoxia_TE.xlsx"), col_names = T)
+
 
 
 ```
@@ -549,7 +556,7 @@ ctrl_acute <- ggMarginal(ctrl_acute, type = "histogram",
 
 ctrl_acute
 
-ggsave(here("plots/sictrlacute.pdf", width=4,height=4))
+#ggsave(here("plots/sictrlacute.pdf", width=4,height=4))
 
 ```
 
@@ -682,6 +689,8 @@ te_values <-list()
 
 
 metadata_treat <- metadata
+
+levels(metadata$treatment)
 
 for (i in condition_vector) {
   
@@ -861,7 +870,6 @@ counts <- rbind(counts, new_df)
 
 
 
-
 ```
 
 # pivot counts
@@ -875,6 +883,336 @@ long_counts <- counts %>%
 
 ```
 
+
+#RNA loop
+```{r}
+# comparisons -------------------------------------------------------------------
+
+control_vector <- c("sictrl", "DMSO")
+test_vector <- c("si3e", "si3d")
+condition_vector <- c("normoxia", "hypoxia")
+
+
+# set shell dataframes ----------------------------------------------------------
+
+rna_comparisons <- list()
+big_rna_comparisons <- list()
+rna_counts <- tribble(~condition, ~sample, ~RNAupreg, ~RNAdownreg)
+rna_values <-list()
+
+
+metadata_treat <- metadata
+
+
+
+
+for (i in condition_vector) {
+  
+    metadata_cond <- metadata_treat %>% 
+    filter(condition== i) %>% 
+      filter(library=="rna")
+  
+for (j in test_vector) {
+# set up data -------------------------------------------------------------------
+
+  
+  # i = "hypoxia"
+  # j = "si3d"
+  
+  levels(metadata_cond$treatment)
+  
+  metadata_loop <- metadata_cond %>% 
+  filter(treatment == "sictrl" | treatment == j)
+  
+  # make sample info from metadata
+   sample_info <- metadata_loop %>% dplyr::select(condition, treatment, rep, library, sample_id)
+  
+  
+  sample_info <- sample_info %>% 
+    mutate("name" = 
+  paste(sample_info$condition, sample_info$treatment, sample_info$library, sample_info$rep, sep = "_"))
+  
+    #sample_info$library <- relevel(x = factor(sample_info$library), ref = "rna")
+
+  #filter AllCounts for i
+  
+  names <- as.character(sample_info$name)
+  
+  rna_subset <- allCounts %>% as.data.frame()
+    
+  rna_subset <- rna_subset[, colnames(rna_subset) %in% names]
+  
+
+# Deseq analysis ----------------------------------------------------------------
+  
+  ddsMat <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  ddsMat <- DESeq(ddsMat)
+
+  res_rna_loop <- results(ddsMat, name=resultsNames(ddsMat)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_rna_loop <- lfcShrink(dds = ddsMat, coef = resultsNames(ddsMat)[2], res = res_rna_loop) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .) %>% 
+  filter(!symbol %in% nonpolyA)  
+
+  rna_comparisons[[j]] <- res_rna_loop
+  
+   writexl::write_xlsx(x = res_rna_loop, path = here(paste0("counts/", i, "_", j, "_", "rnacounts", ".xlsx")), col_names = T)
+
+  
+# visualization -----------------------------------------------------------------
+  
+  volcano <- EnhancedVolcano(toptable = res_rna_loop,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_rna_loop$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5),
+                title = paste0(i, j, "_RNA_volcano"),
+                subtitle = "",
+                legendPosition = "right",
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
+
+print(volcano)
+
+
+# count table -------------------------------------------------------------------
+
+up <- res_rna_loop %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+down <- res_rna_loop %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+
+
+new_df <- data.frame(i, j, up, down) %>% 
+  rename("sample" = "j") %>% 
+rename("condition" = "i")
+
+rna_counts <- rbind(rna_counts, new_df)
+
+}
+
+  big_rna_comparisons[[i]] <- rna_comparisons
+
+
+
+
+# DMSO a209 --------------------------------------------------------------------
+
+  metadata_loop <- metadata_cond %>% 
+  filter(treatment == "DMSO" | treatment == "a209")
+  
+  # make sample info from metadata
+  sample_info <- metadata_loop %>% dplyr::select(condition, treatment, rep, library, sample_id)
+  
+  sample_info <- sample_info %>% 
+    mutate("name" = 
+  paste(sample_info$condition, sample_info$treatment, sample_info$library, sample_info$rep, sep = "_"))
+  
+  # colnames(sample_info) <- c("hypoxia", "treatment","rep", "library", "sample_id", "name")
+  #sample_info$library <- relevel(x = factor(sample_info$library), ref = "rna")
+  
+  #filter AllCounts for i
+  
+  names <- as.character(sample_info$name)
+  
+  rna_subset <- allCounts %>% as.data.frame()
+    
+  rna_subset <- rna_subset[, colnames(rna_subset) %in% names]
+  
+
+# Deseq analysis ----------------------------------------------------------------
+  
+  ddsMat <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  ddsMat <- DESeq(ddsMat)
+
+  res_rna_loop <- results(ddsMat, name=resultsNames(ddsMat)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_rna_loop <- lfcShrink(dds = ddsMat, coef = resultsNames(ddsMat)[2], res = res_rna_loop) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .) %>% 
+  filter(!symbol %in% nonpolyA)  
+
+  rna_comparisons[["a209"]] <- res_rna_loop
+  
+# export to excel ---------------------------------------------------------------
+  
+   writexl::write_xlsx(x = res_rna_loop, path = here(paste0("counts/", i, "_", "a209", "_", "rnacounts", ".xlsx")), col_names = T)
+
+# visualization -----------------------------------------------------------------
+  
+  volcano <- EnhancedVolcano(toptable = res_rna_loop,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_rna_loop$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5),
+                title = paste0(i, "a209", "_RNA_volcano"),
+                subtitle = "",
+                legendPosition = "right",
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
+
+print(volcano)
+
+
+# count table -------------------------------------------------------------------
+
+up <- res_rna_loop %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+down <- res_rna_loop %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+k = "a209"
+
+new_df <- data.frame(i, k, up, down) %>% 
+  rename("sample" = "k") %>% 
+  rename("condition" = "i")
+
+rna_counts <- rbind(counts, new_df)
+
+  big_rna_comparisons[[i]] <- rna_comparisons
+
+}
+
+# a209_norm_total <- big_comparisons$
+#   
+# a209_hyp_total <- big_comparisons$
+
+```
+a209 ribo only
+```{r}
+# comparisons -------------------------------------------------------------------
+
+# control_vector <- c("sictrl", "DMSO")
+# test_vector <- c("si3e", "si3d")
+condition_vector <- c("normoxia", "hypoxia")
+
+
+# set shell dataframes ----------------------------------------------------------
+
+rna_comparisons <- list()
+big_rna_comparisons <- list()
+rna_counts <- tribble(~condition, ~sample, ~RNAupreg, ~RNAdownreg)
+rna_values <-list()
+
+#i="hypoxia"
+
+metadata_treat <- metadata
+
+for (i in condition_vector) {
+  
+    metadata_cond <- metadata_treat %>% 
+    filter(condition== i) %>% 
+      filter(library=="rna")
+
+  metadata_loop <- metadata_cond %>% 
+  filter(treatment == "DMSO" | treatment == "a209")
+  
+  # make sample info from metadata
+  sample_info <- metadata_loop %>% dplyr::select(condition, treatment, rep, library, sample_id)
+  
+  sample_info <- sample_info %>% 
+    mutate("name" = 
+  paste(sample_info$condition, sample_info$treatment, sample_info$library, sample_info$rep, sep = "_"))
+  
+  # colnames(sample_info) <- c("hypoxia", "treatment","rep", "library", "sample_id", "name")
+  #sample_info$library <- relevel(x = factor(sample_info$library), ref = "rna")
+  
+  #filter AllCounts for i
+  
+  names <- as.character(sample_info$name)
+  
+  rna_subset <- allCounts %>% as.data.frame()
+    
+  rna_subset <- rna_subset[, colnames(rna_subset) %in% names]
+  
+
+# Deseq analysis ----------------------------------------------------------------
+  
+  ddsMat <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  ddsMat <- DESeq(ddsMat)
+
+  res_rna_loop <- results(ddsMat, name=resultsNames(ddsMat)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_rna_loop <- lfcShrink(dds = ddsMat, coef = resultsNames(ddsMat)[2], res = res_rna_loop) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .) %>% 
+  filter(!symbol %in% nonpolyA)  
+
+  rna_comparisons[["a209"]] <- res_rna_loop
+  
+# export to excel ---------------------------------------------------------------
+  
+   writexl::write_xlsx(x = res_rna_loop, path = here(paste0("counts/", i, "_", "a209", "_", "rnacounts", ".xlsx")), col_names = T)
+
+# visualization -----------------------------------------------------------------
+  
+  volcano <- EnhancedVolcano(toptable = res_rna_loop,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_rna_loop$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5),
+                title = paste0(i, "a209", "_RNA_volcano"),
+                subtitle = "",
+                legendPosition = "right",
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
+
+print(volcano)
+
+
+# count table -------------------------------------------------------------------
+
+up <- res_rna_loop %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+down <- res_rna_loop %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+k = "a209"
+
+new_df <- data.frame(i, k, up, down) %>% 
+  rename("sample" = "k") %>% 
+  rename("condition" = "i")
+
+rna_counts <- rbind(counts, new_df)
+
+  big_rna_comparisons[[i]] <- rna_comparisons
+
+}
+
+# a209_norm_total <- big_comparisons$
+#   
+# a209_hyp_total <- big_comparisons$
+
+
+
+
+```
 
 
 
