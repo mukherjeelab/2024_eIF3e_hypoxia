@@ -1567,6 +1567,10 @@ ggsave("surv_plot_3e_hyp_ye.pdf", path=here("plots"),width = 11.5, height=8)
 
 Also excluding points in the middle as a negative control for the survival curve analysis
 ```{r}
+
+
+
+
 big_changes_hyp <- patient_ye_and_3e_hyp %>% 
   filter(change=="big_change")
 
@@ -1731,7 +1735,7 @@ quadrant_levels <- levels(patient_ye_and_a209_hyp_clin$quadrant)
 
 surv_plot <- ggsurvplot(fit_all_hypoxia, data = patient_ye_and_a209_hyp_clin, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),legend.labs = quadrant_levels,  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
 
-
+levels(patient_ye_and_a209_hyp_clin$quadrant)
 
 surv_plot$plot <- surv_plot$plot + 
   annotate(
