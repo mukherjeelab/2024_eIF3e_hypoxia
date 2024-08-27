@@ -1096,7 +1096,7 @@ rna_counts <- rbind(counts, new_df)
 # a209_hyp_total <- big_comparisons$
 
 ```
-a209 ribo only
+a209 rna only
 ```{r}
 # comparisons -------------------------------------------------------------------
 
@@ -1213,6 +1213,415 @@ rna_counts <- rbind(counts, new_df)
 
 
 ```
+
+# Checking RNA analyses ---------------------------------------------------------
+
+DESeq for a single comparison at a time.
+Takeaways: 
+- need to use coef rather than contrast argument when using apelgm method for LFC shrinkage
+- this means factor levels are critical - need to be checked, maybe printed, before each analysis
+
+Normoxia. Si3e compared to sicontrol
+
+Flipping so eIF3e is positive
+```{r}
+
+metadata$treatment <- factor(metadata$treatment, levels= c("si3e", "si3d", "sictrl", "a209", "DMSO"))
+
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="normoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3e")
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, library, rep, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  rna_subset <- allCounts %>% as.data.frame()
+    
+  rna_subset <- rna_subset[, colnames(rna_subset) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  resultsNames(dds)
+
+  res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
+
+  res_og_df_3e_norm <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res_og) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .) %>% 
+  filter(!symbol %in% nonpolyA) 
+
+# export to excel ---------------------------------------------------------------
+  
+   writexl::write_xlsx(x = res_og_df_3e_norm, path = here("counts/rna_signature_3e_normoxia.xlsx"), col_names = T)
+
+# visualization -----------------------------------------------------------------
+  
+  volcano <- EnhancedVolcano(toptable = res_og_df_3e_norm,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_rna_loop$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5),
+                title = "3e normoxia RNA",
+                subtitle = "",
+                legendPosition = "right",
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
+
+print(volcano)
+
+
+```
+# Now eif3e is up -- do the same for hypoxia
+
+
+# 3e hypoxia rna
+```{r}
+
+metadata$treatment <- factor(metadata$treatment, levels= c("si3e", "si3d", "sictrl", "a209", "DMSO"))
+
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3e")
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, library, rep, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  rna_subset <- allCounts %>% as.data.frame()
+    
+  rna_subset <- rna_subset[, colnames(rna_subset) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  resultsNames(dds)
+
+  res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
+
+  res_og_df_hypoxia_3e <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res_og) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .) %>% 
+  filter(!symbol %in% nonpolyA) 
+
+# export to excel ---------------------------------------------------------------
+  
+   writexl::write_xlsx(x = res_og_df_hypoxia_3e, path = here("counts/rna_signature_3e_hypoxia.xlsx"), col_names = T)
+
+# visualization -----------------------------------------------------------------
+  
+  volcano <- EnhancedVolcano(toptable = res_og_df_hypoxia_3e,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_rna_loop$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5),
+                title = "3e hypoxia RNA",
+                subtitle = "",
+                legendPosition = "right",
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
+
+print(volcano)
+
+
+```
+
+
+
+## Redoing 3d analysis
+
+```{r}
+
+metadata$treatment <- factor(metadata$treatment, levels= c("si3e", "si3d", "sictrl", "a209", "DMSO"))
+
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="normoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3d")
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, library, rep, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  
+  rna_subset <- allCounts %>% as.data.frame()
+    
+  rna_subset <- rna_subset[, colnames(rna_subset) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  resultsNames(dds)
+
+  res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
+
+  res_og_df_normoxia_3d <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res_og) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .) %>% 
+  filter(!symbol %in% nonpolyA) 
+
+# export to excel ---------------------------------------------------------------
+  
+   writexl::write_xlsx(x = res_og_df_normoxia_3d, path = here("counts/rna_signature_3d_normoxia.xlsx"), col_names = T)
+
+# visualization -----------------------------------------------------------------
+  
+  volcano <- EnhancedVolcano(toptable = res_og_df_normoxia_3d,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_rna_loop$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5),
+                title = "Normoxia 3d RNA",
+                subtitle = "",
+                legendPosition = "right",
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
+
+print(volcano)
+
+
+```
+
+
+
+# 3d hypoxia rna
+```{r}
+
+metadata$treatment <- factor(metadata$treatment, levels= c("si3e", "si3d", "sictrl", "a209", "DMSO"))
+
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3d")
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, library, rep, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  rna_subset <- allCounts %>% as.data.frame()
+    
+  rna_subset <- rna_subset[, colnames(rna_subset) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  resultsNames(dds)
+
+  res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
+
+  res_og_normoxia_3d <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res_og) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .) %>% 
+  filter(!symbol %in% nonpolyA) 
+
+# export to excel ---------------------------------------------------------------
+  
+   writexl::write_xlsx(x = res_og_normoxia_3d, path = here("counts/rna_signature_3d_hypoxia.xlsx"), col_names = T)
+
+# visualization -----------------------------------------------------------------
+  
+  volcano <- EnhancedVolcano(toptable = res_og_normoxia_3d,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_rna_loop$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5),
+                title = "Normoxia 3d RNA",
+                subtitle = "",
+                legendPosition = "right",
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
+
+print(volcano)
+
+
+```
+
+## Redoing a209 analysis the same way -- high values associated with a209 treatment -- should sortve be opposite of 3e
+# a209 normoxia
+```{r}
+
+metadata$treatment <- factor(metadata$treatment, levels= c("si3e", "si3d", "sictrl", "a209", "DMSO"))
+
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="normoxia") %>% 
+  filter(treatment=="DMSO"|treatment=="a209")
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, library, rep, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  rna_subset <- allCounts %>% as.data.frame()
+    
+  rna_subset <- rna_subset[, colnames(rna_subset) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  resultsNames(dds)
+
+  res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
+
+  res_og_normoxia_a209 <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res_og) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .) %>% 
+  filter(!symbol %in% nonpolyA) 
+
+# export to excel ---------------------------------------------------------------
+  
+   writexl::write_xlsx(x = res_og_normoxia_a209, path = here("counts/rna_signature_a209_normoxia.xlsx"), col_names = T)
+
+# visualization -----------------------------------------------------------------
+  
+  volcano <- EnhancedVolcano(toptable = res_og_normoxia_a209,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_rna_loop$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5),
+                title = "a209_normoxia",
+                subtitle = "",
+                legendPosition = "right",
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
+
+print(volcano)
+
+
+```
+
+
+
+# a209 hypoxia rna
+```{r}
+
+metadata$treatment <- factor(metadata$treatment, levels= c("si3e", "si3d", "sictrl", "a209", "DMSO"))
+
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment=="DMSO"|treatment=="a209")
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, library, rep, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  rna_subset <- allCounts %>% as.data.frame()
+    
+  rna_subset <- rna_subset[, colnames(rna_subset) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  resultsNames(dds)
+
+  res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
+
+  res_og_hypoxia_a209 <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res_og) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .) %>% 
+  filter(!symbol %in% nonpolyA) 
+
+# export to excel ---------------------------------------------------------------
+  
+   writexl::write_xlsx(x = res_og_hypoxia_a209, path = here("counts/rna_signature_a209_hypoxia.xlsx"), col_names = T)
+
+# visualization -----------------------------------------------------------------
+  
+  volcano <- EnhancedVolcano(toptable = res_og_hypoxia_a209,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_rna_loop$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5),
+                title = "a209 hypoxia RNA",
+                subtitle = "",
+                legendPosition = "right",
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
+
+print(volcano)
+
+
+```
+
+
+
+
+
+
+#############################
+
+
+
+
+
 
 
 
