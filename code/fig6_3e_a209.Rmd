@@ -39,6 +39,7 @@ library(cowplot)
 library(ggExtra)
 library(ggprism)
 library(GeneOverlap)
+library(writexl)
 
 ```
 
@@ -283,6 +284,10 @@ for (i in loop_vector) {
     mutate("name" = 
   paste(sample_info$condition, sample_info$treatment, sample_info$library, sample_info$rep, sep = "_"))
   
+  
+  levels(sample_info$condition)
+  levels(sample_info$treatment)
+  
   #filter AllCounts for i
   
   
@@ -311,6 +316,8 @@ for (i in loop_vector) {
   filter(!symbol %in% nonpolyA)  
 
   all_rna[[i]] <- res_rna_loop
+  
+
   
   
   # visualization -----------------------------------------------------------------
@@ -347,6 +354,13 @@ all_counts_rna <- rbind(all_counts_rna, data.frame(i,upreg_rna, downreg_rna))
 }
 
   # writexl::write_xlsx(x = res_te, path = here("counts","si3e_normoxiatohypoxia_TE.xlsx"), col_names = T)
+
+
+#export sictrl
+
+
+writexl::write_xlsx(x = all_rna$sictrl, path = here("counts/rna_sictrl_normoxia_to_hypoxia.xlsx"), col_names = T)
+
 
 
 ```
@@ -730,6 +744,14 @@ for (j in test_vector) {
                                  colData = sample_info, 
                                  design = ~treatment+library+treatment:library)
   ddsMat <- DESeq(ddsMat)
+  
+  levels(sample_info$condition)
+    levels(sample_info$treatment)
+      levels(sample_info$library)
+
+
+  
+  resultsNames(ddsMat)[4]
 
   res_te_loop <- results(ddsMat, name=resultsNames(ddsMat)[4], cooksCutoff=FALSE, independentFiltering=FALSE)
 
@@ -815,6 +837,8 @@ counts <- rbind(counts, new_df)
   ddsMat <- DESeq(ddsMat)
 
   res_te_loop <- results(ddsMat, name=resultsNames(ddsMat)[4], cooksCutoff=FALSE, independentFiltering=FALSE)
+  
+  resultsNames(ddsMat)[4]
 
   res_te_loop <- lfcShrink(dds = ddsMat, coef = resultsNames(ddsMat)[4], res = res_te_loop) %>% 
   as.data.frame() %>% 
@@ -1234,8 +1258,8 @@ metadata_loop <- metadata %>%
   filter(treatment=="sictrl"|treatment=="si3e")
 
 sample_info <- metadata_loop %>% 
-    mutate("name" = 
-  paste(condition, treatment, library, rep, sep = "_"))
+    mutate("name" = paste(condition, treatment, library, rep, sep = "_")) %>% 
+  droplevels()
   
   names <- as.character(sample_info$name)
   names
@@ -1252,7 +1276,9 @@ sample_info <- metadata_loop %>%
                                  colData = sample_info, 
                                  design = ~treatment)
   dds <- DESeq(dds)
-  resultsNames(dds)
+  
+  #double check factor levels
+ resultsNames(dds)
 
   res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
 
@@ -1317,7 +1343,9 @@ sample_info <- metadata_loop %>%
                                  colData = sample_info, 
                                  design = ~treatment)
   dds <- DESeq(dds)
-  resultsNames(dds)
+  
+    #double check factor levels
+  print(resultsNames(dds))
 
   res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
 
@@ -1383,7 +1411,9 @@ sample_info <- metadata_loop %>%
                                  colData = sample_info, 
                                  design = ~treatment)
   dds <- DESeq(dds)
-  resultsNames(dds)
+  
+  #double check factor levels
+  print(resultsNames(dds))
 
   res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
 
@@ -1448,7 +1478,9 @@ sample_info <- metadata_loop %>%
                                  colData = sample_info, 
                                  design = ~treatment)
   dds <- DESeq(dds)
-  resultsNames(dds)
+  
+    #double check factor levels
+  print(resultsNames(dds))
 
   res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
 
@@ -1496,6 +1528,8 @@ metadata_loop <- metadata %>%
 sample_info <- metadata_loop %>% 
     mutate("name" = 
   paste(condition, treatment, library, rep, sep = "_"))
+
+levels(metadata_loop$treatment)
   
   names <- as.character(sample_info$name)
   names
@@ -1512,7 +1546,9 @@ sample_info <- metadata_loop %>%
                                  colData = sample_info, 
                                  design = ~treatment)
   dds <- DESeq(dds)
-  resultsNames(dds)
+  
+    #double check factor levels
+  print(resultsNames(dds))
 
   res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
 
@@ -1577,7 +1613,9 @@ sample_info <- metadata_loop %>%
                                  colData = sample_info, 
                                  design = ~treatment)
   dds <- DESeq(dds)
-  resultsNames(dds)
+  
+    #double check factor levels
+  print(resultsNames(dds))
 
   res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
 
@@ -1611,6 +1649,11 @@ print(volcano)
 
 ```
 
+
+universe
+```{r}
+# 17988 genes in allCounts RNA
+```
 
 
 
@@ -1724,7 +1767,224 @@ single_condition_all <- si3e_single %>%
 #this df compares norm only and hyp only, compared to respective controls
 ```
   
+# Export TE signatures! These are 3e KD signatures or a209 sigantures, so eIF3e low signatures
+```{r}
+
+#3e ---------------------------------------------
+
+#norm sig ----------------------------------------
+
+# no cutoff
+
+norm_3e_no_cutoff <- norm_3e %>% 
+  filter(padj < 0.05)
+
+nrow(norm_3e_no_cutoff)
+
+
+# 0.5 cutoff
+
+norm_3e_0.5cutoff <- norm_3e %>% 
+  filter(padj < 0.05) %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+
+nrow(norm_3e_0.5cutoff)
+
+# 1 cutoff
+
+norm_3e_1cutoff <- norm_3e %>% 
+  filter(padj < 0.05) %>% 
+  filter(log2FoldChange < -1 | log2FoldChange > 1)
+
+nrow(norm_3e_1cutoff)
+
+
+#hyp sig -----------------------------------------
+
+# no cutoff
+
+hyp_3e_no_cutoff <- hyp_3e %>% 
+  filter(padj < 0.05)
+
+nrow(hyp_3e_no_cutoff)
+
+
+# 0.5 cutoff
+
+hyp_3e_0.5cutoff <- hyp_3e %>% 
+  filter(padj < 0.05) %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+
+nrow(hyp_3e_0.5cutoff)
+
+# 1 cutoff
+
+hyp_3e_1cutoff <- hyp_3e %>% 
+  filter(padj < 0.05) %>% 
+  filter(log2FoldChange < -1 | log2FoldChange > 1)
+
+nrow(hyp_3e_1cutoff)
+
+
+
+
+#3d ---------------------------------------------
+
+#norm sig ----------------------------------------
+
+# no cutoff
+
+norm_3d_no_cutoff <- norm_3d %>% 
+  filter(padj < 0.05)
+
+nrow(norm_3d_no_cutoff)
+
+
+# 0.5 cutoff
+
+norm_3d_0.5cutoff <- norm_3d %>% 
+  filter(padj < 0.05) %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+
+nrow(norm_3d_0.5cutoff)
+
+# 1 cutoff
+
+norm_3d_1cutoff <- norm_3d %>% 
+  filter(padj < 0.05) %>% 
+  filter(log2FoldChange < -1 | log2FoldChange > 1)
+
+nrow(norm_3d_1cutoff)
+
+
+#hyp sig -----------------------------------------
+
+# no cutoff
+
+hyp_3d_no_cutoff <- hyp_3d %>% 
+  filter(padj < 0.05)
+
+nrow(hyp_3d_no_cutoff)
+
+
+# 0.5 cutoff
+
+hyp_3d_0.5cutoff <- hyp_3d %>% 
+  filter(padj < 0.05) %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+
+nrow(hyp_3d_0.5cutoff)
+
+# 1 cutoff
+
+hyp_3d_1cutoff <- hyp_3d %>% 
+  filter(padj < 0.05) %>% 
+  filter(log2FoldChange < -1 | log2FoldChange > 1)
+
+nrow(hyp_3d_1cutoff)
+
+
+
+
+
+
+#a209 ---------------------------------------------
+
+#norm sig ----------------------------------------
+
+# no cutoff
+
+norm_a209_no_cutoff <- norm_a209 %>% 
+  filter(padj < 0.05)
+
+nrow(norm_a209_no_cutoff)
+
+
+# 0.5 cutoff
+
+norm_a209_0.5cutoff <- norm_a209 %>% 
+  filter(padj < 0.05) %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+
+nrow(norm_a209_0.5cutoff)
+
+# 1 cutoff
+
+norm_a209_1cutoff <- norm_a209 %>% 
+  filter(padj < 0.05) %>% 
+  filter(log2FoldChange < -1 | log2FoldChange > 1)
+
+nrow(norm_a209_1cutoff)
+
+
+#hyp sig -----------------------------------------
+
+# no cutoff
+
+hyp_a209_no_cutoff <- hyp_a209 %>% 
+  filter(padj < 0.05)
+
+nrow(hyp_a209_no_cutoff)
+
+
+# 0.5 cutoff
+
+hyp_a209_0.5cutoff <- hyp_a209 %>% 
+  filter(padj < 0.05) %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+
+nrow(hyp_a209_0.5cutoff)
+
+# 1 cutoff
+
+hyp_a209_1cutoff <- hyp_a209 %>% 
+  filter(padj < 0.05) %>% 
+  filter(log2FoldChange < -1 | log2FoldChange > 1)
+
+nrow(hyp_a209_1cutoff)
+
+
+```
+
+Save to workbooks
+```{r}
+
+# no cutoff
+write_xlsx(list(eIF3e_normoxia = norm_3e_no_cutoff,
+                eIF3e_hypoxia = hyp_3e_no_cutoff,
+                eIF3d_normoxia = norm_3d_no_cutoff,
+                eIF3d_hypoxia = hyp_3d_no_cutoff,
+                a209_normoxia = norm_a209_no_cutoff,
+                a209_hypoxia = hyp_a209_no_cutoff),
+           here("counts/TE_signatures_no_LFC_cutoff.xlsx"))
+
+
+#.5 cutoff
+
+write_xlsx(list(eIF3e_normoxia = norm_3e_0.5cutoff,
+                eIF3e_hypoxia = hyp_3e_0.5cutoff,
+                eIF3d_normoxia = norm_3d_0.5cutoff,
+                eIF3d_hypoxia = hyp_3d_0.5cutoff,
+                a209_normoxia = norm_a209_0.5cutoff,
+                a209_hypoxia = hyp_a209_0.5cutoff),
+           here("counts/TE_signatures_0.5_LFC_cutoff.xlsx"))
+
+
+#1 cutoff
+
+write_xlsx(list(eIF3e_normoxia = norm_3e_1cutoff,
+                eIF3e_hypoxia = hyp_3e_1cutoff,
+                eIF3d_normoxia = norm_3d_1cutoff,
+                eIF3d_hypoxia = hyp_3d_1cutoff,
+                a209_normoxia = norm_a209_1cutoff,
+                a209_hypoxia = hyp_a209_1cutoff),
+           here("counts/TE_signatures_1_LFC_cutoff.xlsx"))
+```
+
   
+  
+  
+
   
   #3e compared to a209 - supplemental data?
 

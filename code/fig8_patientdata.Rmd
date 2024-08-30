@@ -29,6 +29,9 @@ library(GSEABase)
 library(matrixStats)
 library(clusterProfiler)
 library(msigdbr)
+library(GeneOverlap)
+library(UpSetR)
+library(ComplexHeatmap)
 ```
 
 # Load RNA signatures - generated in fig 6 code
@@ -36,7 +39,7 @@ library(msigdbr)
 ### 3e normoxia and hypoxia
 ```{r}
 
-
+all_rna_3e_norm <- read_excel(here("counts/rna_signature_3e_normoxia.xlsx"))
 rna_3e_norm <- read_excel(here("counts/rna_signature_3e_normoxia.xlsx")) %>% 
   filter(padj < 0.05)
 
@@ -53,7 +56,7 @@ tally(down_3e_norm)
 sig_3e_norm <- rbind(up_3e_norm, down_3e_norm)
 
 # 3e hypoxia
-
+all_rna_3e_hyp<- read_excel(here("counts/rna_signature_3e_hypoxia.xlsx"))
 rna_3e_hyp <- read_excel(here("counts/rna_signature_3e_hypoxia.xlsx")) %>% 
   filter(padj < 0.05)
 
@@ -76,7 +79,7 @@ sig_3e_hyp <- rbind(up_3e_hyp, down_3e_hyp)
 ### 3d normoxia and hypoxia
 ```{r}
 
-
+all_rna_3d_norm <- read_excel(here("counts/rna_signature_3d_normoxia.xlsx"))
 rna_3d_norm <- read_excel(here("counts/rna_signature_3d_normoxia.xlsx")) %>% 
   filter(padj < 0.05)
 
@@ -94,7 +97,7 @@ sig_3d_norm <- rbind(up_3d_norm, down_3d_norm)
 
 
 # 3d hypoxia
-
+all_rna_3d_hyp<- read_excel(here("counts/rna_signature_3d_hypoxia.xlsx"))
 rna_3d_hyp <- read_excel(here("counts/rna_signature_3d_hypoxia.xlsx")) %>% 
   filter(padj < 0.05)
 
@@ -118,7 +121,7 @@ sig_3d_hyp <- rbind(up_3d_hyp, down_3d_hyp)
 
 ### a209 normoxia and hypoxia
 ```{r}
-
+all_rna_a209_norm <- read_excel(here("counts/rna_signature_a209_normoxia.xlsx"))
 rna_a209_norm <- read_excel(here("counts/rna_signature_a209_normoxia.xlsx")) %>% 
   filter(padj < 0.05)
 
@@ -136,7 +139,7 @@ sig_a209_norm <- rbind(up_a209_norm, down_a209_norm)
 
 
 # a209 hypoxia
-
+all_rna_a209_hyp <- read_excel(here("counts/rna_signature_a209_hypoxia.xlsx"))
 rna_a209_hyp <- read_excel(here("counts/rna_signature_a209_hypoxia.xlsx")) %>% 
   filter(padj < 0.05)
 
@@ -183,20 +186,302 @@ merged_zscores_matrix <- merged_zscores_all %>%
 ```
 
 
-# Assign to each patient a z score for the 3e normoxia signature
+# Investigate the signatures - 3e vs a209 RNA signatures
+Two goals:
+1. Overlap analysis of the genes in the union of the signatures - make an upset plot and an odds ratio
+2. scatter plot with any gene in any for 3e and 3d
 
-Filter expression matrix for genes of interest
+
 ```{r}
-# genes <- sig_3e_norm$symbol
-# 
-# verified_genes <- genes[genes %in% rownames(merged_zscores_matrix)]
-# 
-# filtered_expr <- merged_zscores_matrix[verified_genes, , drop = FALSE]
+
+overalp_3e_a209_norm <- intersect(sig_3e_norm$symbol, sig_a209_norm$symbol)
+
+overalp_3e_a209_hyp <- intersect(sig_3e_hyp$symbol, sig_a209_hyp$symbol)
+
+#odds ratio of up/down/norm/hyp for 3e and a209
+
+
+#Make lists for each
+list_up_3e_norm <- up_3e_norm$symbol %>% as.data.frame()
+list_up_3e_norm$gs_name <- rep("up_3e_norm")
+
+list_up_3e_hyp <- up_3e_hyp$symbol%>% as.data.frame()
+list_up_3e_hyp$gs_name <- rep("up_3e_hyp")
+
+list_down_3e_norm <- down_3e_norm$symbol%>% as.data.frame()
+list_down_3e_norm$gs_name <- rep("down_3e_norm")
+
+list_down_3e_hyp <- down_3e_hyp$symbol%>% as.data.frame()
+list_down_3e_hyp$gs_name <- rep("down_3e_hyp")
+
+list_up_a209_norm <- up_a209_norm$symbol%>% as.data.frame()
+list_up_a209_norm$gs_name <- rep("up_a209_norm")
+
+list_up_a209_hyp <- up_a209_hyp$symbol%>% as.data.frame()
+list_up_a209_hyp$gs_name <- rep("up_a209_hyp")
+
+list_down_a209_norm <- down_a209_norm$symbol%>% as.data.frame()
+list_down_a209_norm$gs_name <- rep("down_a209_norm")
+
+list_down_a209_hyp <- down_a209_hyp$symbol%>% as.data.frame()
+list_down_a209_hyp$gs_name <- rep("down_a209_hyp")
+
+
+#combine lists
+
+all_lists <- bind_rows(list_up_3e_norm,list_up_3e_hyp,list_down_3e_norm,list_down_3e_hyp,list_up_a209_norm,list_up_a209_hyp,list_down_a209_norm,list_down_a209_hyp) %>% 
+  # separate(gs_name, c("direction", "treatment", "condition")) %>% 
+  rename(.,symbol = .)
+
+gom.allsamples <- split(all_lists$symbol, all_lists$gs_name)
+
+#genome size for universe is all RNA expressed - 17988 genes in rna subset
+
+gom.all <- newGOM(gom.allsamples, gom.allsamples, genome.size = 17988)
+
+odds.matrix <- getMatrix(gom.all, "odds")
+pval.matrix <- getMatrix(gom.all, "pval")
+
+
+
+
+# pheatmap::pheatmap(mat = odds.matrix, display_numbers=TRUE, scale = "none")
+
+#Log the odds ratios bc this is too much
+
+log.odds.matrix <- log10(odds.matrix)
+
+log.odds.matrix[is.na(log.odds.matrix)] <- 0
+log.odds.matrix[is.nan(log.odds.matrix)] <- 0
+log.odds.matrix[is.infinite(log.odds.matrix)] <- 1
+
+pheatmap::pheatmap(mat = log.odds.matrix, display_numbers=TRUE, scale = "none")
+```
+log odds matrix
+```{r}
+log_palette <- c("white", "#e2ffba", "#8fd62d", "#87bd3c")
+
+breaks <- c(0, 1.1, 1.5, 2, 3)
+
+
+pheatmap(
+  mat = log.odds.matrix,
+  display_numbers = TRUE,
+  scale = "none",
+  color = log_palette,
+  breaks = breaks,
+  cellwidth = 20, 
+  cellheight = 20,
+  cluster_rows = FALSE,
+  cluster_cols = FALSE
+)
+
+
+odds.matrix[is.na(log.odds.matrix)] <- 0
+odds.matrix[is.nan(log.odds.matrix)] <- 0
+odds.matrix[is.infinite(odds.matrix)] <- 1
+
+pheatmap(
+  mat = odds.matrix,
+  display_numbers = TRUE,
+  scale = "none",
+  color = log_palette,
+  breaks = breaks,
+  cellwidth = 20, 
+  cellheight = 20,
+  cluster_rows = FALSE,
+  cluster_cols = FALSE,
+  fontsize_number = 6
+)
+
 
 
 ```
 
 
+
+
+
+
+p value matrix
+```{r}
+my_palette <- c("yellow", "grey")
+
+# Create a break vector to ensure that the color transition happens at 0.05
+breaks <- c(0, 0.05, 1)
+
+# Generate the heatmap
+pheatmap(
+  mat = pval.matrix,
+  display_numbers = TRUE,
+  scale = "none",
+  color = my_palette,
+  breaks = breaks,
+  cellwidth = 20, 
+  cellheight = 20,
+  cluster_rows = FALSE,
+  cluster_cols = FALSE
+)
+```
+
+
+
+
+
+
+
+Make an upset plot with gene intersects
+```{r}
+
+
+
+#make new lists
+
+input_list <-list(
+up_3e_norm = up_3e_norm$symbol,
+down_3e_norm = down_3e_norm$symbol,
+up_a209_norm = up_a209_norm$symbol,
+down_a209_norm = down_a209_norm$symbol,
+up_3e_hyp = up_3e_hyp$symbol,
+down_3e_hyp = down_3e_hyp$symbol,
+up_a209_hyp = up_a209_hyp$symbol,
+down_a209_hyp = down_a209_hyp$symbol
+)
+
+
+intersect = make_comb_mat(input_list, mode = "intersect")
+
+#UpSet(intersect, comb_order = order(comb_size(intersect)))
+UpSet(intersect[comb_degree(intersect) == 2],
+      comb_order = order(comb_size(intersect[comb_degree(intersect) == 2])))
+
+
+
+```
+
+```{r}
+intersect2 <- intersect[comb_degree(intersect) == 2]
+ss = set_size(intersect2)
+cs = comb_size(intersect2)
+ht = UpSet(intersect2, 
+    set_order = order(ss),
+    comb_order = order(comb_degree(intersect2), -cs),
+    top_annotation = HeatmapAnnotation(
+        "Number of Overlapping Genes" = anno_barplot(cs, 
+            ylim = c(0, max(cs)*1.1),
+            border = FALSE, 
+            gp = gpar(fill = "black"), 
+            height = unit(4, "cm")
+        ), 
+        annotation_name_side = "left", 
+        annotation_name_rot = 90),
+    left_annotation = rowAnnotation(
+        "Set size" = anno_barplot(-ss, 
+            baseline = 0,
+            axis_param = list(
+                at = c(0, -500, -1000, -1500),
+                labels = c(0, 500, 1000, 1500),
+                labels_rot = 0),
+            border = FALSE, 
+            gp = gpar(fill = "black"), 
+            width = unit(4, "cm")
+        ),
+        set_name = anno_text(set_name(intersect2), 
+            location = 0.5, 
+            just = "center",
+            width = max_text_width(set_name(intersect2)) + unit(4, "mm"))
+    ), 
+    right_annotation = NULL,
+    show_row_names = FALSE)
+ht = draw(ht)
+od = column_order(ht)
+decorate_annotation("Number of Overlapping Genes", {
+    grid.text(cs[od], x = seq_along(cs), y = unit(cs[od], "native") + unit(2, "pt"), 
+        default.units = "native", just = c("left", "bottom"), 
+        gp = gpar(fontsize = 6, col = "#404040"), rot = 45)
+})
+```
+
+
+# Scatter plot
+Use any genes sig in at least one of the genesets. Plot the log fold changes of 3e against a209 in normoxia and hypoxia-- look at the values of the genes
+```{r}
+
+all_sig_genes <- unique(all_lists$symbol)
+all_sig_genes
+#691 genes total
+
+#norm genes
+all_norm_sig_genes <- all_lists %>%
+  filter(str_detect(gs_name, "norm"))
+
+all_norm_sig_genes <- unique(all_norm_sig_genes$symbol)
+
+#hyp genes
+all_hyp_sig_genes <- all_lists %>%
+  filter(str_detect(gs_name, "hyp"))
+
+all_hyp_sig_genes <- unique(all_hyp_sig_genes$symbol)
+
+#plot values of those genes
+
+```
+normoxia
+```{r}
+all2_rna_a209_norm<- all_rna_a209_norm %>% 
+  mutate(treat = "a209_norm")
+
+all2_rna_3e_norm<- all_rna_3e_norm %>% 
+  mutate(treat = "eIF3e_norm")
+
+norm_all <- rbind(all2_rna_a209_norm, all2_rna_3e_norm) %>% 
+  dplyr::select(gene_id, symbol, log2FoldChange, treat) %>% 
+  filter(symbol %in% all_norm_sig_genes) %>% 
+  pivot_wider(id_cols=c(gene_id, symbol), names_from = treat, values_from = log2FoldChange)
+
+ggplot(norm_all, aes(x=eIF3e_norm, y=a209_norm))+
+  geom_point()+
+  theme_cowplot()
+
+cor.test(norm_all$eIF3e_norm, norm_all$a209_norm)
+
+
+
+```
+
+
+
+hypoxia
+```{r}
+all2_rna_a209_hyp<- all_rna_a209_hyp %>% 
+  mutate(treat = "a209_hyp")
+
+all2_rna_3e_hyp<- all_rna_3e_hyp %>% 
+  mutate(treat = "eIF3e_hyp")
+
+hyp_all <- rbind(all2_rna_a209_hyp, all2_rna_3e_hyp) %>% 
+  dplyr::select(gene_id, symbol, log2FoldChange, treat) %>% 
+  filter(symbol %in% all_hyp_sig_genes) %>% 
+  pivot_wider(id_cols=c(gene_id, symbol), names_from = treat, values_from = log2FoldChange)
+
+ggplot(hyp_all, aes(x=eIF3e_hyp, y=a209_hyp))+
+  geom_point()+
+  theme_cowplot()
+
+cor.test(hyp_all$eIF3e_hyp, hyp_all$a209_hyp)
+
+
+
+```
+
+
+
+
+
+
+
+
+# Assign to each patient a z score for the 3e normoxia signature
 
 for loop generating z score for each patient
 
@@ -371,7 +656,7 @@ pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps 
 
 ```{r}
 
-surv_plot <- ggsurvplot(fit_all, data = all_data, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),legend.labs = c("depleted for eIF3e signature: low (Q1)","depleted: medium-low (Q2)", "enriched: medium-high (Q3)", "enriched for eIF3e signature: high (Q4)"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+surv_plot <- ggsurvplot(fit_all, data = all_data, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
 
 
 
@@ -383,11 +668,29 @@ surv_plot$plot <- surv_plot$plot +
     size = 5, 
     color = "black"
   )+
-  theme(text = element_text(size = 14))
+  theme(text = element_text(size = 14))+
+  ggtitle("Patient quatiles by eIF3e normoxia signature")
 
 surv_plot
 
 ggsave("3e_normoxia_surv_plot.pdf", path=here("plots"),width = 11.5, height=8)
+
+
+
+
+
+ggplot(all_data, aes(x=quantile,y=total_z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for eIF3e normoxia signature")
+
+ggsave("3e norm boxplot.pdf",  path=here("plots"), width=4.5, height=4)
+
+
+
+
+
+
 ```
 
 Plot just upper and lower quartiles
@@ -513,6 +816,8 @@ pval <- format.pval(summary_coxfit_3e_norm$coefficients[1, "Pr(>|z|)"], digits =
 
 surv_plot_3e_hyp <- ggsurvplot(fit_all_3e_hyp, data = all_data_3e_hyp, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),legend.labs = c("depleted for eIF3e signature (hypoxia): low (Q1)","depleted: medium-low (Q2)", "enriched: medium-high (Q3)", "enriched for eIF3e signature (hypoxia): high (Q4)"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = NA, risk.table.height = 0.25, ggtheme = theme_bw())
 
+surv_plot_3e_hyp <- ggsurvplot(fit_all_3e_hyp, data = all_data_3e_hyp, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = NA, risk.table.height = 0.25, ggtheme = theme_bw())
+
 
 
 surv_plot_3e_hyp$plot <- surv_plot_3e_hyp$plot + 
@@ -523,7 +828,8 @@ surv_plot_3e_hyp$plot <- surv_plot_3e_hyp$plot +
     size = 5, 
     color = "black"
   )+
-  theme(text = element_text(size = 14))
+  theme(text = element_text(size = 14))+
+  ggtitle("Patient quartiles by eIF3e hypoxia signature")
 
 surv_plot_3e_hyp
 
@@ -531,7 +837,19 @@ ggsave("3e_hyp_surv_plot.pdf", path=here("plots"),width = 11.5, height=8)
 
 
 
+#boxplot of quartile expression
+
+ggplot(all_data_3e_hyp, aes(x=quantile,y=total_z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for eIF3e hypoxia signature")
+
 ```
+
+
+
+
+
 
 
 # eIF3d
@@ -647,7 +965,7 @@ summary_coxfit_3d_norm <- summary(coxfit)
 hr <- round(summary_coxfit_3d_norm$coefficients[1, "exp(coef)"], 2)
 pval <- format.pval(summary_coxfit_3d_norm$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
 
-surv_plot_3d_hyp <- ggsurvplot(fit_all_3d_hyp, data = all_data_3d_hyp, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),legend.labs = c("depleted for eIF3d signature (hypoxia): low (Q1)","depleted: medium-low (Q2)", "enriched: medium-high (Q3)", "enriched for eIF3d signature (hypoxia): high (Q4)"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+surv_plot_3d_hyp <- ggsurvplot(fit_all_3d_hyp, data = all_data_3d_hyp, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
 
 
 
@@ -659,7 +977,8 @@ surv_plot_3d_hyp$plot <- surv_plot_3d_hyp$plot +
     size = 5, 
     color = "black"
   )+
-  theme(text = element_text(size = 14))
+  theme(text = element_text(size = 14))+
+  ggtitle("Patient quartiles by eIF3d hypoxia signature")
 
 surv_plot_3d_hyp
 
@@ -667,7 +986,14 @@ ggsave("3d_hyp_surv_plot.pdf", path=here("plots"),width = 11.5, height=8)
 
 
 
+#boxplot of quartile expression
 
+ggplot(all_data_3d_hyp, aes(x=quantile,y=total_z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for eIF3d hypoxia signature")
+
+ggsave("3d hyp boxplot.pdf",  path=here("plots"), width=4.5, height=4)
 
 
 ```
@@ -787,7 +1113,7 @@ summary_coxfit_3d_norm <- summary(coxfit)
 hr <- round(summary_coxfit_3d_norm$coefficients[1, "exp(coef)"], 2)
 pval <- format.pval(summary_coxfit_3d_norm$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
 
-surv_plot_3d_norm <- ggsurvplot(fit_all_3d_norm, data = all_data_3d_norm, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),legend.labs = c("depleted for eIF3d signature (normoxia): low (Q1)","depleted: medium-low (Q2)", "enriched: medium-high (Q3)", "enriched for eIF3d signature (normoxia): high (Q4)"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+surv_plot_3d_norm <- ggsurvplot(fit_all_3d_norm, data = all_data_3d_norm, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
 
 
 
@@ -799,11 +1125,21 @@ surv_plot_3d_norm$plot <- surv_plot_3d_norm$plot +
     size = 5, 
     color = "black"
   )+
-  theme(text = element_text(size = 14))
+  theme(text = element_text(size = 14))+
+  ggtitle("Patient quartiles by eIF3d normoxia signature")
 
 surv_plot_3d_norm
 
 ggsave("3d_norm_surv_plot.pdf", path=here("plots"),width = 11.5, height=8)
+
+
+ggplot(all_data_3d_norm, aes(x=quantile,y=total_z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for eIF3d normoxia signature")
+
+ggsave("3d norm boxplot.pdf",  path=here("plots"), width=4.5, height=4)
+
 
 
 
@@ -920,7 +1256,7 @@ summary_coxfit_a209_norm <- summary(coxfit)
 hr <- round(summary_coxfit_a209_norm$coefficients[1, "exp(coef)"], 2)
 pval <- format.pval(summary_coxfit_a209_norm$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
 
-surv_plot_a209_norm <- ggsurvplot(fit_all_a209_norm, data = all_data_a209_norm, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),legend.labs = c("depleted for a209 signature (normoxia): low (Q1)","depleted: medium-low (Q2)", "enriched: medium-high (Q3)", "enriched for 209 signature (normoxia): high (Q4)"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+surv_plot_a209_norm <- ggsurvplot(fit_all_a209_norm, data = all_data_a209_norm, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"), break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
 
 
 
@@ -932,11 +1268,29 @@ surv_plot_a209_norm$plot <- surv_plot_a209_norm$plot +
     size = 5, 
     color = "black"
   )+
-  theme(text = element_text(size = 14))
+  theme(text = element_text(size = 14))+
+  ggtitle("Patient quartiles by a209 normoxia signature")
 
 surv_plot_a209_norm
 
 ggsave("a209_norm_surv_plot.pdf", path=here("plots"),width = 11.5, height=8)
+
+
+
+
+
+
+
+ggplot(all_data_a209_norm, aes(x=quantile,y=total_z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for eIF3e normoxia signature")
+
+ggsave("a209 norm boxplot.pdf",  path=here("plots"), width=4.5, height=4)
+
+
+
+
 
 ```
 
@@ -1053,6 +1407,9 @@ pval <- format.pval(summary_coxfit_a209_hyp$coefficients[1, "Pr(>|z|)"], digits 
 surv_plot_a209_hyp <- ggsurvplot(fit_all_a209_hyp, data = all_data_a209_hyp, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),legend.labs = c("depleted for a209 signature (hypoxia): low (Q1)","depleted: medium-low (Q2)", "enriched: medium-high (Q3)", "enriched for 209 signature (hypoxia): high (Q4)"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
 
 
+surv_plot_a209_hyp <- ggsurvplot(fit_all_a209_hyp, data = all_data_a209_hyp, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
 
 surv_plot_a209_hyp$plot <- surv_plot_a209_hyp$plot + 
   annotate(
@@ -1062,7 +1419,8 @@ surv_plot_a209_hyp$plot <- surv_plot_a209_hyp$plot +
     size = 5, 
     color = "black"
   )+
-  theme(text = element_text(size = 14))
+  theme(text = element_text(size = 14))+
+  ggtitle("Patient quartiles by a209 hypoxia signature")
 
 surv_plot_a209_hyp
 
@@ -1074,6 +1432,19 @@ ggsave("a209_hyp_surv_plot.pdf", path=here("plots"),width = 11.5, height=8)
 
 
 
+#boxplot of quartile expression
+
+ggplot(all_data_a209_hyp, aes(x=quantile,y=total_z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for a209 hypoxia signature")
+
+
+
+
+
+
+ggsave("a209 hyp boxplot.pdf",  path=here("plots"), width=4.5, height=4)
 
 
 ```
@@ -1137,6 +1508,349 @@ ggplot(all_data_a209_hyp, aes(fill=RFS_STATUS, x=quantile, y=1)) +
 print(quantile_labels)
 
 ```
+
+# Take the intersection of a209 genes and eIF3e genes. Do a survival curve analysis
+
+```{r}
+#up
+
+overalp_3e_a209_norm_up <- intersect(up_3e_norm$symbol, up_a209_norm$symbol)
+
+#down
+overalp_3e_a209_norm_down <- intersect(down_3e_norm$symbol, down_a209_norm$symbol)
+
+#up
+
+overalp_3e_a209_hyp_up <- intersect(up_3e_hyp$symbol, up_a209_hyp$symbol)
+
+#down
+overalp_3e_a209_hyp_down <- intersect(down_3e_hyp$symbol, down_a209_hyp$symbol)
+```
+
+# assign z scores for intersection of 3e and a209
+
+## Normoxia
+
+```{r}
+
+norm_intersect_total <- c(overalp_3e_a209_norm_up,overalp_3e_a209_norm_down)
+
+exp <- merged_zscores_matrix %>%
+  as.data.frame() %>% 
+  rownames_to_column("Hugo_Symbol") %>% 
+  filter(Hugo_Symbol %in% norm_intersect_total) %>% 
+  column_to_rownames("Hugo_Symbol")
+
+# up loop
+
+patients <- colnames(merged_zscores_all)
+patients <- patients[patients !="Hugo_Symbol"]
+
+
+up_norm_intersect_total <- data.frame(patient=character(), avg_z_score=numeric(), stringsAsFactors = FALSE)
+
+for (i in patients) {
+  
+  #filter dataframe
+  patient_level <- exp %>% 
+    dplyr::select(i) %>%
+    rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% overalp_3e_a209_norm_up)
+  
+  all_values <- as.vector(patient_level[,2])
+  
+  
+  #geometric mean
+  
+  up_genes_z_score <- mean(all_values)
+  
+  loop_dataset <- data.frame(patient=i, up_norm_intersect_z_score = up_genes_z_score)
+  
+  up_norm_intersect_total <- rbind(up_norm_intersect_total, loop_dataset)
+}
+
+ggplot(up_norm_intersect_total, aes(x=up_norm_intersect_z_score))+
+  geom_histogram(bins = 400)
+
+# down loop
+
+patients <- colnames(merged_zscores_all)
+patients <- patients[patients !="Hugo_Symbol"]
+
+
+down_norm_intersect_total <- data.frame(patient=character(), avg_z_score=numeric(), stringsAsFactors = FALSE)
+
+for (i in patients) {
+  
+  #filter dataframe
+  patient_level <- exp %>% 
+    dplyr::select(i) %>%
+    rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% overalp_3e_a209_norm_down)
+  
+  all_values <- as.vector(patient_level[,2])
+  
+  
+  #geometric mean
+  
+  down_genes_z_score <- mean(all_values)
+  
+  loop_dataset <- data.frame(patient=i, down_norm_intersect_z_score = down_genes_z_score)
+  
+  down_norm_intersect_total <- rbind(down_norm_intersect_total, loop_dataset)
+}
+
+ggplot(down_norm_intersect_total, aes(x=down_norm_intersect_z_score))+
+  geom_histogram(bins = 400)
+
+
+
+
+
+##
+
+# merge datasets
+
+norm_intersect_total <- left_join(up_norm_intersect_total, down_norm_intersect_total, by="patient")
+
+norm_intersect_total <- norm_intersect_total %>% 
+  mutate(total_z_score = up_norm_intersect_z_score - down_norm_intersect_z_score)
+
+#visualize distribution
+
+ggplot(norm_intersect_total, aes(x=total_z_score))+
+  geom_histogram(bins = 400)
+
+
+
+### Stratify based on z-score
+
+quantile_groups <- quantile(norm_intersect_total$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+norm_intersect_total$quantile <- cut(norm_intersect_total$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+norm_intersect_total$patient <- gsub("\\.", "-", as.character(norm_intersect_total$patient))
+
+
+#bind clin data with z score
+
+all_norm_intersect_total <- left_join(clin, norm_intersect_total, by=c("PATIENT_ID"="patient"))
+
+
+#plot
+
+fit_all_norm_intersect_total <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_norm_intersect_total)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_norm_intersect_total)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+surv_plot_norm_intersect_total <- ggsurvplot(fit_all_norm_intersect_total, data = all_norm_intersect_total, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"), break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
+
+surv_plot_norm_intersect_total$plot <- surv_plot_norm_intersect_total$plot + 
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 5, 
+    color = "black"
+  )+
+  theme(text = element_text(size = 14))+
+  ggtitle("Patient quartiles intersect of 3e and a209 normoxia signatures")
+
+surv_plot_norm_intersect_total
+
+ggsave("norm_intersect_surv_plot.pdf", path=here("plots"),width = 11.5, height=8)
+
+
+
+ggplot(all_norm_intersect_total, aes(x=quantile,y=total_z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for intersect of 3e and a209 normoxia signatures")
+
+ggsave("norm_intersect_boxplot.pdf",  path=here("plots"), width=4.5, height=4)
+
+
+
+
+
+```
+
+
+## hypoxia
+
+```{r}
+
+hyp_intersect_total <- c(overalp_3e_a209_hyp_up,overalp_3e_a209_hyp_down)
+
+exp <- merged_zscores_matrix %>%
+  as.data.frame() %>% 
+  rownames_to_column("Hugo_Symbol") %>% 
+  filter(Hugo_Symbol %in% hyp_intersect_total) %>% 
+  column_to_rownames("Hugo_Symbol")
+
+# up loop
+
+patients <- colnames(merged_zscores_all)
+patients <- patients[patients !="Hugo_Symbol"]
+
+
+up_hyp_intersect_total <- data.frame(patient=character(), avg_z_score=numeric(), stringsAsFactors = FALSE)
+
+for (i in patients) {
+  
+  #filter dataframe
+  patient_level <- exp %>% 
+    dplyr::select(i) %>%
+    rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% overalp_3e_a209_hyp_up)
+  
+  all_values <- as.vector(patient_level[,2])
+  
+  
+  #geometric mean
+  
+  up_genes_z_score <- mean(all_values)
+  
+  loop_dataset <- data.frame(patient=i, up_hyp_intersect_z_score = up_genes_z_score)
+  
+  up_hyp_intersect_total <- rbind(up_hyp_intersect_total, loop_dataset)
+}
+
+ggplot(up_hyp_intersect_total, aes(x=up_hyp_intersect_z_score))+
+  geom_histogram(bins = 400)
+
+# down loop
+
+patients <- colnames(merged_zscores_all)
+patients <- patients[patients !="Hugo_Symbol"]
+
+
+down_hyp_intersect_total <- data.frame(patient=character(), avg_z_score=numeric(), stringsAsFactors = FALSE)
+
+for (i in patients) {
+  
+  #filter dataframe
+  patient_level <- exp %>% 
+    dplyr::select(i) %>%
+    rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% overalp_3e_a209_hyp_down)
+  
+  all_values <- as.vector(patient_level[,2])
+  
+  
+  #geometric mean
+  
+  down_genes_z_score <- mean(all_values)
+  
+  loop_dataset <- data.frame(patient=i, down_hyp_intersect_z_score = down_genes_z_score)
+  
+  down_hyp_intersect_total <- rbind(down_hyp_intersect_total, loop_dataset)
+}
+
+ggplot(down_hyp_intersect_total, aes(x=down_hyp_intersect_z_score))+
+  geom_histogram(bins = 400)
+
+
+
+
+
+##
+
+# merge datasets
+
+hyp_intersect_total <- left_join(up_hyp_intersect_total, down_hyp_intersect_total, by="patient")
+
+hyp_intersect_total <- hyp_intersect_total %>% 
+  mutate(total_z_score = up_hyp_intersect_z_score - down_hyp_intersect_z_score)
+
+#visualize distribution
+
+ggplot(hyp_intersect_total, aes(x=total_z_score))+
+  geom_histogram(bins = 400)
+
+
+
+### Stratify based on z-score
+
+quantile_groups <- quantile(hyp_intersect_total$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+hyp_intersect_total$quantile <- cut(hyp_intersect_total$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+hyp_intersect_total$patient <- gsub("\\.", "-", as.character(hyp_intersect_total$patient))
+
+
+#bind clin data with z score
+
+all_hyp_intersect_total <- left_join(clin, hyp_intersect_total, by=c("PATIENT_ID"="patient"))
+
+
+#plot
+
+fit_all_hyp_intersect_total <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_hyp_intersect_total)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_hyp_intersect_total)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+surv_plot_hyp_intersect_total <- ggsurvplot(fit_all_hyp_intersect_total, data = all_hyp_intersect_total, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"), break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
+
+surv_plot_hyp_intersect_total$plot <- surv_plot_hyp_intersect_total$plot + 
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 5, 
+    color = "black"
+  )+
+  theme(text = element_text(size = 14))+
+  ggtitle("Patient quartiles intersect of 3e and a209 hypoxia signatures")
+
+surv_plot_hyp_intersect_total
+
+ggsave("hyp_intersect_surv_plot.pdf", path=here("plots"),width = 11.5, height=8)
+
+
+
+ggplot(all_hyp_intersect_total, aes(x=quantile,y=total_z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for intersect of 3e and a209 hypoxia signatures")
+
+ggsave("hyp_intersect_boxplot.pdf",  path=here("plots"), width=4.5, height=4)
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1221,7 +1935,7 @@ summary_coxfit_ye <- summary(coxfit)
 hr <- round(summary_coxfit_ye$coefficients[1, "exp(coef)"], 2)
 pval <- format.pval(summary_coxfit_ye$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
 
-surv_plot_ye <- ggsurvplot(fit_all_data_hif_ye, data = all_data_hif_ye, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),legend.labs = c("depleted for ye hypoxia signature: low (Q1)","depleted: medium-low (Q2)", "enriched: medium-high (Q3)", "enriched for ye hypoxia signature: high (Q4)"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+surv_plot_ye <- ggsurvplot(fit_all_data_hif_ye, data = all_data_hif_ye, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"), break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
 
 
 
@@ -1242,6 +1956,16 @@ ggsave("surv_plot_ye.pdf", path=here("plots"),width = 11.5, height=8)
 
 
 
+ggplot(all_data_hif_ye, aes(x=quantile,y=ye_hyp_sig_up, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for Ye et al hypoxia signature")
+
+ggsave("ye hyp boxplot.pdf",  path=here("plots"), width=4.5, height=4)
+
+
+
+
 ```
 
 
@@ -1257,7 +1981,7 @@ patient_ye_and_3e <- left_join(patient_scores, ye_hif_dataset, by="patient")
 ggplot(patient_ye_and_3e, aes(x=ye_hyp_sig_up, y= total_z_score))+
   geom_point()+
   xlab("Ye Hypoxia z score")+
-  ylab("eIF3e KD (normoxia) z score")+
+  ylab("eIF3e (normoxia) z score")+
   theme_cowplot()+ 
   theme(text = element_text(size = 14))
 
@@ -1304,10 +2028,12 @@ Make four groups based on quandrants
 ```{r}
 
 patient_ye_and_3e_hyp <- patient_ye_and_3e_hyp %>% 
-  mutate(quadrant = ifelse(ye_hyp_sig_up < 0 & total_z_score < 0, "depleted hypoxia sig and depleted eIF3e (hypoxia) sig",
-                           ifelse(ye_hyp_sig_up > 0 & total_z_score < 0, "enriched hypoxia sig and depleted eIF3e (hypoxia) sig",
-                                  ifelse(ye_hyp_sig_up > 0 & total_z_score > 0, "enriched hypoxia sig and enriched eIF3e (hypoxia) sig",
-                                         ifelse(ye_hyp_sig_up < 0 & total_z_score > 0, "depleted hypoxia sig and enriched eIF3e (hypoxia) sig", "other")))))
+  mutate(quadrant = ifelse(ye_hyp_sig_up < 0 & total_z_score < 0, "low hypoxia and low eIF3e (hypoxia)",
+                           ifelse(ye_hyp_sig_up > 0 & total_z_score < 0, "high hypoxia and low eIF3e (hypoxia)",
+                                  ifelse(ye_hyp_sig_up > 0 & total_z_score > 0, "high hypoxia and high eIF3e (hypoxia)",
+                                         ifelse(ye_hyp_sig_up < 0 & total_z_score > 0, "low hypoxia sig and high eIF3e (hypoxia)", "other")))))
+
+
 
 ```
 
@@ -1345,7 +2071,8 @@ surv_plot$plot <- surv_plot$plot +
     label = paste("HR =", hr, "\np =", pval), 
     size = 5, 
     color = "black"
-  )+ theme(text = element_text(size = 14))
+  )+ theme(text = element_text(size = 14))+
+  ggtitle("Ye et al hypoxia signature and eIF3e hypoxia signature vs survival")
 
 surv_plot
 
@@ -1444,9 +2171,274 @@ ggsave("surv_plot_3e_hyp_ye_big changes.pdf", path=here("plots"),width = 11.5, h
 ```
 
 
+NOW I would like to try this exact thing but using our hypoxia signature rather than ye et al's
+siCTRL cells normoxia to hypoxia (one hour) RNA changes
+less than 0.05 padj
+changes greater than 1 or less than -1
+```{r}
+our_hyp_sig <- read_excel(here("counts/rna_sictrl_normoxia_to_hypoxia.xlsx")) %>% 
+  filter(padj < 0.05)
+
+our_hyp_up <- our_hyp_sig %>% 
+  filter(log2FoldChange > 0.2)
+
+our_hyp_up$symbol
+
+our_hyp_down <- our_hyp_sig %>% 
+  filter(log2FoldChange < -0.2)
+
+our_hyp_down$symbol
+
+
+```
+
+Give patients a score for our acute hypoxic rna signature 
+I'm not expecting this to work out at all
+
+```{r}
+#these are only up values-- so give z score values here
+
+patients <- colnames(merged_zscores_all)
+patients <- patients[patients !="Hugo_Symbol"]
+
+
+our_hyp_patient_dataset_up <- data.frame(patient=character(), avg_z_score=numeric(), stringsAsFactors = FALSE)
+
+for (i in patients) {
+  
+  #filter dataframe
+  patient_level <- exp %>% 
+    dplyr::select(i) %>%
+    rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% our_hyp_up$symbol)
+  
+  all_values <- as.vector(patient_level[,2])
+  
+  
+  #geometric mean
+  
+  up_genes_z_score <- mean(all_values, na.rm=TRUE)
+  
+  loop_dataset <- data.frame(patient=i, our_hyp_up = up_genes_z_score)
+  
+  our_hyp_patient_dataset_up <- rbind(our_hyp_patient_dataset_up, loop_dataset)
+}
+
+#plot distribution
+ggplot(our_hyp_patient_dataset_up, aes(our_hyp_up))+
+  geom_histogram(bins = 400)
+
+
+our_hyp_patient_dataset_up$patient <- gsub("\\.", "-", as.character(our_hyp_patient_dataset_up$patient))
 
 
 
+
+#also down
+
+
+our_hyp_patient_dataset_down <- data.frame(patient=character(), avg_z_score=numeric(), stringsAsFactors = FALSE)
+
+for (i in patients) {
+  
+  #filter dataframe
+  patient_level <- exp %>% 
+    dplyr::select(i) %>%
+    rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% our_hyp_down$symbol)
+  
+  all_values <- as.vector(patient_level[,2])
+  
+  
+  #geometric mean
+  
+  down_genes_z_score <- mean(all_values, na.rm=TRUE)
+  
+  loop_dataset <- data.frame(patient=i, our_hyp_down = down_genes_z_score)
+  
+  our_hyp_patient_dataset_down <- rbind(our_hyp_patient_dataset_down, loop_dataset)
+}
+
+#plot distribution
+ggplot(our_hyp_patient_dataset_down, aes(our_hyp_down))+
+  geom_histogram(bins = 400)
+
+
+our_hyp_patient_dataset_down$patient <- gsub("\\.", "-", as.character(our_hyp_patient_dataset_down$patient))
+
+
+
+#merge up and down
+
+
+
+our_hyp_patient_dataset_scores <- left_join(our_hyp_patient_dataset_up, our_hyp_patient_dataset_down, by="patient")
+
+our_hyp_patient_dataset_scores <- our_hyp_patient_dataset_scores %>% 
+  mutate(total_z_score = our_hyp_up - our_hyp_down)
+
+#visualize distribution
+
+ggplot(our_hyp_patient_dataset_scores, aes(x=total_z_score))+
+  geom_histogram(bins = 400)
+
+
+
+
+
+
+### Stratify based on z-score
+
+quantile_groups <- quantile(our_hyp_patient_dataset_scores$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+our_hyp_patient_dataset_scores$quantile <- cut(our_hyp_patient_dataset_scores$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+our_hyp_patient_dataset_scores$patient <- gsub("\\.", "-", as.character(our_hyp_patient_dataset_scores$patient))
+
+
+#bind clin data with z score
+
+our_hyp_all_data <- left_join(clin, our_hyp_patient_dataset_scores, by=c("PATIENT_ID"="patient"))
+
+
+#plot
+
+fit_our_hyp_all_data <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = our_hyp_all_data)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, our_hyp_all_data)
+summary_coxfit_ye <- summary(coxfit)
+
+
+hr <- round(summary_coxfit_ye$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit_ye$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+surv_plot_our_hyp_data <- ggsurvplot(fit_our_hyp_all_data, data = our_hyp_all_data, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"), break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
+
+surv_plot_our_hyp_data$plot <- surv_plot_our_hyp_data$plot + 
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 5, 
+    color = "black"
+  ) + theme(text = element_text(size = 14))
+
+surv_plot_our_hyp_data
+
+ggsave("surv_plot_our_hyp_data.pdf", path=here("plots"),width = 11.5, height=8)
+
+
+
+
+
+ggplot(our_hyp_all_data, aes(x=quantile,y=total_z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for our acute RNA hypoxia signature")
+
+ggsave("our hyp boxplot.pdf",  path=here("plots"), width=4.5, height=4)
+
+
+patient_scores1 <- patient_scores %>% 
+  rename(eIF3e_hyp_z_score=total_z_score)
+
+our_hyp_all_data1 <- our_hyp_all_data %>% 
+  rename(our_hyp_sig_z_score = total_z_score)
+
+```
+
+
+See if correlated with our signatures -- our hypoxia score and our 3e score
+
+
+#plot 3e score against our hypoxia score
+
+```{r}
+
+our_hyp_and_3e <- left_join(patient_scores1, our_hyp_all_data1, by=c("patient"="PATIENT_ID"))
+
+ggplot(our_hyp_and_3e, aes(x=our_hyp_sig_z_score, y= eIF3e_hyp_z_score))+
+  geom_point()+
+  xlab("Our acute Hypoxia z score")+
+  ylab("eIF3e (hypoxia) z score")+
+  theme_cowplot()+ 
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0)+
+  theme(text = element_text(size = 14))+
+  ggtitle("eIF3e hypoxia signature vs our acute hypoxia signature - patient z scores")
+
+
+ggsave("3e_hyp_and_our_acute.pdf", path=here("plots"),width = 4, height=4)
+
+
+
+
+cor.test(our_hyp_and_3e$our_hyp_sig_z_score, our_hyp_and_3e$eIF3e_hyp_z_score)
+```
+
+
+Make four groups based on quandrants
+```{r}
+
+our_hyp_and_3e <- our_hyp_and_3e %>% 
+  mutate(large_group = ifelse(our_hyp_sig_z_score < 0 & eIF3e_hyp_z_score < 0, "low hypoxia and low eIF3e (hypoxia)",
+                           ifelse(our_hyp_sig_z_score > 0 & eIF3e_hyp_z_score < 0, "high hypoxia and low eIF3e (hypoxia)",
+                                  ifelse(our_hyp_sig_z_score > 0 & eIF3e_hyp_z_score > 0, "high hypoxia and high eIF3e (hypoxia)",
+                                         ifelse(our_hyp_sig_z_score < 0 & eIF3e_hyp_z_score > 0, "low hypoxia sig and high eIF3e (hypoxia)", "other")))))
+
+
+
+```
+
+Plot survival curve
+```{r}
+
+#plot
+
+fit_our_hyp_and_3e <- survfit(Surv(OS_YEARS, OS_STATUS) ~ large_group, data = our_hyp_and_3e)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ large_group, our_hyp_and_3e)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+fit_our_hyp_and_3e$our_hyp_and_3e <- as.factor(fit_our_hyp_and_3e$our_hyp_and_3e)
+
+quadrant_levels <- levels(fit_our_hyp_and_3e$our_hyp_and_3e)
+
+
+surv_plot <- ggsurvplot(fit_our_hyp_and_3e, data = our_hyp_and_3e, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
+
+surv_plot$plot <- surv_plot$plot + 
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 5, 
+    color = "black"
+  )+ theme(text = element_text(size = 10))+
+  ggtitle("Our acute hypoxia signature and eIF3e hypoxia signature vs survival")
+
+surv_plot
+
+ggsave("surv_plot_3e_hyp_our_acute.pdf", path=here("plots"),width = 11.5, height=8)
+
+
+
+
+
+
+
+```
+```
 
 
 
