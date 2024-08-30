@@ -7,7 +7,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-# Part 1: Quality Control
+Quality Control
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -24,7 +24,6 @@ library(janitor)
 library(ggthemes)
 library(DESeq2)
 library(plotly)
-
 ```
 
 ## Load transcript-level data
@@ -40,12 +39,10 @@ metadata <- metadata %>%
 #ribosome lysate = ribosome seq
 #rRNA depletion = RNA seq
 
-
 ```
 
 ```{r load alignment file}
-
-#add dataset on RNA type, remove premRNA
+#import key on RNA type, remove premRNA
 geneInfo <- read_csv(here("accessories","gencode.v26.primary.info.csv.gz"), col_names = F) %>%
   filter(!str_detect(X2, "pre_"))
 
@@ -89,7 +86,6 @@ keepGenes <- rownames(myTxi$counts[log2(rowSums(myTxi$counts)) > 10 ,])
 # results show bimodal distribution
 #1 RNA per cell = 1 TPM
 
-
 ```
 
 
@@ -110,7 +106,9 @@ dim(qcinput)
 
 mycor <- cor(qcinput, method = "pearson")
 
-pheatmap::pheatmap(mat = mycor)
+heatmap <- pheatmap::pheatmap(mat = mycor)
+heatmap
+ggsave(heatmap, filename=here("plots/fig1/qc/heatmap_with_outlier.pdf"), width=11.5, height=11)
 
 ```
 
@@ -141,29 +139,14 @@ pca <- ggplot(data = pca_res_data, aes(x=PC1, y = PC2, color = treatment, shape 
 
 ggplotly(pca)
 
+ggsave(pca, filename=here("plots/fig1/qc/pca_with_outlier.pdf"), width= 4, height=3)
+
+
 ```
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ### Heatmap without outlier
-### We removed the outlier and reran the correlation plot
+We removed the outlier and reran the correlation plot
 
 ```{r remove outlier from qcinput2}
 
@@ -176,17 +159,11 @@ qcinput2 <- qcinput2[rowSds(qcinput2) > 1,]
 
 dim(qcinput2)
 
-```
-
-
-```{r remake heat map without the outlier, fig.height=10, fig.width=11}
-
-#heatmap sans outlier
-
 mycor2 <- cor(qcinput2, method = "pearson")
 
-pheatmap::pheatmap(mat = mycor2)
+heatmap_2 <- pheatmap::pheatmap(mat = mycor2)
 
+ggsave(heatmap_2, filename=here("plots/fig1/qc/heatmap_without_outlier.pdf"), width=11.5, height=11)
 
 ```
 
@@ -210,10 +187,6 @@ pca_res_data <- pca_res_data %>%
   separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
 
 
-```
-
-
-```{r pca plot}
 #first by hypoxia and rep
 
 pca <- ggplot(data = pca_res_data, aes(x=PC1, y = PC2, color = treatment, shape = hypoxia))+ 
@@ -221,6 +194,9 @@ pca <- ggplot(data = pca_res_data, aes(x=PC1, y = PC2, color = treatment, shape 
   theme_few()
 
 ggplotly(pca)
+
+ggsave(pca, filename=here("plots/fig1/qc/pca_without_outlier.pdf"), width= 4, height=3)
+
 
 ```
 
@@ -239,15 +215,12 @@ qcinput_ribo <- qcinput_ribo[rowSds(qcinput_ribo) > 1,]
 
 dim(qcinput_ribo)
 
-```
-
-
-```{r ribo heatmap, fig.height=9, fig.width=10}
-
 #heatmap sans outlier
 mycor_ribo <- cor(qcinput_ribo, method = "pearson")
 
-pheatmap::pheatmap(mat = mycor_ribo)
+ribo_heatmap <- pheatmap::pheatmap(mat = mycor_ribo)
+
+ggsave(ribo_heatmap, filename=here("plots/fig1/qc/ribo_heatmap.pdf"), width=11.5, height=11)
 
 
 ```
@@ -277,6 +250,9 @@ pca <- ggplot(data = pca_res_data_ribo, aes(x=PC1, y = PC2))+
 
 ggplotly(pca)
 
+ggsave(pca, filename=here("plots/fig1/qc/ribo_pca.pdf"), width= 4, height=3)
+
+
 ```
 
 ## Heatmap for RNA sequencing data
@@ -293,16 +269,13 @@ qcinput_rna <- qcinput_rna[rowSds(qcinput_rna) > 1,]
 
 dim(qcinput_rna)
 
-```
-
-
-```{r rna heatmap, fig.height=9, fig.width=10}
-
-#heatmap sans outlier
 
 mycor_rna <- cor(qcinput_rna, method = "pearson")
 
-pheatmap::pheatmap(mat = mycor_rna)
+rna_heatmap <- pheatmap::pheatmap(mat = mycor_rna)
+
+ggsave(rna_heatmap, filename=here("plots/fig1/qc/rna_heatmap.pdf"), width=11.5, height=11)
+
 
 
 ```
@@ -331,6 +304,9 @@ pca <- ggplot(data = pca_res_data_rna, aes(x=PC1, y = PC2))+
   theme_few()
 
 ggplotly(pca)
+
+ggsave(pca, filename=here("plots/fig1/qc/rna_pca.pdf"), width= 4, height=3)
+
 
 ```
 
@@ -392,7 +368,7 @@ myGs <- c("EIF3E", "EIF3D")
 
 myGtable <- geneInfo %>% 
   filter(symbol %in% myGs) %>%
-  select(gene_id,symbol) %>% 
+  dplyr::select(gene_id,symbol) %>% 
   unique()
 
 myGdata <- allCountsNorm[myGtable$gene_id,] %>%
@@ -415,6 +391,8 @@ genestoplot <- myGdata %>%
 
 
 ggpubr::ggdotplot(data = genestoplot, x = "symbol", y = "cpm", fill = "symbol", facet.by = "treatment")
+
+ggsave(filename=here("plots/fig1/qc/confirm_KD.pdf"), width= 4, height=3)
 ```
 
 
@@ -425,8 +403,6 @@ ggpubr::ggdotplot(data = genestoplot, x = "symbol", y = "cpm", fill = "symbol", 
 metadata2 <- metadata %>% 
   filter(metadata$sample_id != "NM2023_0113")
 ```
-
-
 
 
 # RIBOCODE ----------------------------------------------------------------------
