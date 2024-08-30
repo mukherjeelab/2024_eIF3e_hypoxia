@@ -50,8 +50,6 @@ theme(axis.title.y=element_text(size=11),
 
 ```
 
-
-
 ## Load and organize metadata
 ```{r metadata}
 metadata <- read_csv(here("accessories","metadata_NM.csv"), skip = 0) %>% 
@@ -77,10 +75,9 @@ dplyr::select(sample_id, library, treatment, condition, rep)
 
 # write metadata for use in future analyses
 
-write_csv(metadata, here("metadata.csv"))
+write_csv(metadata, here("counts/fig1/metadata.csv"))
   
 ```
-
 
 ## filter metadata for samples of interest
 
@@ -90,7 +87,6 @@ metadata_norm <- metadata %>%
   filter(condition == "normoxia") %>%
   droplevels()
 ```
-
 
 ## load salmon files
 ```{r import and filter, message=FALSE, warning=FALSE}
@@ -158,8 +154,6 @@ genes_to_kill <- unique(c(blacklist_smRNA_ID,nonpolyA_ID))
 
 ```
 
-
-
 ## extract rna, ribo, and te counts
 
 ```{r deltaTE, message=FALSE, warning=FALSE}
@@ -197,7 +191,6 @@ metadata_norm_3e <- metadata_norm %>% filter(treatment != "si3d") %>% droplevels
 counts_3d <- allCounts[,!grepl("si3e",colnames(allCounts))]
 metadata_norm_3d <- metadata_norm %>% filter(treatment != "si3e") %>% droplevels()
 
-
 ddsMat_3d <- DESeqDataSetFromMatrix(
   countData = counts_3d,
   colData = metadata_norm_3d,
@@ -215,8 +208,6 @@ res_te_3d <- lfcShrink(dds = ddsMat_3d, coef = resultsNames(ddsMat_3d)[4], res =
   inner_join(gene_symbol, .) %>%
   filter(!symbol %in% nonpolyA) 
 
-
-
 ddsMat_3e <- DESeqDataSetFromMatrix(
   countData = counts_3e,
   colData = metadata_norm_3e,
@@ -229,7 +220,6 @@ res_te_3e <- results(ddsMat_3e,
                 name=resultsNames(ddsMat_3e)[4],
                 cooksCutoff=F, independentFiltering=F)
 
-
 res_te_3e <- lfcShrink(
   dds = ddsMat_3e,
   coef = resultsNames(ddsMat_3e)[4],
@@ -239,65 +229,23 @@ res_te_3e <- lfcShrink(
   inner_join(gene_symbol, .) %>%
   filter(!symbol %in% nonpolyA)  
 ```
+Exporting differential TE counts in figure 6
 
-
-# Export differential RNA counts for 3e and 3d
-
-
-
-
-## plotting Neel's example genes here
-```{r plot genes, fig.width=8, fig.height=7}
-
-myG <- c("ENSG00000128272.14","ENSG00000090621.13","ENSG00000177606.6","ENSG00000197111.15","ENSG00000133639.4","ENSG00000125107.17","ENSG00000100219.16","ENSG00000060237.16","ENSG00000123066.7","ENSG00000106636.7","ENSG00000082701.14","ENSG00000137843.11","ENSG00000134899.18","ENSG00000173511.9","ENSG00000023287.12","ENSG00000148730.6")
-
-
-e <- TE[myG,] %>%
-  as.data.frame() %>%
-  rownames_to_column(var = "gene_id") %>%
-  left_join(., unique(geneInfo[,c(1,4)])) %>%
-  reshape2::melt(value.name = "TE", variable.name = "info") %>%
-  separate(col = info, into = c("tx","sirna","type","rep"))
-
-e$sirna <- relevel(x = factor(e$sirna), ref = "sictrl")
-
-
-
-ggstripchart(data = e, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
-  ylab(expression("log"[2]*" TE (ribo/rna)")) +
-  xlab("")
-
-
-```
-
-## Kate finding different gene targets here
-
-e and d specific targets
-
+## Visualize e and d specific targets
 ```{r}
-#merge gene names
-
+#import gene names
 te_norm <- TE %>% 
   as.data.frame() %>% 
   rownames_to_column("gene_id") %>% 
   left_join(geneInfo, by="gene_id")
 
-
-#genes that change in e but not d
-#first get average metric
-
-# te_norm <- te_norm %>% 
-#   mutate(e_avg = (normoxia_si3e_TE_a + normoxia_si3e_TE_b+normoxia_si3e_TE_c)/3)
-
-#need to look at change in TE
-
 res_3d <- res_te_3d %>% 
-  select(gene_id, log2FoldChange, padj) %>% 
+  dplyr::select(gene_id, log2FoldChange, padj) %>% 
   rename(log2FC_d = log2FoldChange) %>% 
     rename(padj_d = padj)
 
 res_3e <- res_te_3e %>% 
-  select(gene_id, log2FoldChange, padj) %>% 
+  dplyr::select(gene_id, log2FoldChange, padj) %>% 
     rename(log2FC_e = log2FoldChange) %>% 
     rename(padj_e = padj)
 
@@ -313,12 +261,9 @@ no_d_change <- res_te_total %>%
 
 no_e_change <- res_te_total %>% 
   filter(log2FC_e < 0.01 & log2FC_e > -0.01)
-
-
 ```
 
-plot genes with changes in e and no changes in d
-
+### Exclusively changed with 3eKD
 ```{r}
 
 e_only_genes <- no_d_change$gene_id
@@ -339,9 +284,10 @@ e_only <- e_only %>%
 ggstripchart(data = e_only, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
   ylab(expression("log"[2]*" TE (ribo/rna)")) 
 
+
 ```
 
-d only genes
+### Exclusively changed with 3dKD
 
 ```{r}
 
@@ -366,8 +312,7 @@ ggstripchart(data = d_only, x = "sirna", y = "TE", color = "sirna", facet.by = "
 ```
 
 
-
-
+Sample of genes:
 ```{r}
 d_genes <- c("CLDN9", "CLIC1", "PRDM4")
 e_genes <- c("APLP2", "PABPC1", "TOR1AIP2")
@@ -376,12 +321,6 @@ common <- c("ATF4", "EIF4EBP2", "GSK3B", "MED13L", "PCBP2", "XBP1")
 genes_of_interest <- c("CLDN9", "CLIC1", "PRDM4", "APLP2", "PABPC1", "TOR1AIP2", "ATF4", "EIF4EBP2", "GSK3B", "MED13L", "PCBP2", "XBP1")
 ```
 
-
-
-
-## More gene options
-
-Genes to plot
 ```{r}
 
 plot_chart <- res_te_total %>% 
@@ -391,11 +330,9 @@ plot_chart <- res_te_total %>%
   filter(category != "NA")
 
 chart_genes <- plot_chart %>% 
-  select(gene_id, category)
+  dplyr::select(gene_id, category)
 
 paper_genes <- chart_genes$gene_id %>% unique()
-
-
 
 chart <- TE[paper_genes,] %>%
   as.data.frame() %>%
@@ -404,12 +341,8 @@ chart <- TE[paper_genes,] %>%
   reshape2::melt(value.name = "TE", variable.name = "info") %>%
   separate(col = info, into = c("tx","sirna","type","rep"))
 
-
-
 chart <- chart %>% 
 left_join(chart_genes)
-
-
 
 chart$sirna <- relevel(x = factor(chart$sirna), ref = "sictrl")
 
@@ -417,29 +350,18 @@ chart <- chart %>%
   filter(category != "NA") %>% 
   filter(symbol != "NA")
 
-# 
-# ggstripchart(data = chart, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
-#   ylab(expression("log"[2]*" TE (ribo/rna)"))
-# 
-
 ```
 
-
-
-
-
-Common
+Sample of 3e and 3d shared genes
 ```{r}
 
 chart_genes <- plot_chart %>% 
-  select(gene_id, category) %>% unique()
+  dplyr::select(gene_id, category) %>% unique()
 
 common <- chart_genes %>% 
   filter(category=="eIF3d and eIF3e")
 
 common_genes <- common$gene_id
-
-########################
 
 
 common_only <- TE[common_genes,] %>%
@@ -472,8 +394,6 @@ ggstripchart(data = common_only,
   ylab(expression("log"[2]*" TE (ribo/rna)"))
   
   
-  
-
   ggpar(plot, title= "eIF3e and eIF3d regulated genes")+theme(
     axis.title = element_text(size = 10),   
     axis.text = element_text(size = 8),    
@@ -481,20 +401,18 @@ ggstripchart(data = common_only,
   )
  
 
-ggsave(width = 4, height = 3.25, filename = here("plots/commongenes.pdf"))
+ggsave(width = 4, height = 3.25, filename = here("plots/fig1/commongenes.pdf"))
 
 
 ```
 
-3d specific
+Sample of 3d specific genes
 ```{r}
 
 d_spec <- chart_genes %>% 
   filter(category=="eIF3d-specific")
 
 d_spec_genes <- d_spec$gene_id
-
-########################
 
 
 d_spec_only <- TE[d_spec_genes,] %>%
@@ -512,8 +430,6 @@ d_spec_only <- d_spec_only %>%
 plot<-
 ggstripchart(data = d_spec_only, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
   ylab(expression("log"[2]*" TE (ribo/rna)"))
-
-
   
   
   plot <- plot + theme(legend.position = "none")
@@ -524,21 +440,18 @@ ggpar(plot, title= "eIF3d-only regulated genes")+
     axis.text = element_text(size = 8),    
     strip.text = element_text(size = 10)   
   )
-ggsave(width = 4, height = 1.7, filename = here("plots/dgenes.pdf"))
+ggsave(width = 4, height = 1.7, filename = here("plots/fig1/dgenes.pdf"))
 
 
 ```
 
-3e specific
+Example of 3e specific genes
 ```{r}
-
 
 e_spec <- chart_genes %>% 
   filter(category=="eIF3e-specific")
 
 e_spec_genes <- e_spec$gene_id
-
-########################
 
 
 e_spec_only <- TE[e_spec_genes,] %>%
@@ -559,29 +472,21 @@ ggstripchart(data = e_spec_only, x = "sirna", y = "TE", color = "sirna", facet.b
   
   plot <-  plot + theme(legend.position = "none")
 
-  
   ggpar(plot, title= "eIF3e-only regulated genes")+theme(
     axis.title = element_text(size = 10),   
     axis.text = element_text(size = 8),    
     strip.text = element_text(size = 10)   
   )
 
-ggsave(width = 4, height = 1.7, filename = here("plots/egenes.pdf"))
-
-
+ggsave(width = 4, height = 1.7, filename = here("plots/fig1/egenes.pdf"))
 
 ```
 
 
-# show 3d and 3e
-
+Visualize e and d specifically
 ```{r}
 
 e_and_d <- c("ENSG00000104408.9", "ENSG00000100353.17")
-  
-
-########################
-
 
 e_d <- TE[e_and_d,] %>%
   as.data.frame() %>%
@@ -598,23 +503,11 @@ e_d <- e_d %>%
 plot<-
 ggstripchart(data = e_d, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
   ylab(expression("log"[2]*" TE (ribo/rna)"))
-  
-  
-  
+
 plot
-
-ggsave(width = 3, height = 2.5, filename = here("plots/eanddgenes.pdf"))
-
-
-
 ```
 
-
-
-
-
-
-## Venn diagram of overlaps in normoxia
+## Venn diagram of 3e/d gene overlaps in normoxia
 ```{r compare genes}
 te_3d_up <- res_te_3d %>% 
   filter(padj < 0.05 & log2FoldChange > 0) %>% pull(gene_id)
@@ -648,23 +541,19 @@ norm_te_down <-
 
 ggvenn(norm_te_up, auto_scale = T, fill_color = c(si3d_col,si3e_col), text_size = 2)
 
-ggsave(width = 2, height = 2, filename = here("plots/vennup.pdf"))
+ggsave(width = 2, height = 2, filename = here("plots/fig1/vennup.pdf"))
 
 
-ggvenn(norm_te_down, auto_scale = T, fill_color = c(si3d_col,si3e_col), text_size = 3)
+ggvenn(norm_te_down, auto_scale = T, fill_color = c(si3d_col,si3e_col), text_size = 2)
 
-ggsave(width = 2, height = 2, filename = here("plots/venndown.pdf"))
-
-
-stopifnot(
-identical(res_te_3d$gene_id,res_te_3e$gene_id))
+ggsave(width = 2, height = 2, filename = here("plots/fig1/venndown.pdf"))
 
 
-
+# stopifnot(
+# identical(res_te_3d$gene_id,res_te_3e$gene_id))
 ```
 
 ### Density scatter plot
-
 ```{r}
 norm_sig_te <- data.frame(
   gene_id = res_te_3d$gene_id,
@@ -677,13 +566,14 @@ norm_sig_te <- data.frame(
                         te_3d_up,
                         te_3d_down)) 
 
-
 scatter <-
 ggscatter(data = norm_sig_te,
           x = "te_3d",
           y = "te_3e",
+          xlab= "si-eIF3d TE",
+          ylab="si-eIF3e TE",
           alpha = 0.25,
-          title = "Compare TE of sig genes", 
+          title = "TE changes with 3d KD vs 3e KD", 
           xlim=c(-2,2), ylim = c(-2,2),
   add = "reg.line")+
    stat_cor(
@@ -693,26 +583,7 @@ ggscatter(data = norm_sig_te,
            ..p.label..,
            sep = "~`,`~")
        ) + theme_prism()
-   )
-
-norm_sig_te <- norm_sig_te %>% 
-  mutate(color = ifelse((symbol %in% e_genes=="TRUE"), "si3e_col", 
-                        ifelse((symbol %in% d_genes=="TRUE"), "si3d_col",
-                        ifelse((symbol %in% common=="TRUE"), "green", "z_black"))))
-
-
-
-
-scat<-
-ggscatter(data = norm_sig_te,
-          x = "te_3d",
-          y = "te_3e",
-          xlab= "si-eIF3d TE",
-          ylab= "si-eIF3e TE",
-          alpha = 0.5,
-          xlim=c(-2,2), ylim = c(-2,2),
-          color="color", palette=c("green", si3d_col, si3e_col, "grey"), show.legend = FALSE) +
-  geom_smooth(method = "lm", color = "black", se = FALSE) +
+   )+
   stat_regline_equation(
     aes(label =  paste(..eq.label.., after_stat(rr.label), sep = "~~~~")),
     label.x = -1.5, label.y = 1.5
@@ -722,36 +593,11 @@ ggscatter(data = norm_sig_te,
   theme_prism() +
   guides(color = FALSE)
 
+scatter
 
-scat
+#ggplotly(scat, tooltip="all")
 
-ggplotly(scat, tooltip="all")
-
-
-
-ggsave(width = 4, height = 4, filename = here("plots/normoxia_quadrants.pdf"))
-
-
-
-# label the genes that we are pointing out in the prior fig
-
-
-# make it density instead
-
-# plot <- ggplot(norm_sig_te, aes(x = te_3d, y = te_3e)) +
-#  geom_point() +
-#  xlim(-1.5, 1.5) +
-#  ylim(-1.5, 1.5)
-# 
-# plot + geom_density_2d_filled(alpha = 0.5)
-# 
-# 
-# plot + geom_density_2d_filled(contour_var = "ndensity")+
-#   labs(x = "eIF3d delta TE", y = "eIF3e delta TE")
-# 
-# 
-# 
-
+ggsave(width = 5, height = 5, filename = here("plots/fig1/normoxia_quadrants.pdf"))
 
 ```
 
@@ -784,10 +630,7 @@ m_df_c2 <- msigdbr(species = "Homo sapiens") %>%
 
 ```
 
-### Hallmarks
-
-#### Colors are eif3e NES - eif3d NES
-
+### Hallmark pathways
 ```{r GSEA Hallmarks}
 
 eif3d_te_h <- GSEA(
@@ -800,7 +643,6 @@ eif3d_te_h <- GSEA(
   TERM2GENE = m_df_h
   )
 
-
 eif3e_te_h <- GSEA(
   geneList = eif3e_te,
   eps = 0,
@@ -810,8 +652,6 @@ eif3e_te_h <- GSEA(
   maxGSSize = 1000,
   TERM2GENE = m_df_h
   )
-
-
 
 norm_te_h <- dplyr::full_join(
   eif3d_te_h@result %>%
@@ -831,7 +671,6 @@ norm_te_h$ID <- gsub(pattern = "HALLMARK_", replacement = "", x = norm_te_h$ID)
 norm_te_h <- norm_te_h %>% 
   mutate(color = ifelse(ID=="HYPOXIA", "red", "black"))
 
-
 ggscatter(data = norm_te_h,
           x = "eif3d_NES",
           y = "eif3e_NES",
@@ -846,8 +685,7 @@ ggscatter(data = norm_te_h,
   guides(color = "none") +
   geom_text_repel(aes(label = ID), size = 3)
 
-ggsave(width = 4, height = 4, filename = here("plots/normoxia_halmarks.pdf"))
-
+ggsave(width = 4, height = 4, filename = here("plots/fig1/normoxia_halmarks.pdf"))
 
 norm_h_table <- norm_te_h %>% 
   mutate(direction = ifelse(eif3d_NES < 0 & eif3e_NES < 0, "down_both",
@@ -855,13 +693,13 @@ norm_h_table <- norm_te_h %>%
                             ifelse(eif3d_NES > 0 & eif3e_NES < 0, "up_3d_down_3e",
                             ifelse(eif3d_NES < 0 & eif3e_NES > 0, "up_3e_down_3d", "NA")))))
 
-write_csv(norm_h_table, here("counts/norm_h_table.csv"))
+write_csv(norm_h_table, here("counts/fig1/norm_h_table.csv"))
 
 ```
 
 
 
-### KEGG
+### KEGG pathways
 
 ```{r GSEA KEGG}
 eif3d_te_kegg <- GSEA(
@@ -918,8 +756,7 @@ DT::datatable(norm_te_kegg) %>%
   formatRound(which(sapply(norm_te_kegg,is.numeric)), digits = 3) 
 
 
-
-ggsave(width = 4, height = 4, filename = here("plots/normoxia_kegg.pdf"))
+ggsave(width = 4, height = 4, filename = here("plots/fig1/normoxia_kegg.pdf"))
 
 
 norm_kegg_table <- norm_te_kegg %>% 
@@ -928,7 +765,7 @@ norm_kegg_table <- norm_te_kegg %>%
                             ifelse(eif3d_NES > 0 & eif3e_NES < 0, "up_3d_down_3e",
                             ifelse(eif3d_NES < 0 & eif3e_NES > 0, "up_3e_down_3d", "NA")))))
 
-write_csv(norm_kegg_table, here("counts/norm_kegg_table.csv"))
+write_csv(norm_kegg_table, here("counts/fig1/norm_kegg_table.csv"))
 
 
 
@@ -939,7 +776,7 @@ write_csv(norm_kegg_table, here("counts/norm_kegg_table.csv"))
 ```
 
 
-### REACTOME
+### REACTOME pathways
 
 ```{r GSEA REACTOME}
 eif3d_te_reactome <- GSEA(
@@ -996,7 +833,7 @@ DT::datatable(norm_te_react) %>%
   formatRound(which(sapply(norm_te_react,is.numeric)), digits = 3) 
 
 
-ggsave(width = 4, height = 4, filename = here("plots/normoxia_reactome.pdf"))
+ggsave(width = 4, height = 4, filename = here("plots/fig1/normoxia_reactome.pdf"))
 
 
 norm_react_table <- norm_te_react %>% 
@@ -1005,6 +842,6 @@ norm_react_table <- norm_te_react %>%
                             ifelse(eif3d_NES > 0 & eif3e_NES < 0, "up_3d_down_3e",
                             ifelse(eif3d_NES < 0 & eif3e_NES > 0, "up_3e_down_3d", "NA")))))
 
-write_csv(norm_react_table, here("counts/norm_react_table.csv"))
+write_csv(norm_react_table, here("counts/fig1/norm_react_table.csv"))
 
 ```
