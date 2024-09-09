@@ -1,0 +1,77 @@
+---
+title: "8430 CETSA"
+author: "`r Sys.Date()`"
+date: ""
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# CETSA 8430
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+```
+
+```{r install packages, echo=FALSE}
+
+library(here)
+library(janitor)
+library(ggrepel)
+library(scales)
+library(ggokabeito)
+library(ggprism)
+library(tidyverse)
+library(EnhancedVolcano)
+```
+
+
+
+
+```{r}
+stats_df <- readr::read_csv(here("8430/df_wide.csv"), col_names = T)
+
+stats_df <- stats_df %>%
+  dplyr::relocate(Gene.names, ID,
+                  D_vs_C_CI.L, D_vs_C_CI.R, D_vs_C_diff, D_vs_C_p.val, D_vs_C_p.adj, D_vs_C_significant,
+                  Protein.names, .after = "name")
+
+genes2lab <- stats_df$name[stats_df$D_vs_C_diff > 0.5]
+
+cpd8430_volcano <- EnhancedVolcano(stats_df, 
+                                   title = "",
+                                   subtitle = "",
+                                   lab = stats_df$name,
+                                   x = 'D_vs_C_diff',
+                                   y = 'D_vs_C_p.val',
+                                   selectLab = genes2lab,
+                                   ylim = c(0, 12),
+                                   xlim = c(-1,1)*0.8,
+                                   xlab = bquote(~Log[2]~ '(Cmpd8430/DMSO)'),
+                                   pCutoff = 0.01,
+                                   pCutoffCol = 'D_vs_C_p.adj',
+                                   FCcutoff = .5,
+                                   pointSize = 2.0,
+                                   labSize = 4.0,
+                                   boxedLabels = F,
+                                   colAlpha = 3/5,
+                                   gridlines.major = F,
+                                   gridlines.minor = FALSE,
+                                   legendPosition = 'top',
+                                   legendLabSize = 10,
+                                   legendIconSize = 4.0,
+                                   arrowheads = F,
+                                   #  col=c('black', 'black', 'black', 'red3'),
+                                   legendLabels=c('Not sig.',
+                                                  '|LFC| > .5',
+                                                  'q-value < 0.01',
+                                                  '|LFC| > .5 &\n q-value < 0.01')
+                                   )
+
+
+cpd8430_volcano + theme_prism()
+```
+
+
+
+
