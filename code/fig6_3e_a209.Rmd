@@ -45,7 +45,8 @@ library(writexl)
 
 colors
 ```{r}
-a209_col = "#009E73"
+
+a209_col = "#CC79A7"
 si3e_col = "#56B4E9"
 si3d_col = "#E69F00"
 ```
@@ -156,10 +157,7 @@ rna_counts <- as.matrix(allCounts[,grep(pattern = "rna",colnames(allCounts))])
 ## 3. Hypoxia KD effect
 
 
-
-
 # acute hypoxic response
-
 
 ```{r}
 loop_vector <- c("sictrl", "si3e", "DMSO", "a209")
@@ -168,7 +166,6 @@ loop_vector <- c("sictrl", "si3e", "DMSO", "a209")
 # DeSeq for all TE comparisons in a loop
 
 ```{r}
-
 # set shell dataframes ----------------------------------------------------------
 
 all_te <- list()
@@ -283,7 +280,7 @@ for (i in loop_vector) {
   sample_info <- sample_info %>% 
     mutate("name" = 
   paste(sample_info$condition, sample_info$treatment, sample_info$library, sample_info$rep, sep = "_"))
-  
+     sample_info$condition <- relevel(x = factor(sample_info$condition), ref = "normoxia")
   
   levels(sample_info$condition)
   levels(sample_info$treatment)
@@ -389,6 +386,9 @@ for (i in loop_vector) {
   sample_info <- sample_info %>% 
     mutate("name" = 
   paste(sample_info$condition, sample_info$treatment, sample_info$library, sample_info$rep, sep = "_"))
+  
+     sample_info$condition <- relevel(x = factor(sample_info$condition), ref = "normoxia")
+  
   
   #filter AllCounts for i
   
@@ -607,7 +607,6 @@ ggsave(here("plots/acute_3e.pdf"), scatter, width=4, height=4)
 
 
 ## Acute hypoxic changes - dmso (supplement)
-
 ```{r}
 dmso <- all_changes %>% 
   filter(padj_rna_DMSO < 0.05 | padj_ribo_DMSO < 0.05)
@@ -630,17 +629,13 @@ ctrl_dmso <- ggMarginal(dmso_acute, type = "histogram",
 
 ctrl_dmso
 
-ggsave(here("plots/dmso.pdf"), width=4, height=4)
+# ggsave(here("plots/dmso.pdf"), width=4, height=4)
 
 
 ```
 
 
-
-
-
 ## TE changes - a209
-
 ```{r}
 
 sig_DMSO <- all_changes %>% 
@@ -668,16 +663,14 @@ scatter <- ggMarginal(scatter, type = "histogram",
 
 scatter
 
-ggsave(here("plots/a209.pdf"), scatter)
+ggsave(here("plots/fig6/a209.pdf"), width=4, height=4)
 
 ```
 
 
 
 
-# Analyses for normoxia first then hypoxia --------------------------------------
-
-
+# TE changes for normoxia first then hypoxia --------------------------------------
 
 condition vector changes to analyze normoxia and hypoxia
 # Make a loop to do:
@@ -700,16 +693,16 @@ big_comparisons <- list()
 counts <- tribble(~condition, ~sample, ~TEupreg, ~TEdownreg)
 te_values <-list()
 
-
-
 metadata_treat <- metadata
 
-levels(metadata$treatment)
+levels(metadata_treat$treatment)
 
 for (i in condition_vector) {
   
     metadata_cond <- metadata_treat %>% 
     filter(condition== i)
+    
+    levels(metadata_cond$treatment)
   
 for (j in test_vector) {
 # set up data -------------------------------------------------------------------
@@ -721,8 +714,12 @@ for (j in test_vector) {
   metadata_loop <- metadata_cond %>% 
   filter(treatment == "sictrl" | treatment == j)
   
+  levels(metadata_loop$treatment)
+  
   # make sample info from metadata
    sample_info <- metadata_loop %>% dplyr::select(condition, treatment, rep, library, sample_id)
+   
+   levels(sample_info$treatment)
   
   
   sample_info <- sample_info %>% 
@@ -731,6 +728,7 @@ for (j in test_vector) {
   
     sample_info$library <- relevel(x = factor(sample_info$library), ref = "rna")
 
+    levels(sample_info$library)
   #filter AllCounts for i
   
   names <- as.character(sample_info$name)
@@ -745,13 +743,13 @@ for (j in test_vector) {
                                  design = ~treatment+library+treatment:library)
   ddsMat <- DESeq(ddsMat)
   
-  levels(sample_info$condition)
-    levels(sample_info$treatment)
-      levels(sample_info$library)
+  print(levels(sample_info$condition))
+    print(levels(sample_info$treatment))
+      print(levels(sample_info$library))
 
 
   
-  resultsNames(ddsMat)[4]
+  print(resultsNames(ddsMat)[4])
 
   res_te_loop <- results(ddsMat, name=resultsNames(ddsMat)[4], cooksCutoff=FALSE, independentFiltering=FALSE)
 
@@ -805,16 +803,21 @@ counts <- rbind(counts, new_df)
   big_comparisons[[i]] <- comparisons
 
 
-
-
 # DMSO a209 --------------------------------------------------------------------
 
   metadata_loop <- metadata_cond %>% 
   filter(treatment == "DMSO" | treatment == "a209")
   
+  levels(metadata_loop$treatment)
+  
   # make sample info from metadata
   sample_info <- metadata_loop %>% dplyr::select(condition, treatment, rep, library, sample_id)
   
+  print(levels(sample_info$condition))
+    print(levels(sample_info$treatment))
+      print(levels(sample_info$library))
+      
+      
   sample_info <- sample_info %>% 
     mutate("name" = 
   paste(sample_info$condition, sample_info$treatment, sample_info$library, sample_info$rep, sep = "_"))
@@ -838,7 +841,7 @@ counts <- rbind(counts, new_df)
 
   res_te_loop <- results(ddsMat, name=resultsNames(ddsMat)[4], cooksCutoff=FALSE, independentFiltering=FALSE)
   
-  resultsNames(ddsMat)[4]
+  print(resultsNames(ddsMat)[4])
 
   res_te_loop <- lfcShrink(dds = ddsMat, coef = resultsNames(ddsMat)[4], res = res_te_loop) %>% 
   as.data.frame() %>% 
@@ -896,8 +899,22 @@ counts <- rbind(counts, new_df)
 
 ```
 
+Export TE
+```{r}
+write_csv(big_comparisons$normoxia$si3d, here("counts/fig6/norm_3d_all.csv"))
+write_csv(big_comparisons$normoxia$si3e, here("counts/fig6/norm_3e_all.csv"))
+write_csv(big_comparisons$hypoxia$si3d, here("counts/fig6/hyp_3d_all.csv"))
+write_csv(big_comparisons$hypoxia$si3e, here("counts/fig6/hyp_3e_all.csv"))
+write_csv(big_comparisons$normoxia$a209, here("counts/fig6/norm_a209_all.csv"))
+write_csv(big_comparisons$hypoxia$a209, here("counts/fig6/hyp_a209_all.csv"))
+```
+
+
+
+
+
+
 # pivot counts
-counts have slightly different numbers than previous because I used gene_id rather than symbol.
 ```{r}
 
 long_counts <- counts %>% 
@@ -912,7 +929,6 @@ long_counts <- counts %>%
 ```{r}
 # comparisons -------------------------------------------------------------------
 
-control_vector <- c("sictrl", "DMSO")
 test_vector <- c("si3e", "si3d")
 condition_vector <- c("normoxia", "hypoxia")
 
@@ -926,8 +942,6 @@ rna_values <-list()
 
 
 metadata_treat <- metadata
-
-
 
 
 for (i in condition_vector) {
@@ -956,7 +970,10 @@ for (j in test_vector) {
     mutate("name" = 
   paste(sample_info$condition, sample_info$treatment, sample_info$library, sample_info$rep, sep = "_"))
   
-    #sample_info$library <- relevel(x = factor(sample_info$library), ref = "rna")
+   print(levels(sample_info$condition))
+    print(levels(sample_info$treatment))
+      print(levels(sample_info$library))
+  
 
   #filter AllCounts for i
   
@@ -975,6 +992,8 @@ for (j in test_vector) {
   ddsMat <- DESeq(ddsMat)
 
   res_rna_loop <- results(ddsMat, name=resultsNames(ddsMat)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+  
+  print(resultsNames(ddsMat)[2])
 
   res_rna_loop <- lfcShrink(dds = ddsMat, coef = resultsNames(ddsMat)[2], res = res_rna_loop) %>% 
   as.data.frame() %>% 
@@ -1042,8 +1061,10 @@ rna_counts <- rbind(rna_counts, new_df)
     mutate("name" = 
   paste(sample_info$condition, sample_info$treatment, sample_info$library, sample_info$rep, sep = "_"))
   
-  # colnames(sample_info) <- c("hypoxia", "treatment","rep", "library", "sample_id", "name")
-  #sample_info$library <- relevel(x = factor(sample_info$library), ref = "rna")
+   print(levels(sample_info$condition))
+    print(levels(sample_info$treatment))
+      print(levels(sample_info$library))
+  
   
   #filter AllCounts for i
   
@@ -1062,6 +1083,8 @@ rna_counts <- rbind(rna_counts, new_df)
   ddsMat <- DESeq(ddsMat)
 
   res_rna_loop <- results(ddsMat, name=resultsNames(ddsMat)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+  
+  print(resultsNames(ddsMat)[2])
 
   res_rna_loop <- lfcShrink(dds = ddsMat, coef = resultsNames(ddsMat)[2], res = res_rna_loop) %>% 
   as.data.frame() %>% 
@@ -1073,7 +1096,7 @@ rna_counts <- rbind(rna_counts, new_df)
   
 # export to excel ---------------------------------------------------------------
   
-   writexl::write_xlsx(x = res_rna_loop, path = here(paste0("counts/", i, "_", "a209", "_", "rnacounts", ".xlsx")), col_names = T)
+   # writexl::write_xlsx(x = res_rna_loop, path = here(paste0("counts/", i, "_", "a209", "_", "rnacounts", ".xlsx")), col_names = T)
 
 # visualization -----------------------------------------------------------------
   
@@ -1115,139 +1138,16 @@ rna_counts <- rbind(counts, new_df)
 
 }
 
-# a209_norm_total <- big_comparisons$
-#   
-# a209_hyp_total <- big_comparisons$
-
-```
-a209 rna only
-```{r}
-# comparisons -------------------------------------------------------------------
-
-# control_vector <- c("sictrl", "DMSO")
-# test_vector <- c("si3e", "si3d")
-condition_vector <- c("normoxia", "hypoxia")
-
-
-# set shell dataframes ----------------------------------------------------------
-
-rna_comparisons <- list()
-big_rna_comparisons <- list()
-rna_counts <- tribble(~condition, ~sample, ~RNAupreg, ~RNAdownreg)
-rna_values <-list()
-
-#i="hypoxia"
-
-metadata_treat <- metadata
-
-for (i in condition_vector) {
-  
-    metadata_cond <- metadata_treat %>% 
-    filter(condition== i) %>% 
-      filter(library=="rna")
-
-  metadata_loop <- metadata_cond %>% 
-  filter(treatment == "DMSO" | treatment == "a209")
-  
-  # make sample info from metadata
-  sample_info <- metadata_loop %>% dplyr::select(condition, treatment, rep, library, sample_id)
-  
-  sample_info <- sample_info %>% 
-    mutate("name" = 
-  paste(sample_info$condition, sample_info$treatment, sample_info$library, sample_info$rep, sep = "_"))
-  
-  # colnames(sample_info) <- c("hypoxia", "treatment","rep", "library", "sample_id", "name")
-  #sample_info$library <- relevel(x = factor(sample_info$library), ref = "rna")
-  
-  #filter AllCounts for i
-  
-  names <- as.character(sample_info$name)
-  
-  rna_subset <- allCounts %>% as.data.frame()
-    
-  rna_subset <- rna_subset[, colnames(rna_subset) %in% names]
-  
-
-# Deseq analysis ----------------------------------------------------------------
-  
-  ddsMat <- DESeqDataSetFromMatrix(countData = rna_subset, 
-                                 colData = sample_info, 
-                                 design = ~treatment)
-  ddsMat <- DESeq(ddsMat)
-
-  res_rna_loop <- results(ddsMat, name=resultsNames(ddsMat)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
-
-  res_rna_loop <- lfcShrink(dds = ddsMat, coef = resultsNames(ddsMat)[2], res = res_rna_loop) %>% 
-  as.data.frame() %>% 
-  rownames_to_column(var = "gene_id") %>%
-  inner_join(gene_symbol, .) %>% 
-  filter(!symbol %in% nonpolyA)  
-
-  rna_comparisons[["a209"]] <- res_rna_loop
-  
-# export to excel ---------------------------------------------------------------
-  
-   writexl::write_xlsx(x = res_rna_loop, path = here(paste0("counts/", i, "_", "a209", "_", "rnacounts", ".xlsx")), col_names = T)
-
-# visualization -----------------------------------------------------------------
-  
-  volcano <- EnhancedVolcano(toptable = res_rna_loop,
-                x = "log2FoldChange",
-                y = "padj",
-                lab = res_rna_loop$symbol,
-                pCutoff = 0.05,
-                xlim = c(-5,5),
-                title = paste0(i, "a209", "_RNA_volcano"),
-                subtitle = "",
-                legendPosition = "right",
-                col = c('grey', 'black', 'blue', 'red3'),
-                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
-      'p-value & Log (base 2) FC'))
-
-print(volcano)
-
-
-# count table -------------------------------------------------------------------
-
-up <- res_rna_loop %>%
-  filter(padj < .05 & log2FoldChange >0) %>%
-  nrow()
-
-down <- res_rna_loop %>%
-  filter(padj < .05 & log2FoldChange <0) %>%
-  nrow()
-
-k = "a209"
-
-new_df <- data.frame(i, k, up, down) %>% 
-  rename("sample" = "k") %>% 
-  rename("condition" = "i")
-
-rna_counts <- rbind(counts, new_df)
-
-  big_rna_comparisons[[i]] <- rna_comparisons
-
-}
-
-# a209_norm_total <- big_comparisons$
-#   
-# a209_hyp_total <- big_comparisons$
-
-
-
-
 ```
 
-# Checking RNA analyses ---------------------------------------------------------
+# Flipping RNA analyses to create RNA signatures for figure 8. Looking at 3e signature (3e up) ---------------------------------------------------------
 
 DESeq for a single comparison at a time.
 Takeaways: 
 - need to use coef rather than contrast argument when using apelgm method for LFC shrinkage
-- this means factor levels are critical - need to be checked, maybe printed, before each analysis
+- this means factor levels are critical - need to be checked before each analysis
 
-Normoxia. Si3e compared to sicontrol
-
-Flipping so eIF3e is positive
+Normoxia-- si3e compared to sictrl
 ```{r}
 
 metadata$treatment <- factor(metadata$treatment, levels= c("si3e", "si3d", "sictrl", "a209", "DMSO"))
@@ -1290,7 +1190,7 @@ sample_info <- metadata_loop %>%
 
 # export to excel ---------------------------------------------------------------
   
-   writexl::write_xlsx(x = res_og_df_3e_norm, path = here("counts/rna_signature_3e_normoxia.xlsx"), col_names = T)
+   writexl::write_xlsx(x = res_og_df_3e_norm, path = here("counts/fig6/rna_signature_3e_normoxia.xlsx"), col_names = T)
 
 # visualization -----------------------------------------------------------------
   
@@ -1357,7 +1257,7 @@ sample_info <- metadata_loop %>%
 
 # export to excel ---------------------------------------------------------------
   
-   writexl::write_xlsx(x = res_og_df_hypoxia_3e, path = here("counts/rna_signature_3e_hypoxia.xlsx"), col_names = T)
+   writexl::write_xlsx(x = res_og_df_hypoxia_3e, path = here("counts/fig6/rna_signature_3e_hypoxia.xlsx"), col_names = T)
 
 # visualization -----------------------------------------------------------------
   
@@ -1379,9 +1279,7 @@ print(volcano)
 
 ```
 
-
-
-## Redoing 3d analysis
+## 3d analysis -- normoxia
 
 ```{r}
 
@@ -1425,7 +1323,7 @@ sample_info <- metadata_loop %>%
 
 # export to excel ---------------------------------------------------------------
   
-   writexl::write_xlsx(x = res_og_df_normoxia_3d, path = here("counts/rna_signature_3d_normoxia.xlsx"), col_names = T)
+   writexl::write_xlsx(x = res_og_df_normoxia_3d, path = here("counts/fig6/rna_signature_3d_normoxia.xlsx"), col_names = T)
 
 # visualization -----------------------------------------------------------------
   
@@ -1514,7 +1412,6 @@ print(volcano)
 
 ```
 
-## Redoing a209 analysis the same way -- high values associated with a209 treatment -- should sortve be opposite of 3e
 # a209 normoxia
 ```{r}
 
@@ -1560,7 +1457,7 @@ levels(metadata_loop$treatment)
 
 # export to excel ---------------------------------------------------------------
   
-   writexl::write_xlsx(x = res_og_normoxia_a209, path = here("counts/rna_signature_a209_normoxia.xlsx"), col_names = T)
+   writexl::write_xlsx(x = res_og_normoxia_a209, path = here("counts/fig6/rna_signature_a209_normoxia.xlsx"), col_names = T)
 
 # visualization -----------------------------------------------------------------
   
@@ -1627,7 +1524,7 @@ sample_info <- metadata_loop %>%
 
 # export to excel ---------------------------------------------------------------
   
-   writexl::write_xlsx(x = res_og_hypoxia_a209, path = here("counts/rna_signature_a209_hypoxia.xlsx"), col_names = T)
+   writexl::write_xlsx(x = res_og_hypoxia_a209, path = here("counts/fig6/rna_signature_a209_hypoxia.xlsx"), col_names = T)
 
 # visualization -----------------------------------------------------------------
   
@@ -1661,14 +1558,10 @@ universe
 
 #############################
 
+## Continuing with TE analysis
 
 
-
-
-
-
-
-# effect of si3e KD norm and hypoxia (have this in previous code)
+### effect of si3e KD norm and hypoxia (have this in previous code)
 ```{r}
 
 eif3e_counts <- long_counts %>% 
@@ -1685,18 +1578,18 @@ ggsave(here("plots/eIF3ebars.pdf"), eif3e_bar, width = 2.5, height = 3)
 
 
 
-# effect of a209 KD norm and hypoxia (have this in previous code)
+# effect of a209 KD norm and hypoxia
 ```{r}
 
 a209_counts <- long_counts %>% 
   filter(sample=="a209")
 
-a209_bar <- ggbarplot(data = a209_counts, x = "condition", y = "counts", fill = "direction", palette = c("#065911",a209_col), position = position_dodge(0.75), label = T, title= "TE Changes - a209")+
+a209_bar <- ggbarplot(data = a209_counts, x = "condition", y = "counts", fill = "direction", palette = c("pink",a209_col), position = position_dodge(0.75), label = T, title= "TE Changes - a209")+
   theme_cowplot(font_size = 16)
 
 a209_bar
 
-ggsave(here("plots/a209bars.pdf"), a209_bar, width = 3.5, height = 3.5)
+ggsave(here("plots/fig6/a209bars.pdf"), a209_bar, width = 3.5, height = 3.5)
 
 ```
 
@@ -1705,10 +1598,9 @@ ggsave(here("plots/a209bars.pdf"), a209_bar, width = 3.5, height = 3.5)
 
 # Is a209 on target? ------------------------------------------------------------
 
-# compare TE changes between the knockdowns and compound. only plottings significant changes.
+# compare TE changes between the knockdowns and compound
 
 ```{r}
-
 
 norm_3e <- big_comparisons$normoxia$si3e %>% 
     mutate(condition = "normoxia") 
@@ -1762,12 +1654,10 @@ single_condition_all <- si3e_single %>%
   
  single_condition_all$condition <- relevel(x = factor(single_condition_all$condition), ref = "normoxia")
 
-  
-  
 #this df compares norm only and hyp only, compared to respective controls
 ```
   
-# Export TE signatures! These are 3e KD signatures or a209 sigantures, so eIF3e low signatures
+# Export TE signatures! These are 3e KD signatures or a209 sigantures, (eIF3e low signatures)
 ```{r}
 
 #3e ---------------------------------------------
@@ -1956,7 +1846,7 @@ write_xlsx(list(eIF3e_normoxia = norm_3e_no_cutoff,
                 eIF3d_hypoxia = hyp_3d_no_cutoff,
                 a209_normoxia = norm_a209_no_cutoff,
                 a209_hypoxia = hyp_a209_no_cutoff),
-           here("counts/TE_signatures_no_LFC_cutoff.xlsx"))
+           here("counts/fig6/TE_signatures_no_LFC_cutoff.xlsx"))
 
 
 #.5 cutoff
@@ -1967,7 +1857,7 @@ write_xlsx(list(eIF3e_normoxia = norm_3e_0.5cutoff,
                 eIF3d_hypoxia = hyp_3d_0.5cutoff,
                 a209_normoxia = norm_a209_0.5cutoff,
                 a209_hypoxia = hyp_a209_0.5cutoff),
-           here("counts/TE_signatures_0.5_LFC_cutoff.xlsx"))
+           here("counts/fig6/TE_signatures_0.5_LFC_cutoff.xlsx"))
 
 
 #1 cutoff
@@ -1978,15 +1868,13 @@ write_xlsx(list(eIF3e_normoxia = norm_3e_1cutoff,
                 eIF3d_hypoxia = hyp_3d_1cutoff,
                 a209_normoxia = norm_a209_1cutoff,
                 a209_hypoxia = hyp_a209_1cutoff),
-           here("counts/TE_signatures_1_LFC_cutoff.xlsx"))
+           here("counts/fig6/TE_signatures_1_LFC_cutoff.xlsx"))
 ```
 
   
   
-  
-
-  
-  #3e compared to a209 - supplemental data?
+## Supplemental 3e / a209 comparisons  
+3e compared to a209 - supplemental data?
 
 ```{r}
 
@@ -2004,13 +1892,10 @@ ggplot(si3e_209, aes(x = LFC_a209, y=LFC_3e))+
   geom_smooth(method=lm)+
   stat_cor(method="pearson")
 
-
-
 ```
 
 
 #3d compared to a209
-slightly diff values because this time I used gene ID rather than symbol -- more dots
 ```{r}
 
 si3d_209 <- single_condition_all %>% 
@@ -2030,7 +1915,7 @@ ggplot(si3d_209, aes(x = LFC_a209, y=LFC_3d))+
 ```
 
 
-# plot correlation coefficients - supplpement? - skipping
+Visualizing correlation coefficients
 ```{r}
 
 corr_coef <- tibble("condition" = rep(c("normoxia","hypoxia"), each = 2),
@@ -2042,21 +1927,18 @@ corr_coef <- tibble("condition" = rep(c("normoxia","hypoxia"), each = 2),
 ggbarplot(data = corr_coef, x = "treatment", y = "corr", fill = "condition", palette = c("red","blue"), position = position_dodge(0.75), label = T)+
   theme_cowplot(font_size = 16)
 
-#only the first is significant
+#only the first bar is significant
 
 
 ```
 
 
-
-# plot odds value overlaps of a209 in normoxia -- add here --
-
+# Odds ratios for 3e and a209 overlap in normoxia
 
 The following analysis determines the number of genes that overlap in each condition and the statistical significance (p-value) of their overlap (odds ratio).
 
 Make gene lists - normoxia
 ```{r}
-
 #up
 
 si3e_normoxia_up <- big_comparisons$normoxia$si3e %>% 
@@ -2110,10 +1992,9 @@ a209_normoxia_down <- big_comparisons$normoxia$a209 %>%
 a209_normoxia_down$gs_name <- rep("a209_normoxia_down")
 
 
-
 ```
 
-### Hypoxia
+### Odds ratios in hypoxia
 
 Make gene lists - Hypoxia
 ```{r}
@@ -2179,7 +2060,6 @@ a209_hypoxia_down$gs_name <- rep("a209_hypoxia_down")
 ```
 
 
-
 Create a matrix that compares each condition for gene overlap analysis.
 ```{r}
 all_lists <- bind_rows(si3e_normoxia_up, si3d_normoxia_up, a209_normoxia_up, si3e_normoxia_down, si3d_normoxia_down, a209_normoxia_down,
@@ -2189,7 +2069,7 @@ all_lists <- bind_rows(si3e_normoxia_up, si3d_normoxia_up, a209_normoxia_up, si3
 
 
 
-### Normoxia
+### Normoxia analysis
 ```{r}
 
 norm_matrix <- all_lists %>%
@@ -2220,49 +2100,7 @@ norm_all.pval.matrix <- getMatrix(gom.all, "pval")
 #knitr::kable(all.pval.matrix, valign = 't')
 ```
 
-### Visualize odds ratios - Normoxia
-
-```{r}
-
-# non.logged.odds.matrix <- all.odds.matrix
-# 
-# #set Inf values to 1 - to suggest no odds
-# non.logged.odds.matrix[non.logged.odds.matrix=="Inf"] <- 1
-# 
-# # pheatmap::pheatmap(mat = non.logged.odds.matrix, display_numbers=TRUE, scale = "none")
-# 
-# log.odds.matrix <- all.odds.matrix
-# 
-# 
-# # set infinite values to 1, will be 0 once logged
-# 
-# log.odds.matrix[log.odds.matrix=="Inf"] <- 1
-# 
-# 
-# 
-# #set all numbers 10 or over to 10 - not doing this this time
-# 
-# #non.logged.odds.matrix[non.logged.odds.matrix >=10] <- 10
-# 
-# 
-# 
-# #set the non significant values to NA, then tell the pheatmap function what to do with the NAs
-# 
-# log.odds.matrix[all.pval.matrix > 0.05] <- 1
-# 
-# log.odds.matrix <- log10(log.odds.matrix)
-
-```
-
-
-
-### Heatmap of log10 odds ratios
-```{r}
-# pheatmap::pheatmap(mat = log.odds.matrix, display_numbers=F, scale = "none", color = RColorBrewer::brewer.pal(name = "Purples", n = 9), cluster_rows = T, cluster_cols = T)
-```
-
 # plot odds ratios as bars with p values
-
 ```{r}
 
 #merge odds and pval matricies
@@ -2298,7 +2136,7 @@ ggpubr::ggbarplot(odds_pval, x="comparison_with_a209", y="odds_value", fill="gro
   geom_hline(aes(yintercept=1))
 
 
-ggsave(chere("plots/normoverlap.pdf", width=4, height=3))
+ggsave(here("plots/fig6/normoverlap.pdf"), width=4, height=3)
 
 ```
 
@@ -2359,6 +2197,7 @@ ggpubr::ggbarplot(odds_pval, x="comparison_with_a209", y="odds_value", fill="gro
   geom_hline(aes(yintercept=1))
 
 
+ggsave(filename=here("plots/fig6/hypoverlap.pdf"), width=4, height=3)
 
 
 
@@ -2367,8 +2206,7 @@ ggpubr::ggbarplot(odds_pval, x="comparison_with_a209", y="odds_value", fill="gro
 
 
 
-
-# Venn diagram of overlaps of a209 and eIF3e in normoxia and hypoxia
+### Venn diagram of overlaps of a209 and eIF3e in normoxia and hypoxia (unused in paper)
 
 Now, separate lists by direction of change - use for venn diagrams and for pathway analyses
 ```{r}
@@ -2443,7 +2281,7 @@ hyp_te_down <- list(
 ```
 
 
-# We want up and down combined as it is in the powerpoint here
+# Visualize up and down genes combined
 
 ## Normoxia
 
@@ -2494,11 +2332,9 @@ scatter <- ggMarginal(scatter, type = "histogram",
 scatter
 
 
-ggsave(here("plots/norm_3e_a209_te_scatter.pdf"), scatter, width=4, height=4)
+ggsave(here("plots/fig6/norm_3e_a209_te_scatter.pdf"), scatter, width=4, height=4)
 
-a209_col = "#CC79A7"
-si3e_col = "#56B4E9"
-si3d_col = "#E69F00"
+
 
 
 ```
@@ -2551,9 +2387,8 @@ scatter <- ggMarginal(scatter, type = "histogram",
 
 scatter
 
-ggsave(here("plots/hyp_3e_a209_te_scatter.pdf"), width=4, height=4)
+ggsave(filename=here("plots/fig6/hyp_3e_a209_te_scatter.pdf"),scatter,width=4, height=4)
 
-#zoom in, add histogram to display density
 
 
 ```
@@ -2704,7 +2539,7 @@ hallmarks
 DT::datatable(norm_te_h) %>%
   formatRound(which(sapply(norm_te_h,is.numeric)), digits = 3)
 
-ggsave(here("plots/normoxia_hallmarks.pdf"), width=4, height=4)
+ggsave(here("plots/fig6/normoxia_hallmarks.pdf"), width=4, height=4)
 
 
 ```
@@ -2773,7 +2608,7 @@ scatter
 DT::datatable(hyp_te_h) %>%
   formatRound(which(sapply(hyp_te_h,is.numeric)), digits = 3)
 
-ggsave(here("plots/hypoxia_hallmarks.pdf"), width=4, height = 4)
+ggsave(here("plots/fig6/hypoxia_hallmarks.pdf"), width=4, height = 4)
 
 
 
@@ -2849,7 +2684,7 @@ reactome
 DT::datatable(norm_te_react) %>%
   formatRound(which(sapply(norm_te_react,is.numeric)), digits = 3)
 
-ggsave(here("plots/normoxia_reactome.pdf"), reactome)
+ggsave(here("plots/fig6/normoxia_reactome.pdf"), reactome)
 
 
 
@@ -2923,23 +2758,9 @@ reactome
 DT::datatable(hyp_te_react) %>%
   formatRound(which(sapply(hyp_te_react,is.numeric)), digits = 3)
 
-ggsave(here("plots/hypoxia_reactome.pdf"), reactome)
+ggsave(here("plots/fig6/hypoxia_reactome.pdf"), reactome)
 
 
 
 ```
-
-
-
-### expand to kegg for supp?
-
-
-
-
-
-
-
-
-
-
-
+Can include kegg as well
