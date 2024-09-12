@@ -7,6 +7,10 @@ editor_options:
   chunk_output_type: console
 ---
 
+
+### Some plots are not ggsaving in the correct dimensions. need to fix.
+
+
 ```{r setup, echo=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
 ```
