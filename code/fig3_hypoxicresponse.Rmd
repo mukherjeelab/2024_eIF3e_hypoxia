@@ -7,13 +7,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-# Acute hypoxic response histograms
-# Venn diagram overlaps
-# Pathway analysis
-# Heatmap
-
-# Load salmon data
-
 ```{r setup, echo=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
 ```
@@ -50,8 +43,6 @@ a209_col = "#009E73"
 si3e_col = "#56B4E9"
 si3d_col = "#E69F00"
 ```
-
-
 
 
 ## Load and filter metadata
@@ -111,7 +102,7 @@ nonpolyA_ID <- geneInfo %>%
   pull(gene_id) %>% 
   unique()
 
-# we want to remove any genes that match these annotation categories # before we do DE analysis
+# remove any genes that match these annotation categories # before we do DE analysis
 blacklist_smRNA <- c("snoRNA","miRNA","snRNA","rRNA","Mt_tRNA","scaRNA","Mt_tRNA","Mt_rRNA")
 
 # there are 5,355 genes we want to exclude
@@ -121,7 +112,6 @@ blacklist_smRNA_ID <-geneInfo %>%
   unique()
 
 genes_to_kill <- unique(c(blacklist_smRNA_ID,nonpolyA_ID))
-
 
 ```
 
@@ -151,10 +141,8 @@ rna_counts <- as.matrix(allCounts[,grep(pattern = "rna",colnames(allCounts))])
 ## 2. Normoxia KD effect
 ## 3. Hypoxia KD effect
 
-
 ### Deseq2:
 # Acute Hypoxic Response
-
 
 1. siCTRL norm -> hypox
 2. eIF3e norm -> hypox
@@ -192,6 +180,9 @@ for (i in loop_vector) {
   # colnames(sample_info) <- c("condition", "treatment","rep", "library", "sample_id", "name")
   sample_info$library <- relevel(x = factor(sample_info$library), ref = "rna")
     sample_info$condition <- relevel(x = factor(sample_info$condition), ref = "normoxia")
+    
+    levels(sample_info$condition)
+    levels(sample_info$library)
 
   #filter AllCounts for i
     
@@ -208,6 +199,8 @@ for (i in loop_vector) {
                                  colData = sample_info, 
                                  design = ~condition+library+condition:library)
   ddsMat <- DESeq(ddsMat)
+  
+  resultsNames(ddsMat)[4]
 
   res_te_loop <- results(ddsMat, name=resultsNames(ddsMat)[4], cooksCutoff=FALSE, independentFiltering=FALSE)
 
@@ -292,8 +285,10 @@ for (i in loop_vector) {
       as.data.frame() 
     
    rna_subset <- rna_subset[colnames(rna_subset) %in% names]
+   
+sample_info$condition <- relevel(x=factor(sample_info$condition), ref="normoxia")
+sample_info$library <- relevel(x=factor(sample_info$library), ref="rna")
 
-  
 # Deseq analysis ----------------------------------------------------------------
   
   ddsMat_rna <- DESeqDataSetFromMatrix(countData = rna_subset, 
@@ -303,6 +298,8 @@ for (i in loop_vector) {
   
 
   res_rna_loop <- results(ddsMat_rna, name=resultsNames(ddsMat_rna)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+  
+  resultsNames(ddsMat_rna)[2]
 
   res_rna_loop <- lfcShrink(dds = ddsMat_rna, coef = resultsNames(ddsMat_rna)[2], res = res_rna_loop) %>% 
   as.data.frame() %>% 
@@ -386,7 +383,8 @@ for (i in loop_vector) {
     
    ribo_subset <- ribo_subset[colnames(ribo_subset) %in% names]
 
-  
+  sample_info$condition <- relevel(x=factor(sample_info$condition), ref="normoxia")
+
 # Deseq analysis ----------------------------------------------------------------
   
   ddsMat_ribo <- DESeqDataSetFromMatrix(countData = ribo_subset, 
@@ -474,22 +472,16 @@ ggbarplot(long_counts, x="category", y="counts", fill="color")+
 ```{r}
 sictrl_counts <- total_counts %>% 
   filter(i=="sictrl") %>% 
-  pivot_longer(2:7, names_to = "type", values_to = "counts")
+  pivot_longer(2:7, names_to = "type", values_to = "counts") %>% 
+  filter(type!= "upreg") %>% 
+  filter(type != "downreg")
+
 
 
 ggbarplot(sictrl_counts, x="type", y="counts", label=TRUE)
 
-ggsave(here("plots/sictrl_counts.pdf"), width=3, height=3)
+ggsave(here("plots/fig3/sictrl_counts.pdf"), width=4, height=4)
 ```
-
-
-
-
-
-
-
-
-
 
 
 ## One table for all genes and their acute changes
@@ -542,7 +534,6 @@ all_changes <- purrr::reduce(list(sictrl_te,sictrl_ribo,sictrl_rna,si3e_te,si3e_
 ## Acute hypoxic changes
 
 ```{r}
-library(ggprism)
 
 ctrl <- all_changes %>% 
   filter(padj_rna_sictrl < 0.05 | padj_ribo_sictrl < 0.05)
@@ -562,6 +553,8 @@ ctrl_acute <- ggMarginal(ctrl_acute, type = "histogram",
            xparams = list(binwidth = .1, fill = "grey"),
            yparams = list(binwidth = .1, fill = "red")
            )
+
+ggsave(filename = here("plots/fig3/rna_ribo_acute.pdf"), width = 4, height = 4)
 
 ctrl_acute
 ```
@@ -592,7 +585,7 @@ scatter <- ggMarginal(scatter, type = "histogram",
 
 scatter
 
-#ggsave(scatter, height=4, width=4, path= here("plots/acute_3e.pdf"))
+ggsave(filename= here("plots/fig3/acute_3e.pdf"), height=4, width=4)
 
 ```
 
@@ -618,7 +611,7 @@ scatter <- ggMarginal(scatter, type = "histogram",
 
 scatter
 
-ggsave(here("plots/acute_3d.pdf"), scatter)
+ggsave(here("plots/fig3/acute_3d.pdf"), height=4, width=4)
 
 ```
 
@@ -675,6 +668,7 @@ for (j in test_vector) {
   paste(sample_info$condition, sample_info$treatment, sample_info$library, sample_info$rep, sep = "_"))
   
     sample_info$library <- relevel(x = factor(sample_info$library), ref = "rna")
+    sample_info$treatment <- relevel(x = factor(sample_info$treatment), ref = "sictrl")
 
   #filter AllCounts for i
   
@@ -760,11 +754,11 @@ eif3e_bar <- ggbarplot(data = eif3e_counts, x = "condition", y = "counts", fill 
   ylab("Transcript counts")+
   xlab("")+
   theme_prism()+
-  theme_cowplot(font_size = 7)
+  theme_cowplot(font_size = 6)
 
 eif3e_bar
 
-ggsave(here("plots/eIF3ebars.pdf"), eif3e_bar, width = 2.5, height = 3)
+ggsave(here("plots/fig3/eIF3ebars.pdf"), eif3e_bar, width = 2.5, height = 3)
 
 ```
 
@@ -780,11 +774,11 @@ eif3d_bar <- ggbarplot(data = eif3d_counts, x = "condition", y = "counts", fill 
    ylab("Transcript counts")+
   xlab("")+
   theme_prism()+
-    theme_cowplot(font_size = 7)
+    theme_cowplot(font_size = 6)
 
 eif3d_bar
 
-ggsave(here("plots/eIF3dbars.pdf"), eif3d_bar, width = 2.5, height = 3)
+ggsave(here("plots/fig3/eIF3dbars.pdf"), eif3d_bar, width = 2.5, height = 3)
 
 ```
 
@@ -833,6 +827,15 @@ hyp_3d <- big_comparisons$hypoxia$si3d %>%
 gsea_names <- c("norm_3e", "hyp_3e", "norm_3d", "hyp_3d")
 gsea_lists <- list(norm_3e, hyp_3e, norm_3d, hyp_3d)
 
+```
+
+
+```{r}
+
+write_csv(norm_3d, here("counts/fig3/norm_3d_te.csv"))
+write_csv(norm_3e, here("counts/fig3/norm_3e_te.csv"))
+write_csv(hyp_3d, here("counts/fig3/hyp_3d_te.csv"))
+write_csv(hyp_3e, here("counts/fig3/hyp_3e_te.csv"))
 ```
 
 
@@ -953,7 +956,7 @@ scatter <- ggMarginal(scatter, type = "histogram",
 
 scatter
 
-ggsave(here("plots/norm_e_d.pdf"), scatter, height=4, width=4)
+ggsave(here("plots/fig3/norm_e_d.pdf"), scatter, height=4, width=4)
 
 
 ```
@@ -1028,25 +1031,11 @@ scatter <- ggMarginal(scatter, type = "histogram",
 
 scatter
 
-ggsave(here("plots/hyp_e_d.pdf"), width=4, height=4)
+ggsave(here("plots/fig3/hyp_e_d.pdf"), width=4, height=4)
 
 
 
 ```
-
-
-```{r}
-#write excel doc
-
-library(xlsx)
-
-write_xlsx(list(normoxia = norm_sig_te, hypoxia = hyp_sig_te), path= here("counts/3e_3d_te.xlsx"))
-
-
-```
-
-
-
 
 
 ## Pathway analysis setup from below
@@ -1076,9 +1065,6 @@ eif3e_hyp <- sort(eif3e_hyp, decreasing = TRUE)
 eif3e_hyp <- eif3e_hyp[!duplicated(names(eif3e_hyp))]
 
 
-
-
-
 ```
 
 
@@ -1095,9 +1081,7 @@ m_df_c2 <- msigdbr(species = "Homo sapiens") %>%
 ```
 
 
-### Hallmarks
-
-#### Colors are eif3e NES - eif3d NES
+### Hallmark pathways enriched in hypoxia
 
 ```{r GSEA Hallmarks}
 
@@ -1157,14 +1141,14 @@ ggscatter(data = hyp_te_h,
   ylim(-2.5,2.5) +
   xlim(-2.5,2.5) + theme_prism()+
   guides(color = FALSE)+
-    geom_text_repel(aes(label = ID), size = 3)
+    geom_text_repel(aes(label = ID), size = 2)
 
 DT::datatable(hyp_te_h) %>%
   formatRound(which(sapply(hyp_te_h,is.numeric)), digits = 3)
 
 
 
-ggsave(width = 4, height = 4, filename = here("plots/hypoxia_halmarks.pdf"))
+ggsave(width = 4, height = 4, filename = here("plots/fig3/hypoxia_halmarks.pdf"))
 
 
 hyp_h_table <- hyp_te_h %>% 
@@ -1173,7 +1157,7 @@ hyp_h_table <- hyp_te_h %>%
                             ifelse(eif3d_NES > 0 & eif3e_NES < 0, "up_3d_down_3e",
                             ifelse(eif3d_NES < 0 & eif3e_NES > 0, "up_3e_down_3d", "NA")))))
 
-write_csv(hyp_h_table, here("counts/hyp_h_table.csv"))
+write_csv(hyp_h_table, here("counts/fig3/hyp_hallmarks_table.csv"))
 
 
 
@@ -1243,8 +1227,7 @@ ggscatter(data = hyp_te_kegg,
 
 
 
-ggsave(width = 4, height = 4, filename = here("plots/hypoxia_kegg.pdf"))
-ggsave(width = 4, height = 4, filename = here("plots/hypoxia_kegg.png"))
+ggsave(width = 4, height = 4, filename = here("plots/fig3/hypoxia_kegg.pdf"))
 
 
 hyp_kegg_table <- hyp_te_kegg %>% 
@@ -1253,7 +1236,7 @@ hyp_kegg_table <- hyp_te_kegg %>%
                             ifelse(eif3d_NES > 0 & eif3e_NES < 0, "up_3d_down_3e",
                             ifelse(eif3d_NES < 0 & eif3e_NES > 0, "up_3e_down_3d", "NA")))))
 
-write_csv(hyp_kegg_table, here("counts/hyp_kegg_table.csv"))
+write_csv(hyp_kegg_table, here("counts/fig3/hyp_kegg_table.csv"))
 
 
 ```
@@ -1318,8 +1301,7 @@ ggscatter(data = hyp_te_react,
 
 
 
-ggsave(width = 4, height = 4, filename = here("plots/hypoxia_reactome.pdf"))
-ggsave(width = 4, height = 4, filename = here("plots/hypoxia_reactome.png"))
+ggsave(width = 4, height = 4, filename = here("plots/fig3/hypoxia_reactome.pdf"))
 
 
 hyp_react_table <- hyp_te_react %>% 
@@ -1328,17 +1310,13 @@ hyp_react_table <- hyp_te_react %>%
                             ifelse(eif3d_NES > 0 & eif3e_NES < 0, "up_3d_down_3e",
                             ifelse(eif3d_NES < 0 & eif3e_NES > 0, "up_3e_down_3d", "NA")))))
 
-write_csv(hyp_react_table, here("counts/hyp_react_table.csv"))
+write_csv(hyp_react_table, here("counts/fig3/hyp_react_table.csv"))
 ```
-
-
-
 
 
 # Extracting RNA changes in with 3e and 3d knockdown in normoxia and hypoxia
 
 # Differential gene expression to compare:
-## 1. Normoxia -> Hypoxia
 ## 2. Normoxia KD effect
 ## 3. Hypoxia KD effect
 
@@ -1397,7 +1375,7 @@ for (j in test_vector) {
   
   
   
-    # sample_info$library <- relevel(x = factor(sample_info$library), ref = "rna")
+    sample_info$treatment <- relevel(x = factor(sample_info$treatment), ref = "sictrl")
 
   #filter AllCounts for i
   
@@ -1414,6 +1392,8 @@ for (j in test_vector) {
   ddsMat <- DESeq(ddsMat)
 
   res_rna_loop <- results(ddsMat, name=resultsNames(ddsMat)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+  
+  print(resultsNames(ddsMat)[2])
 
   res_rna_loop <- lfcShrink(dds = ddsMat, coef = resultsNames(ddsMat)[2], res = res_rna_loop) %>% 
   as.data.frame() %>% 
@@ -1479,7 +1459,7 @@ counts <- rbind(counts, new_df)
 
 ```
 
-Export excel docs
+Export rna lists as excel docs
 
 ```{r}
 library(openxlsx)
@@ -1498,13 +1478,11 @@ for (category in names(big_rna_comparisons)) {
 }
 
 # Save the workbook to an Excel file
-saveWorkbook(wb, file = here("counts/rna_values.xlsx"), overwrite = TRUE)
+saveWorkbook(wb, file = here("counts/fig3/rna_values_after_KD.xlsx"), overwrite = TRUE)
 
 ```
 
-
 # now export sig only rna changes
-
 ```{r}
 wb <- createWorkbook()
 
@@ -1520,7 +1498,7 @@ for (category in names(big_sig_rna_comparisons)) {
 }
 
 # Save the workbook to an Excel file
-saveWorkbook(wb, file = here("counts/rna_values_sig.xlsx"), overwrite = TRUE)
+saveWorkbook(wb, file = here("counts/fig3/rna_values_after_KD.xlsx"), overwrite = TRUE)
 
 ```
 
