@@ -7,10 +7,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-
-### Some plots are not ggsaving in the correct dimensions. need to fix.
-
-
 ```{r setup, echo=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
 ```
@@ -558,7 +554,7 @@ ctrl_acute <- ggMarginal(ctrl_acute, type = "histogram",
            yparams = list(binwidth = .1, fill = "red")
            )
 
-ggsave(filename = here("plots/fig3/rna_ribo_acute.pdf"), width = 4, height = 4)
+ggsave(filename = here("plots/fig3/rna_ribo_acute.pdf"), ctrl_acute, width = 4, height = 4)
 
 ctrl_acute
 ```
@@ -589,7 +585,7 @@ scatter <- ggMarginal(scatter, type = "histogram",
 
 scatter
 
-ggsave(filename= here("plots/fig3/acute_3e.pdf"), height=4, width=4)
+ggsave(filename= here("plots/fig3/acute_3e.pdf"), scatter, height=4, width=4)
 
 ```
 
@@ -615,7 +611,7 @@ scatter <- ggMarginal(scatter, type = "histogram",
 
 scatter
 
-ggsave(here("plots/fig3/acute_3d.pdf"), height=4, width=4)
+ggsave(here("plots/fig3/acute_3d.pdf"), scatter, height=4, width=4)
 
 ```
 
@@ -1035,7 +1031,7 @@ scatter <- ggMarginal(scatter, type = "histogram",
 
 scatter
 
-ggsave(here("plots/fig3/hyp_e_d.pdf"), width=4, height=4)
+ggsave(here("plots/fig3/hyp_e_d.pdf"), scatter, width=4, height=4)
 
 
 
