@@ -499,7 +499,7 @@ allCountsNorm[e_and_d,] %>%
   separate(variable, into = c("o2","kd","type","rep"), sep = "_") %>% 
   ggplot(aes(x = kd, y = value, color = kd)) +
   geom_jitter() +
-  facet_wrap(gene~type, scales = "free_y")
+  facet_wrap(type~gene, scales = "free_y")
 
 # looking at the reported deltaTE for eif3d in the eif3d kd
 res_te_3d %>% filter(gene_id == "ENSG00000100353.17")
