@@ -176,8 +176,8 @@ riboN <- log2(
 ) 
 rnaN <- log2( 1 + as.matrix(allCountsNorm[,grep(pattern = "rna",colnames(allCountsNorm))])
 ) 
-
-TE <- (riboN - rnaN) + 0.828
+# @kate wondering why you are adding 0.828 to TE  
+TE <- (riboN - rnaN) + 0.828 
 colnames(TE) <- gsub(pattern = "ribo", replacement = "TE", x = colnames(TE))
 
 ribo_counts <- as.matrix(allCounts[,grep(pattern = "ribo",colnames(allCounts))])
@@ -208,6 +208,7 @@ res_te_3d <- lfcShrink(dds = ddsMat_3d, coef = resultsNames(ddsMat_3d)[4], res =
   inner_join(gene_symbol, .) %>%
   filter(!symbol %in% nonpolyA) 
 
+
 ddsMat_3e <- DESeqDataSetFromMatrix(
   countData = counts_3e,
   colData = metadata_norm_3e,
@@ -237,7 +238,10 @@ Exporting differential TE counts in figure 6
 te_norm <- TE %>% 
   as.data.frame() %>% 
   rownames_to_column("gene_id") %>% 
-  left_join(geneInfo, by="gene_id")
+  left_join(geneInfo, by="gene_id") 
+
+# @kate -> geneInfo has transcript level information that you do NOT want because it messes up the join and creates > 100K rows! You only need geneInfo[,c(1,4)] rather than geneInfo. Everything below that uses `te_norm` will be messed up.
+
 
 res_3d <- res_te_3d %>% 
   dplyr::select(gene_id, log2FoldChange, padj) %>% 
@@ -280,10 +284,9 @@ e_only$sirna <- relevel(x = factor(e_only$sirna), ref = "sictrl")
 e_only <- e_only %>% 
   filter(symbol != "NA")
 
-
+# @kate -> if this is for the manuscript, then restrict to the ones we care about. 
 ggstripchart(data = e_only, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
   ylab(expression("log"[2]*" TE (ribo/rna)")) 
-
 
 ```
 
@@ -305,7 +308,7 @@ d_only$sirna <- relevel(x = factor(d_only$sirna), ref = "sictrl")
 d_only <- d_only %>% 
   filter(symbol != "NA")
 
-
+# @kate -> if this is for the manuscript, then restrict to the ones we care about.
 ggstripchart(data = d_only, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
   ylab(expression("log"[2]*" TE (ribo/rna)")) 
 
@@ -376,6 +379,7 @@ common_only$sirna <- relevel(x = factor(common_only$sirna), ref = "sictrl")
 common_only <- common_only %>% 
   filter(symbol != "NA")
 
+# @kate - i highly recommend having a more specific name than plot
 plot<-
 ggstripchart(data = common_only, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
   ylab(expression("log"[2]*" TE (ribo/rna)"))
@@ -393,7 +397,7 @@ ggstripchart(data = common_only,
              position = position_jitterdodge(1.2)) + 
   ylab(expression("log"[2]*" TE (ribo/rna)"))
   
-  
+# @kate -> not sure you want a title here as this can be done in affy  
   ggpar(plot, title= "eIF3e and eIF3d regulated genes")+theme(
     axis.title = element_text(size = 10),   
     axis.text = element_text(size = 8),    
@@ -485,6 +489,16 @@ ggsave(width = 4, height = 1.7, filename = here("plots/fig1/egenes.pdf"))
 
 Visualize e and d specifically
 ```{r}
+# @kate -> i think you really need to look at the normalized counts for ribo AND rna and see if the directionality makes sense. see below for example and figure out if this matches up with what you are seeing.
+
+allCountsNorm[e_and_d,] %>% 
+  as.data.frame() %>%
+  rownames_to_column(var = "gene") %>%
+  reshape2::melt() %>% 
+  separate(variable, into = c("o2","kd","type","rep"), sep = "_") %>% 
+  ggplot(aes(x = kd, y = value, color = type)) +
+  geom_jitter() +
+  facet_wrap(gene~type, scales = "free_y")
 
 e_and_d <- c("ENSG00000104408.9", "ENSG00000100353.17")
 
@@ -758,7 +772,7 @@ DT::datatable(norm_te_kegg) %>%
 
 ggsave(width = 4, height = 4, filename = here("plots/fig1/normoxia_kegg.pdf"))
 
-
+# @kate -> change this (and any other case of nested ifelse) to using case_when
 norm_kegg_table <- norm_te_kegg %>% 
   mutate(direction = ifelse(eif3d_NES < 0 & eif3e_NES < 0, "down_both",
                             ifelse(eif3d_NES > 0 & eif3e_NES > 0, "up_both",
