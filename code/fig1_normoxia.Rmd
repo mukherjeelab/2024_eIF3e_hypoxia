@@ -198,7 +198,7 @@ ddsMat_3d <- DESeqDataSetFromMatrix(
   )
 
 ddsMat_3d <- DESeq(ddsMat_3d)
-
+resultsNames(ddsMat_3d)
 res_te_3d <- results(ddsMat_3d, name=resultsNames(ddsMat_3d)[4], cooksCutoff=F, independentFiltering=F)
 
 
@@ -240,7 +240,7 @@ te_norm <- TE %>%
   rownames_to_column("gene_id") %>% 
   left_join(geneInfo, by="gene_id") 
 
-# @kate -> geneInfo has transcript level information that you do NOT want because it messes up the join and creates > 100K rows! You only need geneInfo[,c(1,4)] rather than geneInfo. Everything below that uses `te_norm` will be messed up.
+# @kate -> geneInfo has transcript level information that you do NOT want because it messes up the join and creates > 100K rows! You only need unique(geneInfo[,c(1,4)]) rather than geneInfo. Everything below that uses `te_norm` will be messed up. NOTE -> when you make this change you will need to look at joins in your code below to make sure it still works -> where you use unique(geneInfo[,c(1,4)])
 
 
 res_3d <- res_te_3d %>% 
@@ -491,12 +491,26 @@ Visualize e and d specifically
 ```{r}
 # @kate -> i think you really need to look at the normalized counts for ribo AND rna and see if the directionality makes sense. see below for example and figure out if this matches up with what you are seeing.
 
+# visualizing RNA and RIBO counts
 allCountsNorm[e_and_d,] %>% 
   as.data.frame() %>%
   rownames_to_column(var = "gene") %>%
   reshape2::melt() %>% 
   separate(variable, into = c("o2","kd","type","rep"), sep = "_") %>% 
-  ggplot(aes(x = kd, y = value, color = type)) +
+  ggplot(aes(x = kd, y = value, color = kd)) +
+  geom_jitter() +
+  facet_wrap(gene~type, scales = "free_y")
+
+# looking at the reported deltaTE for eif3d in the eif3d kd
+res_te_3d %>% filter(gene_id == "ENSG00000100353.17")
+
+# visualizing TE
+TE[e_and_d,] %>% 
+  as.data.frame() %>%
+  rownames_to_column(var = "gene") %>%
+  reshape2::melt() %>% 
+  separate(variable, into = c("o2","kd","type","rep"), sep = "_") %>% 
+  ggplot(aes(x = kd, y = value, color = kd)) +
   geom_jitter() +
   facet_wrap(gene~type, scales = "free_y")
 
