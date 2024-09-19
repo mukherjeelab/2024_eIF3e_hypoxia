@@ -37,6 +37,7 @@ library(DT)
 library(edgeR)
 library(ggprism)
 library(ggExtra)
+library(reshape2)
 
 ```
 
@@ -176,9 +177,26 @@ riboN <- log2(
 ) 
 rnaN <- log2( 1 + as.matrix(allCountsNorm[,grep(pattern = "rna",colnames(allCountsNorm))])
 ) 
-# @kate wondering why you are adding 0.828 to TE  
+
+# as.data.frame(riboN)%>% melt() %>% view()
+
+TE_original <- riboN - rnaN
+
+# @kate wondering why you are adding 0.828 to TE  --- this centers TE at 0. do i need to do that? why.
+
 TE <- (riboN - rnaN) + 0.828 
 colnames(TE) <- gsub(pattern = "ribo", replacement = "TE", x = colnames(TE))
+
+gghistogram(as.data.frame(TE_original) %>% melt(), x="value")
+
+median(as.data.frame(TE_original) %>% melt() %>% pull(value))
+# this is why im using 0.828! BUT i still don't know why that is necessary.
+
+gghistogram(as.data.frame(TE) %>% melt(), x="value")
+
+
+
+
 
 ribo_counts <- as.matrix(allCounts[,grep(pattern = "ribo",colnames(allCounts))])
 rna_counts <- as.matrix(allCounts[,grep(pattern = "rna",colnames(allCounts))])
@@ -237,8 +255,9 @@ Exporting differential TE counts in figure 6
 #import gene names
 te_norm <- TE %>% 
   as.data.frame() %>% 
-  rownames_to_column("gene_id") %>% 
-  left_join(geneInfo, by="gene_id") 
+  rownames_to_column("gene_id")
+  
+te_norm <- left_join(te_norm, unique(geneInfo[,c(1,4)]), by="gene_id")
 
 # @kate -> geneInfo has transcript level information that you do NOT want because it messes up the join and creates > 100K rows! You only need unique(geneInfo[,c(1,4)]) rather than geneInfo. Everything below that uses `te_norm` will be messed up. NOTE -> when you make this change you will need to look at joins in your code below to make sure it still works -> where you use unique(geneInfo[,c(1,4)])
 
@@ -487,9 +506,19 @@ ggsave(width = 4, height = 1.7, filename = here("plots/fig1/egenes.pdf"))
 ```
 
 
-Visualize e and d specifically
+Visualize e and d specifically: controls
+
+Controls for each TE analysis:
+1. Extract TE values for eIF3d and eIF3e
+2. Visualize normalized RNA and RIBO counts for eFI3d and eIF3e
+3. Hand-calculate expected TE and cross reference
+
+
 ```{r}
 # @kate -> i think you really need to look at the normalized counts for ribo AND rna and see if the directionality makes sense. see below for example and figure out if this matches up with what you are seeing.
+
+e_and_d <- c("ENSG00000104408.9", "ENSG00000100353.17")
+
 
 # visualizing RNA and RIBO counts
 allCountsNorm[e_and_d,] %>% 
@@ -514,7 +543,6 @@ TE[e_and_d,] %>%
   geom_jitter() +
   facet_wrap(gene~type, scales = "free_y")
 
-e_and_d <- c("ENSG00000104408.9", "ENSG00000100353.17")
 
 e_d <- TE[e_and_d,] %>%
   as.data.frame() %>%
