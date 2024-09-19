@@ -1,0 +1,1015 @@
+---
+title: "tcga"
+author: "Kate"
+date: "2024-08-06"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+load packages
+```{r}
+library(here)
+library(tidyverse)
+library(janitor)
+library(readxl)
+#BiocManager::install("cBioPortalData")
+library(cBioPortalData)
+library(MetaIntegrator)
+library(cbioportalR)
+library(pheatmap)
+library(cowplot)
+library(ggpubr)
+library(survival)
+library(survminer)
+library(GSVA)
+library(GSEABase)
+library(matrixStats)
+```
+
+# My data
+load signatures from my data
+```{r}
+file_path <- here("counts/rna_values_sig.xlsx")
+
+sheet_names <- excel_sheets(file_path)
+
+all_sheets <- lapply(sheet_names, function(sheet) {
+  read_excel(file_path, sheet = sheet)
+})
+
+names(all_sheets) <- sheet_names
+
+```
+
+all_sheets now has all four signatures from our data
+
+```{r}
+sig_3d_norm <-all_sheets$normoxia_si3d
+sig_3e_norm <-all_sheets$normoxia_si3e
+sig_3d_hyp <-all_sheets$hypoxia_si3d
+sig_3e_hyp <-all_sheets$hypoxia_si3e
+```
+
+### Beginning with Normoxia 3e
+
+At first, did this analysis with 3e log fold change cut off at 0 now changing to 
+separate direction
+```{r}
+up_3e_norm <- sig_3e_norm %>% 
+  filter(log2FoldChange > 1)
+
+tally(up_3e_norm)
+
+down_3e_norm <- sig_3e_norm %>% 
+  filter(log2FoldChange < -1)
+
+tally(down_3e_norm)
+
+```
+
+
+
+# TCGA data - read in z scores and matching clinical data
+```{r}
+zscores <- read.table(here("cbioportal_data/tcga_data_mrna_seq_v2_rsem_zscores_ref_diploid_samples.txt"), sep="\t", header=T)
+row.names(zscores) <- gsub("_", ".",row.names(zscores))
+
+# there are duplicates in this list. What happens when i subset for the genes we are interested in?
+
+zscores_all_symbol <- zscores %>% 
+  dplyr::select(-Entrez_Gene_Id)
+
+### Average scores for duplicates
+
+merged_zscores_all <- zscores_all_symbol %>%
+  group_by(Hugo_Symbol) %>%
+  summarise(across(everything(), mean))
+
+
+merged_zscores_matrix <- merged_zscores_all %>% 
+  column_to_rownames("Hugo_Symbol") %>% 
+  as.matrix()
+
+
+```
+
+Define genes of interest
+```{r}
+genes <- sig_3e_norm$symbol
+```
+
+
+
+```{r}
+
+verified_genes <- genes[genes %in% rownames(merged_zscores_matrix)]
+
+filtered_expr <- merged_zscores_matrix[verified_genes, , drop = FALSE]
+
+
+```
+
+
+
+for loop generating z score for each patient
+
+
+
+1. Create expression data
+```{r}
+
+exp <- merged_zscores_matrix %>%
+  as.data.frame() %>% 
+  rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% sig_3e_norm$symbol) %>% 
+ column_to_rownames("Hugo_Symbol")
+
+
+```
+
+
+
+
+#up values
+
+
+Loop through each patient
+```{r}
+
+patients <- colnames(merged_zscores_all)
+patients <- patients[patients !="Hugo_Symbol"]
+
+
+up_3e_norm_dataset <- data.frame(patient=character(), avg_z_score=numeric(), stringsAsFactors = FALSE)
+
+for (i in patients) {
+
+  #filter dataframe
+  patient_level <- exp %>% 
+    dplyr::select(i) %>%
+    rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% up_3e_norm$symbol) %>% 
+    drop_na()
+
+    all_values <- as.vector(patient_level[,2])
+  
+  
+  #geometric mean
+  
+  up_genes_z_score <- mean(all_values, na.rm=TRUE)
+
+  loop_dataset <- data.frame(patient=i, norm_3e_z_score_up = up_genes_z_score)
+  
+  up_3e_norm_dataset <- rbind(up_3e_norm_dataset, loop_dataset)
+}
+
+ggplot(up_3e_norm_dataset, aes(x=norm_3e_z_score_up))+
+  geom_histogram(bins = 400)
+
+```
+Plot distribution of values
+
+
+
+
+#down values
+
+```{r}
+
+patients <- colnames(merged_zscores_all)
+patients <- patients[patients !="Hugo_Symbol"]
+
+
+down_3e_norm_dataset <- data.frame(patient=character(), avg_z_score=numeric(), stringsAsFactors = FALSE)
+
+for (i in patients) {
+
+  #filter dataframe
+  patient_level <- exp %>% 
+    dplyr::select(i) %>%
+    rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% down_3e_norm$symbol) %>% 
+    drop_na()
+
+    all_values <- as.vector(patient_level[,2])
+  
+  
+  #geometric mean
+  
+  down_genes_z_score <- mean(all_values, na.rm=TRUE)
+
+  loop_dataset <- data.frame(patient=i, norm_3e_z_score_down = down_genes_z_score)
+  
+  down_3e_norm_dataset <- rbind(down_3e_norm_dataset, loop_dataset)
+}
+
+ggplot(down_3e_norm_dataset, aes(x=norm_3e_z_score_down))+
+  geom_histogram(bins = 400)
+
+
+```
+
+
+Merge two datasets
+```{r}
+patient_scores <- left_join(up_3e_norm_dataset, down_3e_norm_dataset, by="patient")
+
+patient_scores <- patient_scores %>% 
+  mutate(total_z_score = norm_3e_z_score_up - norm_3e_z_score_down)
+
+```
+
+visualize scores among patient cohort
+```{r}
+ggplot(patient_scores, aes(x=total_z_score))+
+  geom_histogram(bins = 400)
+```
+
+
+Stratify into groups based on z score
+
+```{r}
+
+quantile_groups <- quantile(patient_scores$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+patient_scores$quantile <- cut(patient_scores$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+patient_scores$patient <- gsub("\\.", "-", as.character(patient_scores$patient))
+
+
+
+```
+
+
+
+
+
+## Switch to using survival data
+Read in and clean up clin data
+  
+```{r}
+clin <- read.table(here("cbioportal_data/tcga_data_clinical_patient.txt"), sep="\t", header=TRUE, comment.char="", quote="")
+
+clin_small <- clin %>% 
+  dplyr::select(OS_STATUS, OS_MONTHS, PATIENT_ID)
+
+# years and months in this are not reading correctly
+
+#get rid of not available
+
+clin_small <- clin_small %>%
+  filter(OS_MONTHS != "[Not Available]") %>% 
+  filter(OS_MONTHS > 0)
+
+clin_small$OS_MONTHS <- as.numeric(clin_small$OS_MONTHS)
+
+clin_small <- clin_small %>% 
+  arrange(OS_MONTHS)
+
+
+
+clin_small$OS_STATUS[which(clin_small$OS_STATUS == "1:DECEASED" & clin_small$OS_MONTHS > 120)] <- "0:LIVING"
+ clin_small$OS_STATUS <- clin_small$OS_STATUS == "1:DECEASED"
+
+
+# clin$OS_MONTHS <- as.numeric(clin$OS_MONTHS)
+
+clin_small <- clin_small %>% 
+  mutate(OS_YEARS= clin_small$OS_MONTHS/12)
+
+
+clin_small$OS_YEARS[which(clin_small$OS_YEARS >= 10)] <- 10
+
+
+
+```
+
+
+Bind clin data with z scores
+
+```{r}
+
+patient_scores$patient <- sub("-01$", "", patient_scores$patient)
+
+
+
+all_data <- left_join(clin_small, patient_scores, by=c("PATIENT_ID"="patient"))
+
+
+# all_data <- all_data %>% 
+#   mutate(high_signature = ifelse(quantile==4, TRUE, FALSE))
+# 
+# all_data <- all_data %>% 
+#   mutate(low_signature = ifelse(quantile==1, TRUE, FALSE))
+# 
+# all_data <- all_data %>% 
+#   mutate(medium_low_signature = ifelse(quantile==2, TRUE, FALSE))
+# 
+# all_data <- all_data %>% 
+#   mutate(medium_high_signature = ifelse(quantile==3, TRUE, FALSE))
+```
+
+
+
+Stratifying survival data
+## eif3e signature vs survival
+
+```{r}
+# clin2 <- all_data[c(which(all_data$low_signature), which(all_data$high_signature)),]
+# fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ low_signature, data = clin2)
+# 
+# 
+# ggsurvplot(fit, data = clin2, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("eIF3e KD signature high", "eIF3e KD signature low"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+# 
+# coxph(formula = Surv(OS_YEARS, OS_STATUS) ~ low_signature, data = clin2)
+# 
+# #report hazards ratio on plot
+
+```
+
+Look at all four groupings
+
+```{r}
+
+# all_data_clean <- na.omit(all_data$OS_STATUS)
+# all_data$OS_STATUS <- gsub(",", ".", all_data$OS_STATUS)
+# 
+# all_data$OS_YEARS <- as.numeric(all_data$OS_YEARS)
+# 
+# str(all_data$quantile)
+# 
+# 
+# all_data_arranged
+
+
+
+fit_all <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_data)
+
+#pre legend
+ggsurvplot(fit_all, data = all_data, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
+#post legend
+ggsurvplot(fit_all, data = all_data, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),legend.labs = c("depleted for eIF3e KD signature: low (Q1)","depleted: medium-low (Q2)", "enriched: medium-high (Q3)", "enriched for eIF3e KD signature: high (Q4)"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_data)
+summary(coxfit)
+
+str(survfit(coxfit))
+
+
+#report hazards ratio on plot
+
+summary_coxfit <- summary(coxfit)
+
+```
+
+
+Plotting again
+
+```{r}
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+```
+
+```{r}
+
+
+
+
+surv_plot <- ggsurvplot(fit_all, data = all_data, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),legend.labs = c("depleted for eIF3e KD signature: low (Q1)","depleted: medium-low (Q2)", "enriched: medium-high (Q3)", "enriched for eIF3e KD signature: high (Q4)"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
+
+
+
+surv_plot$plot <- surv_plot$plot + 
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 5, 
+    color = "black"
+  )
+
+surv_plot
+```
+
+
+
+
+## Sanity check: positive-ish controls
+
+VITAL_STATUS = living or died of disease
+
+
+```{r}
+
+# clin2 <- all_data[c(which(all_data$low_signature), which(all_data$high_signature)),]
+
+alive_data <- all_data
+#   mutate(alive = ifelse(OS_STATUS=="Living", TRUE, FALSE))
+
+alive_data <- alive_data %>% 
+  mutate(died_from_cancer = ifelse(VITAL_STATUS=="Died of Disease", TRUE, FALSE))
+
+fit_pos <- survfit(Surv(OS_YEARS, OS_STATUS) ~ died_from_cancer, data = alive_data)
+
+
+ggsurvplot(fit_pos, data = alive_data, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("alive", "died_from_cancer"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
+
+```
+Good sanity check! just need to clean up some of the alive vs died data??? maybe?
+
+## Negative Control
+
+Now neg control -- random genes comprising signatures-- same number of genes just random
+
+pos genes = 1747 genes
+neg genes = 1638 genes
+
+pick random from all genes expressed in clinical data?? or in my data?
+
+
+for loop generating z score for each patient
+
+
+
+1. Create expression data
+```{r}
+
+exp_full <- merged_zscores_matrix %>%
+  as.data.frame()
+
+```
+
+2. Pick random up and down values
+```{r}
+
+all_genes <- rownames(exp_full)
+
+fake_pos_list <-all_genes[sample(1:length(all_genes), 1747)]
+fake_neg_list <-all_genes[sample(1:length(all_genes), 1638)]
+```
+
+# fake up signature values - neg ctrl
+
+
+Loop through each patient
+```{r}
+
+patients <- colnames(merged_zscores_all)
+patients <- patients[patients !="Hugo_Symbol"]
+
+
+fake_up_dataset <- data.frame(patient=character(), avg_z_score=numeric(), stringsAsFactors = FALSE)
+
+for (i in patients) {
+
+  #filter dataframe
+  patient_level <- exp %>% 
+    dplyr::select(i) %>%
+    rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% fake_pos_list)
+
+    all_values <- as.vector(patient_level[,2])
+  
+  
+  #geometric mean
+  
+  up_genes_z_score <- mean(all_values, na.rm=TRUE)
+
+  loop_dataset <- data.frame(patient=i, norm_3e_z_score_up = up_genes_z_score)
+  
+  fake_up_dataset <- rbind(fake_up_dataset, loop_dataset)
+}
+
+```
+
+
+
+
+
+#fake down sig values - neg ctrl
+
+```{r}
+
+patients <- colnames(merged_zscores_all)
+patients <- patients[patients !="Hugo_Symbol"]
+
+
+fake_down_dataset <- data.frame(patient=character(), avg_z_score=numeric(), stringsAsFactors = FALSE)
+
+for (i in patients) {
+
+  #filter dataframe
+  patient_level <- exp %>% 
+    dplyr::select(i) %>%
+    rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% fake_neg_list)
+
+    all_values <- as.vector(patient_level[,2])
+  
+  
+  #geometric mean
+  
+  down_genes_z_score <- mean(all_values, na.rm=TRUE)
+
+  loop_dataset <- data.frame(patient=i, norm_3e_z_score_down = down_genes_z_score)
+  
+  fake_down_dataset <- rbind(fake_down_dataset, loop_dataset)
+}
+
+
+
+```
+
+
+Merge two datasets
+```{r}
+neg_ctrl_fake_patient_scores <- left_join(fake_up_dataset, fake_down_dataset, by="patient")
+
+neg_ctrl_fake_patient_scores <- neg_ctrl_fake_patient_scores %>% 
+  mutate(total_z_score = norm_3e_z_score_up - norm_3e_z_score_down)
+
+```
+
+NEG CONTROL - visualize scores among patient cohort
+```{r}
+ggplot(neg_ctrl_fake_patient_scores, aes(x=total_z_score))+
+  geom_histogram(bins = 400)
+```
+
+
+Stratify into groups based on z score
+
+```{r}
+
+neg_ctrl_quantile_groups <- quantile(neg_ctrl_fake_patient_scores$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+neg_ctrl_fake_patient_scores$quantile <- cut(neg_ctrl_fake_patient_scores$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+neg_ctrl_fake_patient_scores$patient <- sub("-01$", "", as.character(neg_ctrl_fake_patient_scores$patient))
+
+
+
+colnames(neg_ctrl_fake_patient_scores) <- paste(colnames(neg_ctrl_fake_patient_scores),"neg_ctrl",sep="_") 
+
+names(neg_ctrl_fake_patient_scores)[names(neg_ctrl_fake_patient_scores) == "patient_neg_ctrl"] <- "patient"
+
+
+
+
+```
+
+
+Now plot neg control!
+
+
+```{r}
+
+all_data <- left_join(clin_small, neg_ctrl_fake_patient_scores, by=c("PATIENT_ID"="patient"))
+
+
+all_data <- all_data %>% 
+  mutate(neg_ctrl_high_signature = ifelse(quantile_neg_ctrl==4, TRUE, FALSE))
+
+all_data <- all_data %>% 
+  mutate(neg_ctrl_low_signature = ifelse(quantile_neg_ctrl==1, TRUE, FALSE))
+```
+
+
+```{r}
+clin_strat <- all_data[c(which(all_data$neg_ctrl_low_signature), which(all_data$neg_ctrl_high_signature)),]
+fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ neg_ctrl_low_signature, data = clin_strat)
+
+
+ggsurvplot(fit, data = all_data, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("NEG CTRL eIF3e KD signature high", "NEG CTRL eIF3e KD signature low"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+```
+
+
+
+# Repeat analysis with TCGA dataset
+
+1,108 samples
+
+```{r}
+zscores_tcga <- read.table(here("cbioportal_data/brca_tcga/data_mrna_seq_v2_rsem_zscores_ref_diploid_samples.txt"), sep="\t", header=T)
+row.names(zscores) <- gsub("_", ".",row.names(zscores))
+
+# there are duplicates in this list. What happens when i subset for the genes we are interested in?
+
+zscores_tcga_all_symbol <- zscores_tcga %>% 
+  dplyr::select(-Entrez_Gene_Id)
+
+### Average scores for duplicates
+
+merged_tcga_zscores_all <- zscores_tcga_all_symbol %>%
+  group_by(Hugo_Symbol) %>%
+  summarise(across(everything(), mean))
+
+
+merged_tcga_zscores_matrix <- merged_tcga_zscores_all %>% 
+  column_to_rownames("Hugo_Symbol") %>% 
+  as.matrix()
+
+
+```
+
+Define genes of interest
+```{r}
+genes <- sig_3e_norm$symbol
+```
+
+
+
+```{r}
+
+verified_genes <- genes[genes %in% rownames(merged_tcga_zscores_matrix)]
+
+filtered_expr <- merged_tcga_zscores_matrix[verified_genes, , drop = FALSE]
+
+
+```
+
+
+
+for loop generating z score for each patient
+
+1. Create expression data
+```{r}
+
+exp <- merged_tcga_zscores_matrix %>%
+  as.data.frame() %>% 
+  rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% sig_3e_norm$symbol) %>% 
+ column_to_rownames("Hugo_Symbol")
+
+
+```
+
+
+
+
+#up values
+
+
+Loop through each patient
+```{r}
+
+patients <- colnames(merged_tcga_zscores_all)
+patients <- patients[patients !="Hugo_Symbol"]
+
+
+tcga_up_3e_norm_dataset <- data.frame(patient=character(), avg_z_score=numeric(), stringsAsFactors = FALSE)
+
+for (i in patients) {
+
+  #filter dataframe
+  patient_level <- exp %>% 
+    dplyr::select(i) %>%
+    rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% up_3e_norm$symbol)
+
+    all_values <- as.vector(patient_level[,2])
+  
+  
+  #geometric mean
+  
+  up_genes_z_score <- mean(all_values, na.rm=TRUE)
+
+  loop_dataset <- data.frame(patient=i, norm_3e_z_score_up = up_genes_z_score)
+  
+  tcga_up_3e_norm_dataset <- rbind(tcga_up_3e_norm_dataset, loop_dataset)
+}
+
+```
+
+
+
+
+
+#down values
+
+```{r}
+
+patients <- colnames(merged_tcga_zscores_all)
+patients <- patients[patients !="Hugo_Symbol"]
+
+
+tcga_down_3e_norm_dataset <- data.frame(patient=character(), avg_z_score=numeric(), stringsAsFactors = FALSE)
+
+for (i in patients) {
+
+  #filter dataframe
+  patient_level <- exp %>% 
+    dplyr::select(i) %>%
+    rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% down_3e_norm$symbol)
+
+    all_values <- as.vector(patient_level[,2])
+  
+  
+  #geometric mean
+  
+  down_genes_z_score <- mean(all_values, na.rm=TRUE)
+
+  loop_dataset <- data.frame(patient=i, norm_3e_z_score_down = down_genes_z_score)
+  
+  tcga_down_3e_norm_dataset <- rbind(tcga_down_3e_norm_dataset, loop_dataset)
+}
+
+
+
+```
+
+
+Merge two datasets
+```{r}
+patient_scores_tcga <- left_join(tcga_up_3e_norm_dataset, tcga_down_3e_norm_dataset, by="patient")
+
+patient_scores_tcga <- patient_scores_tcga %>% 
+  mutate(total_z_score = norm_3e_z_score_up - norm_3e_z_score_down)
+
+```
+
+visualize scores among patient cohort
+```{r}
+ggplot(patient_scores_tcga, aes(x=total_z_score))+
+  geom_histogram(bins = 400)
+```
+
+
+Stratify into groups based on z score
+
+```{r}
+
+quantile_groups <- quantile(patient_scores_tcga$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+patient_scores_tcga$quantile <- cut(patient_scores_tcga$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+patient_scores_tcga$patient <- gsub("\\.", "-", as.character(patient_scores_tcga$patient))
+
+
+
+```
+
+
+
+
+
+## Switch to using survival data
+Read in and clean up clin data
+Read in and clean up clin data
+  
+```{r}
+
+# clin_tcga <- read.table(here("cbioportal_data/brca_tcga/data_clinical_patient.txt"), header=T, sep="t")
+# dim(clin_tcga)
+# 
+# clin_tcga$OS_STATUS[which(clin_tcga$OS_STATUS == "1:DECEASED" & clin_tcga$OS_MONTHS > 120)] <- "0:LIVING"
+# clin_tcga$OS_STATUS <- clin_tcga$OS_STATUS == "1:DECEASED"
+# clin_tcga <- cbind(clin_tcga, OS_YEARS = clin_tcga$OS_MONTHS/12)
+# clin_tcga$OS_YEARS[which(clin_tcga$OS_YEARS >= 10)] <- 10
+# dim(clin_tcga)
+
+
+```
+
+
+Bind clin data with z scores
+
+```{r}
+all_data <- left_join(clin, patient_scores, by=c("PATIENT_ID"="patient"))
+
+
+all_data <- all_data %>% 
+  mutate(high_signature = ifelse(quantile==4, TRUE, FALSE))
+
+all_data <- all_data %>% 
+  mutate(low_signature = ifelse(quantile==1, TRUE, FALSE))
+```
+
+
+
+Stratifying survival data
+## eif3e signature vs survival
+
+```{r}
+clin2 <- all_data[c(which(all_data$low_signature), which(all_data$high_signature)),]
+fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ low_signature, data = clin2)
+
+
+ggsurvplot(fit, data = clin2, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("eIF3e KD signature high", "eIF3e KD signature low"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+```
+
+
+
+
+
+## Sanity check: positive-ish controls
+
+VITAL_STATUS = living or died of disease
+
+
+```{r}
+
+clin2 <- all_data[c(which(all_data$low_signature), which(all_data$high_signature)),]
+
+all_data <- all_data %>% 
+  mutate(alive = ifelse(VITAL_STATUS=="Living", TRUE, FALSE))
+
+all_data <- all_data %>% 
+  mutate(died_from_cancer = ifelse(VITAL_STATUS=="Died of Disease", TRUE, FALSE))
+
+fit_pos <- survfit(Surv(OS_YEARS, OS_STATUS) ~ died_from_cancer, data = clin2)
+
+
+ggsurvplot(fit_pos, data = clin2, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("alive", "died_from_cancer"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
+
+```
+Good sanity check! just need to clean up some of the alive vs died data??? maybe?
+
+## Negative Control
+
+Now neg control -- random genes comprising signatures-- same number of genes just random
+
+pos genes = 1747 genes
+neg genes = 1638 genes
+
+pick random from all genes expressed in clinical data?? or in my data?
+
+
+for loop generating z score for each patient
+
+
+
+1. Create expression data
+```{r}
+
+exp_full <- merged_zscores_matrix %>%
+  as.data.frame()
+
+```
+
+2. Pick random up and down values
+```{r}
+
+all_genes <- rownames(exp_full)
+
+fake_pos_list <-all_genes[sample(1:length(all_genes), 1747)]
+fake_neg_list <-all_genes[sample(1:length(all_genes), 1638)]
+```
+
+# fake up signature values - neg ctrl
+
+
+Loop through each patient
+```{r}
+
+patients <- colnames(merged_zscores_all)
+patients <- patients[patients !="Hugo_Symbol"]
+
+
+fake_up_dataset <- data.frame(patient=character(), avg_z_score=numeric(), stringsAsFactors = FALSE)
+
+for (i in patients) {
+
+  #filter dataframe
+  patient_level <- exp %>% 
+    dplyr::select(i) %>%
+    rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% fake_pos_list)
+
+    all_values <- as.vector(patient_level[,2])
+  
+  
+  #geometric mean
+  
+  up_genes_z_score <- mean(all_values)
+
+  loop_dataset <- data.frame(patient=i, norm_3e_z_score_up = up_genes_z_score)
+  
+  fake_up_dataset <- rbind(fake_up_dataset, loop_dataset)
+}
+
+```
+
+
+
+
+
+#fake down sig values - neg ctrl
+
+```{r}
+
+patients <- colnames(merged_zscores_all)
+patients <- patients[patients !="Hugo_Symbol"]
+
+
+fake_down_dataset <- data.frame(patient=character(), avg_z_score=numeric(), stringsAsFactors = FALSE)
+
+for (i in patients) {
+
+  #filter dataframe
+  patient_level <- exp %>% 
+    dplyr::select(i) %>%
+    rownames_to_column("Hugo_Symbol") %>% 
+    filter(Hugo_Symbol %in% fake_neg_list)
+
+    all_values <- as.vector(patient_level[,2])
+  
+  
+  #geometric mean
+  
+  down_genes_z_score <- mean(all_values)
+
+  loop_dataset <- data.frame(patient=i, norm_3e_z_score_down = down_genes_z_score)
+  
+  fake_down_dataset <- rbind(fake_down_dataset, loop_dataset)
+}
+
+
+
+```
+
+
+Merge two datasets
+```{r}
+neg_ctrl_fake_patient_scores <- left_join(fake_up_dataset, fake_down_dataset, by="patient")
+
+neg_ctrl_fake_patient_scores <- neg_ctrl_fake_patient_scores %>% 
+  mutate(total_z_score = norm_3e_z_score_up - norm_3e_z_score_down)
+
+```
+
+NEG CONTROL - visualize scores among patient cohort
+```{r}
+ggplot(neg_ctrl_fake_patient_scores, aes(x=total_z_score))+
+  geom_histogram(bins = 400)
+```
+
+
+Stratify into groups based on z score
+
+```{r}
+
+neg_ctrl_quantile_groups <- quantile(neg_ctrl_fake_patient_scores$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+neg_ctrl_fake_patient_scores$quantile <- cut(neg_ctrl_fake_patient_scores$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+neg_ctrl_fake_patient_scores$patient <- gsub("\\.", "-", as.character(neg_ctrl_fake_patient_scores$patient))
+
+
+colnames(neg_ctrl_fake_patient_scores) <- paste(colnames(neg_ctrl_fake_patient_scores),"neg_ctrl",sep="_") 
+
+names(neg_ctrl_fake_patient_scores)[names(neg_ctrl_fake_patient_scores) == "patient_neg_ctrl"] <- "patient"
+
+
+
+
+```
+
+
+Now plot neg control!
+
+
+```{r}
+
+neg_ctrl_fake_patient_scores$patient <- gsub("\\.", "-", as.character(neg_ctrl_fake_patient_scores$patient))
+
+
+all_data <- left_join(clin, neg_ctrl_fake_patient_scores, by=c("PATIENT_ID"="patient"))
+
+
+all_data <- all_data %>% 
+  mutate(neg_ctrl_high_signature = ifelse(quantile_neg_ctrl==4, TRUE, FALSE))
+
+all_data <- all_data %>% 
+  mutate(neg_ctrl_low_signature = ifelse(quantile_neg_ctrl==1, TRUE, FALSE))
+```
+
+
+```{r}
+clin2 <- all_data[c(which(all_data$neg_ctrl_low_signature), which(all_data$neg_ctrl_high_signature)),]
+fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ neg_ctrl_low_signature, data = clin2)
+
+
+ggsurvplot(fit, data = clin2, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("NEG CTRL eIF3e KD signature high", "NEG CTRL eIF3e KD signature low"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+```
+

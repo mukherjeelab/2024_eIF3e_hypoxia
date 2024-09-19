@@ -6,7 +6,7 @@ editor_options:
   chunk_output_type: console
 ---
 # ATF4 + any other individual genes shown in figure 2
-TE normoxic only. For this figure. Hypoxia is still in here for now. We can decide to remove it with the finished paper.
+The paper will only show TE normoxic in this figure.
 
 ```{r setup, echo=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
@@ -79,6 +79,7 @@ gene_symbol <- geneInfo %>% dplyr::select(gene_id, symbol) %>% unique()
 
 ### Load quant files
 Note: These salmon files were generated used the tpm option in salmon
+We needed to normalize these counts to plot them, since we are not using deseq2.
 ```{r load in salmon files, message=FALSE, warning=FALSE}
 #load quant files based on metadata names
 myquantfiles <- paste(here(), "/tpm_salmon/",

@@ -449,7 +449,7 @@ ggsave(width = 4, height = 1.7, filename = here("plots/fig1/dgenes.pdf"))
 
 ```
 
-Example of 3e specific genes
+Sample of 3e specific genes
 ```{r}
 
 e_spec <- chart_genes %>% 
