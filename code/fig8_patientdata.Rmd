@@ -172,6 +172,9 @@ zscores_all_symbol <- zscores %>%
   dplyr::select(-Entrez_Gene_Id)
 
 ### Average scores for duplicate patients
+duplicated(zscores_all_symbol$Hugo_Symbol) %>% table()
+
+
 
 merged_zscores_all <- zscores_all_symbol %>%
   group_by(Hugo_Symbol) %>%
@@ -330,7 +333,7 @@ pheatmap(
 
 
 
-Make an upset plot with gene intersects
+## Make an upset plot with gene intersects
 ```{r}
 
 
@@ -488,6 +491,8 @@ for loop generating z score for each patient
 1. Create expression data
 ```{r}
 
+# merged_zscores_matrix[sig_3e_norm$symbol,]
+
 exp <- merged_zscores_matrix %>%
   as.data.frame() %>% 
   rownames_to_column("Hugo_Symbol") %>% 
@@ -602,6 +607,7 @@ Clinical data contains surival data
 
 clin <- read.table(here("cbioportal_data/data_clinical_patient.txt"), sep="\t", header=T)
 
+# know this well
 
 clin$OS_STATUS[which(clin$OS_STATUS == "1:DECEASED" & clin$OS_MONTHS > 120)] <- "0:LIVING"
 clin$OS_STATUS <- clin$OS_STATUS == "1:DECEASED"

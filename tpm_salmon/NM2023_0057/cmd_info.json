@@ -1,9 +1,0 @@
-{
-    "salmon_version": "1.6.0",
-    "libType": "A",
-    "unmatedReads": "STAR/NM2023_0057.fastq",
-    "threads": "10",
-    "index": "/beevol/home/neellab/genomes/human/hg38/indices/salmon_gencodev26_noprimary_RIBO/ribo",
-    "output": "salmon/NM2023_0057",
-    "auxDir": "aux_info"
-}
