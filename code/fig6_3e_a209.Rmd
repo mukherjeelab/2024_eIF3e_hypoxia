@@ -967,7 +967,9 @@ counts <- rbind(counts, new_df)
 
 ```
 
-### TE signatures --- In These signatures are opposite to what we did earlier -- so there is an eIF3e signature (not eIF3e KD signature. eIF3e signature means a lot of eFI3e activity (rather than KD))
+### TE signatures --- These signatures are opposite to what we did earlier -- so there is an eIF3e signature (not eIF3e KD signature. eIF3e signature means a lot of eFI3e activity (rather than KD))
+
+Now we have to flip the values for the numbers too. 
 
 norm 3d
 ```{r}
@@ -979,9 +981,10 @@ te_sig_norm_3d <- big_comparisons$normoxia$si3d %>%
   )) %>% 
   dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
   filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
-  rename(log2FoldChange_in_KD = log2FoldChange)
+  rename(log2FoldChange_in_KD = log2FoldChange) %>% 
+  mutate(log2FoldChange_for_signature = -log2FoldChange_in_KD)
 
-# sanity check -- ATF4 should now be UP
+# sanity check -- ATF4 should now be UP -- and values are up
 
 write_csv(te_sig_norm_3d, here("counts/signatures/norm_3d_signature_TE.csv"))
 
@@ -997,7 +1000,8 @@ te_sig_hyp_3d <- big_comparisons$hypoxia$si3d %>%
   )) %>% 
   dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
   filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
-  rename(log2FoldChange_in_KD = log2FoldChange)
+   rename(log2FoldChange_in_KD = log2FoldChange)%>% 
+  mutate(log2FoldChange_for_signature = -log2FoldChange_in_KD)
 
 
 write_csv(te_sig_hyp_3d, here("counts/signatures/hypoxia_3d_signature_TE.csv"))
@@ -1015,7 +1019,8 @@ te_sig_norm_3e <- big_comparisons$normoxia$si3e %>%
   )) %>% 
   dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
   filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
-  rename(log2FoldChange_in_KD = log2FoldChange)
+  rename(log2FoldChange_in_KD = log2FoldChange)%>% 
+  mutate(log2FoldChange_for_signature = -log2FoldChange_in_KD)
 
 # sanity check -- ATF4 should now be UP
 
@@ -1033,7 +1038,8 @@ te_sig_hyp_3e <- big_comparisons$hypoxia$si3e %>%
   )) %>% 
   dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
   filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
-  rename(log2FoldChange_in_KD = log2FoldChange)
+  rename(log2FoldChange_in_KD = log2FoldChange)%>% 
+  mutate(log2FoldChange_for_signature = -log2FoldChange_in_KD)
 
 
 write_csv(te_sig_hyp_3e, here("counts/signatures/hypoxia_3e_signature_TE.csv"))
@@ -1051,7 +1057,8 @@ te_sig_norm_a209 <- big_comparisons$normoxia$a209 %>%
   )) %>% 
   dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
   filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
-  rename(log2FoldChange_in_KD = log2FoldChange)
+  rename(log2FoldChange_in_KD = log2FoldChange)%>% 
+  mutate(log2FoldChange_for_signature = -log2FoldChange_in_KD)
 
 # sanity check -- ATF4 should now be UP
 
@@ -1069,7 +1076,8 @@ te_sig_hyp_a209 <- big_comparisons$hypoxia$a209 %>%
   )) %>% 
   dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
   filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
-  rename(log2FoldChange_in_KD = log2FoldChange)
+  rename(log2FoldChange_in_KD = log2FoldChange)%>% 
+  mutate(log2FoldChange_for_signature = -log2FoldChange_in_KD)
 
 
 write_csv(te_sig_hyp_a209, here("counts/signatures/hypoxia_a209_signature_TE.csv"))
@@ -1735,6 +1743,8 @@ universe
 
 
 # Export RNA signatures for example in eIF3e signature, eIF3e RNA is up
+
+
 For these, now i have to put the directions back bc i ran the deseq so that eIF3e rna sig would have eIF3e up aka sictrl:eIF3eKD
 
 #3d
@@ -1749,7 +1759,7 @@ rna_sig_norm_3d <- res_og_df_normoxia_3d %>%
   )) %>% 
   dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
   filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
-  rename(log2FoldChange_in_KD = log2FoldChange)
+  rename(log2FoldChange_for_signature = log2FoldChange)
 
 # sanity check --eIF3d should be up
 
@@ -1767,7 +1777,7 @@ rna_sig_hyp_3d <- res_og_hypoxia_3d %>%
   )) %>% 
   dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
   filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
-  rename(log2FoldChange_in_KD = log2FoldChange)
+  rename(log2FoldChange_for_signature = log2FoldChange)
 
 # sanity check --eIF3d should be up
 
@@ -1786,7 +1796,7 @@ rna_sig_norm_3e <- res_og_df_3e_norm %>%
   )) %>% 
   dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
   filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
-  rename(log2FoldChange_in_KD = log2FoldChange)
+  rename(log2FoldChange_for_signature = log2FoldChange)
 
 # sanity check --eIF3e should be up
 
@@ -1804,7 +1814,7 @@ rna_sig_hyp_3e <- res_og_df_hypoxia_3e %>%
   )) %>% 
   dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
   filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
-  rename(log2FoldChange_in_KD = log2FoldChange)
+  rename(log2FoldChange_for_signature = log2FoldChange)
 
 # sanity check --eIF3e should be up
 
@@ -1823,7 +1833,7 @@ rna_sig_norm_a209 <- res_og_normoxia_a209 %>%
   )) %>% 
   dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
   filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
-  rename(log2FoldChange_in_KD = log2FoldChange)
+  rename(log2FoldChange_for_signature = log2FoldChange)
 
 # sanity check --a209 should be up
 
@@ -1841,7 +1851,7 @@ rna_sig_hyp_a209 <- res_og_hypoxia_a209 %>%
   )) %>% 
   dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
   filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
-  rename(log2FoldChange_in_KD = log2FoldChange)
+  rename(log2FoldChange_for_signature = log2FoldChange)
 
 # sanity check --a209 should be up
 
@@ -1850,6 +1860,541 @@ write_csv(rna_sig_hyp_a209, here("counts/signatures/hyp_a209_signature_RNA.csv")
 ```
 
 # End rna signature export
+
+
+
+# Ribo signature export--- This is the same as RNA sig export (3e/d up in sigantures) --------------
+
+Normoxia-- si3e compared to sictrl
+```{r}
+
+metadata$treatment <- factor(metadata$treatment, levels= c("si3e", "si3d", "sictrl", "a209", "DMSO"))
+
+metadata_loop <- metadata %>% 
+  filter(library=="ribo") %>% 
+  filter(condition=="normoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3e")
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = paste(condition, treatment, library, rep, sep = "_")) %>% 
+  droplevels()
+  
+  names <- as.character(sample_info$name)
+  names
+  ribo_subset <- allCounts %>% as.data.frame()
+    
+  ribo_subset <- ribo_subset[, colnames(ribo_subset) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = ribo_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  #double check factor levels
+ resultsNames(dds)
+
+  res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
+
+  res_og_df_3e_norm <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res_og) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .) %>% 
+  filter(!symbol %in% nonpolyA) 
+
+# export to excel ---------------------------------------------------------------
+  
+   writexl::write_xlsx(x = res_og_df_3e_norm, path = here("counts/fig6/ribo_signature_3e_normoxia.xlsx"), col_names = T)
+
+# visualization -----------------------------------------------------------------
+  
+  volcano <- EnhancedVolcano(toptable = res_og_df_3e_norm,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_ribo_loop$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5),
+                title = "3e normoxia ribo",
+                subtitle = "",
+                legendPosition = "right",
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
+
+print(volcano)
+
+
+```
+# Now eif3e is up -- do the same for hypoxia
+
+
+# 3e hypoxia ribo
+```{r}
+
+metadata$treatment <- factor(metadata$treatment, levels= c("si3e", "si3d", "sictrl", "a209", "DMSO"))
+
+metadata_loop <- metadata %>% 
+  filter(library=="ribo") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3e")
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, library, rep, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  ribo_subset <- allCounts %>% as.data.frame()
+    
+  ribo_subset <- ribo_subset[, colnames(ribo_subset) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = ribo_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+    #double check factor levels
+  print(resultsNames(dds))
+
+  res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
+
+  res_og_df_hypoxia_3e <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res_og) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .) %>% 
+  filter(!symbol %in% nonpolyA) 
+
+# export to excel ---------------------------------------------------------------
+  
+   writexl::write_xlsx(x = res_og_df_hypoxia_3e, path = here("counts/fig6/ribo_signature_3e_hypoxia.xlsx"), col_names = T)
+
+# visualization -----------------------------------------------------------------
+  
+  volcano <- EnhancedVolcano(toptable = res_og_df_hypoxia_3e,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_ribo_loop$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5),
+                title = "3e hypoxia ribo",
+                subtitle = "",
+                legendPosition = "right",
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
+
+print(volcano)
+
+
+```
+
+## 3d analysis -- normoxia
+
+```{r}
+
+metadata$treatment <- factor(metadata$treatment, levels= c("si3e", "si3d", "sictrl", "a209", "DMSO"))
+
+metadata_loop <- metadata %>% 
+  filter(library=="ribo") %>% 
+  filter(condition=="normoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3d")
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, library, rep, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  
+  ribo_subset <- allCounts %>% as.data.frame()
+    
+  ribo_subset <- ribo_subset[, colnames(ribo_subset) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = ribo_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  #double check factor levels
+  print(resultsNames(dds))
+
+  res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
+
+  res_og_df_normoxia_3d <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res_og) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .) %>% 
+  filter(!symbol %in% nonpolyA) 
+
+# export to excel ---------------------------------------------------------------
+  
+   writexl::write_xlsx(x = res_og_df_normoxia_3d, path = here("counts/fig6/ribo_signature_3d_normoxia.xlsx"), col_names = T)
+
+# visualization -----------------------------------------------------------------
+  
+  volcano <- EnhancedVolcano(toptable = res_og_df_normoxia_3d,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_ribo_loop$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5),
+                title = "Normoxia 3d ribo",
+                subtitle = "",
+                legendPosition = "right",
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
+
+print(volcano)
+
+
+```
+
+
+
+# 3d hypoxia ribo
+```{r}
+
+metadata$treatment <- factor(metadata$treatment, levels= c("si3e", "si3d", "sictrl", "a209", "DMSO"))
+
+metadata_loop <- metadata %>% 
+  filter(library=="ribo") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3d")
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, library, rep, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  ribo_subset <- allCounts %>% as.data.frame()
+    
+  ribo_subset <- ribo_subset[, colnames(ribo_subset) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = ribo_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+    #double check factor levels
+  print(resultsNames(dds))
+
+  res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
+
+  res_og_hypoxia_3d <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res_og) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .) %>% 
+  filter(!symbol %in% nonpolyA) 
+
+# export to excel ---------------------------------------------------------------
+  
+   writexl::write_xlsx(x = res_og_hypoxia_3d, path = here("counts/ribo_signature_3d_hypoxia.xlsx"), col_names = T)
+
+# visualization -----------------------------------------------------------------
+  
+  volcano <- EnhancedVolcano(toptable = res_og_hypoxia_3d,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_ribo_loop$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5),
+                title = "hypoxia 3d ribo",
+                subtitle = "",
+                legendPosition = "right",
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
+
+print(volcano)
+
+
+```
+
+# a209 normoxia
+```{r}
+
+metadata$treatment <- factor(metadata$treatment, levels= c("si3e", "si3d", "sictrl", "a209", "DMSO"))
+
+metadata_loop <- metadata %>% 
+  filter(library=="ribo") %>% 
+  filter(condition=="normoxia") %>% 
+  filter(treatment=="DMSO"|treatment=="a209")
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, library, rep, sep = "_"))
+
+levels(metadata_loop$treatment)
+  
+  names <- as.character(sample_info$name)
+  names
+  ribo_subset <- allCounts %>% as.data.frame()
+    
+  ribo_subset <- ribo_subset[, colnames(ribo_subset) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = ribo_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+    #double check factor levels
+  print(resultsNames(dds))
+
+  res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
+
+  res_og_normoxia_a209 <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res_og) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .) %>% 
+  filter(!symbol %in% nonpolyA) 
+
+# export to excel ---------------------------------------------------------------
+  
+   writexl::write_xlsx(x = res_og_normoxia_a209, path = here("counts/fig6/ribo_signature_a209_normoxia.xlsx"), col_names = T)
+
+# visualization -----------------------------------------------------------------
+  
+  volcano <- EnhancedVolcano(toptable = res_og_normoxia_a209,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_ribo_loop$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5),
+                title = "a209_normoxia",
+                subtitle = "",
+                legendPosition = "right",
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
+
+print(volcano)
+
+
+```
+
+
+
+# a209 hypoxia ribo
+```{r}
+
+metadata$treatment <- factor(metadata$treatment, levels= c("si3e", "si3d", "sictrl", "a209", "DMSO"))
+
+metadata_loop <- metadata %>% 
+  filter(library=="ribo") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment=="DMSO"|treatment=="a209")
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, library, rep, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  ribo_subset <- allCounts %>% as.data.frame()
+    
+  ribo_subset <- ribo_subset[, colnames(ribo_subset) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = ribo_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+    #double check factor levels
+  print(resultsNames(dds))
+
+  res_og <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE) #what i did originally
+
+  res_og_hypoxia_a209 <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res_og) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .) %>% 
+  filter(!symbol %in% nonpolyA) 
+
+# export to excel ---------------------------------------------------------------
+  
+   writexl::write_xlsx(x = res_og_hypoxia_a209, path = here("counts/fig6/ribo_signature_a209_hypoxia.xlsx"), col_names = T)
+
+# visualization -----------------------------------------------------------------
+  
+  volcano <- EnhancedVolcano(toptable = res_og_hypoxia_a209,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_ribo_loop$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5),
+                title = "a209 hypoxia ribo",
+                subtitle = "",
+                legendPosition = "right",
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
+
+print(volcano)
+
+
+```
+
+
+# Export ribo signatures for example in eIF3e signature, eIF3e ribo is up
+
+
+For these, now i have to put the directions back bc i ran the deseq so that eIF3e ribo sig would have eIF3e up aka sictrl:eIF3eKD
+
+#3d
+
+norm 3d
+```{r}
+ribo_sig_norm_3d <- res_og_df_normoxia_3d %>% 
+  mutate(direction=case_when(
+    log2FoldChange > 0 ~ "up",
+    log2FoldChange < 0 ~ "down",
+    TRUE ~ "no_change"
+  )) %>% 
+  dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
+  rename(log2FoldChange_for_signature = log2FoldChange)
+
+# sanity check --eIF3d should be up
+
+write_csv(ribo_sig_norm_3d, here("counts/signatures/norm_3d_signature_ribo.csv"))
+
+```
+
+hyp 3d
+```{r}
+ribo_sig_hyp_3d <- res_og_hypoxia_3d %>% 
+  mutate(direction=case_when(
+    log2FoldChange > 0 ~ "up",
+    log2FoldChange < 0 ~ "down",
+    TRUE ~ "no_change"
+  )) %>% 
+  dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
+  rename(log2FoldChange_for_signature = log2FoldChange)
+
+# sanity check --eIF3d should be up
+
+write_csv(ribo_sig_hyp_3d, here("counts/signatures/hyp_3d_signature_ribo.csv"))
+
+```
+
+#3e
+norm 3e
+```{r}
+ribo_sig_norm_3e <- res_og_df_3e_norm %>% 
+  mutate(direction=case_when(
+    log2FoldChange > 0 ~ "up",
+    log2FoldChange < 0 ~ "down",
+    TRUE ~ "no_change"
+  )) %>% 
+  dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
+  rename(log2FoldChange_for_signature = log2FoldChange)
+
+# sanity check --eIF3e should be up
+
+write_csv(ribo_sig_norm_3e, here("counts/signatures/norm_3e_signature_ribo.csv"))
+
+```
+
+hyp 3e
+```{r}
+ribo_sig_hyp_3e <- res_og_df_hypoxia_3e %>% 
+  mutate(direction=case_when(
+    log2FoldChange > 0 ~ "up",
+    log2FoldChange < 0 ~ "down",
+    TRUE ~ "no_change"
+  )) %>% 
+  dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
+  rename(log2FoldChange_for_signature = log2FoldChange)
+
+# sanity check --eIF3e should be up
+
+write_csv(ribo_sig_hyp_3e, here("counts/signatures/hyp_3e_signature_ribo.csv"))
+
+```
+
+#a209
+norm a209
+```{r}
+ribo_sig_norm_a209 <- res_og_normoxia_a209 %>% 
+  mutate(direction=case_when(
+    log2FoldChange > 0 ~ "up",
+    log2FoldChange < 0 ~ "down",
+    TRUE ~ "no_change"
+  )) %>% 
+  dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
+  rename(log2FoldChange_for_signature = log2FoldChange)
+
+# sanity check --a209 should be up
+
+write_csv(ribo_sig_norm_a209, here("counts/signatures/norm_a209_signature_ribo.csv"))
+
+```
+
+hyp a209
+```{r}
+ribo_sig_hyp_a209 <- res_og_hypoxia_a209 %>% 
+  mutate(direction=case_when(
+    log2FoldChange > 0 ~ "up",
+    log2FoldChange < 0 ~ "down",
+    TRUE ~ "no_change"
+  )) %>% 
+  dplyr::select(gene_id, symbol, log2FoldChange, padj, direction) %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5) %>% 
+  rename(log2FoldChange_for_signature = log2FoldChange)
+
+# sanity check --a209 should be up
+
+write_csv(ribo_sig_hyp_a209, here("counts/signatures/hyp_a209_signature_ribo.csv"))
+
+```
+
+# End ribo signature export
+
+double check directionality is all making sense
+```{r}
+
+```
+
+
+
+
+
+
+
 
 
 

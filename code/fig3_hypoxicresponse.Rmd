@@ -774,11 +774,11 @@ eif3d_bar <- ggbarplot(data = eif3d_counts, x = "condition", y = "counts", fill 
    ylab("Transcript counts")+
   xlab("")+
   theme_prism()+
-    theme_cowplot(font_size = 6)
+    theme_cowplot(font_size = 8)
 
 eif3d_bar
 
-ggsave(here("plots/fig3/eIF3dbars.pdf"), eif3d_bar, width = 2.5, height = 3)
+ggsave(here("plots/fig3/eIF3dbars.pdf"), eif3d_bar, width = 3, height = 4)
 
 ```
 
