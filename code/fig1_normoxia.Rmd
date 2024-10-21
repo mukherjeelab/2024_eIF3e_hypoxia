@@ -182,7 +182,7 @@ rnaN <- log2( 1 + as.matrix(allCountsNorm[,grep(pattern = "rna",colnames(allCoun
 
 TE_original <- riboN - rnaN
 
-# @kate wondering why you are adding 0.828 to TE  --- this centers TE at 0. do i need to do that? why.
+# @kate wondering why you are adding 0.828 to TE  --- this centers TE at 0. is this important?
 
 TE <- (riboN - rnaN) + 0.828 
 colnames(TE) <- gsub(pattern = "ribo", replacement = "TE", x = colnames(TE))
@@ -303,10 +303,6 @@ e_only$sirna <- relevel(x = factor(e_only$sirna), ref = "sictrl")
 e_only <- e_only %>% 
   filter(symbol != "NA")
 
-# @kate -> if this is for the manuscript, then restrict to the ones we care about. 
-ggstripchart(data = e_only, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
-  ylab(expression("log"[2]*" TE (ribo/rna)")) 
-
 ```
 
 ### Exclusively changed with 3dKD
@@ -326,10 +322,6 @@ d_only$sirna <- relevel(x = factor(d_only$sirna), ref = "sictrl")
 
 d_only <- d_only %>% 
   filter(symbol != "NA")
-
-# @kate -> if this is for the manuscript, then restrict to the ones we care about.
-ggstripchart(data = d_only, x = "sirna", y = "TE", color = "sirna", facet.by = "symbol", shape = "sirna", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2)) + 
-  ylab(expression("log"[2]*" TE (ribo/rna)")) 
 
 ```
 

@@ -192,7 +192,27 @@ ggplot(aes(x=treatment, y=count))+
   facet_wrap(~condition)
 ```
 
-ENSG00000128272
+3d
+ENSG00000100353.17
+check rna
+```{r}
+eif3d="ENSG00000100353.17"
+
+eif3d_rna <- rna_counts_normalized %>% 
+  as.data.frame() %>% 
+  rownames_to_column("gene_id") %>% 
+  filter(gene_id == "ENSG00000100353.17")
+
+
+
+eif3d_rna %>% 
+  melt(variable.name = "sample", value.name = "count") %>%
+  separate(sample, into = c("condition", "treatment", "type", "replicate")) %>% 
+ggplot(aes(x=treatment, y=count))+
+  geom_point() +
+  facet_wrap(~condition)
+```
+
 
 3e
 ENSG00000104408.9
@@ -2761,6 +2781,8 @@ ggplot(si3d_209, aes(x = LFC_a209, y=LFC_3d))+
 Visualizing correlation coefficients
 ```{r}
 
+# this is not up to date -- needs fixed
+
 corr_coef <- tibble("condition" = rep(c("normoxia","hypoxia"), each = 2),
        "treatment" = rep(c("eIF3e_a209","eIF3d_a209"), times = 2),
        "corr" = c(0.032,-0.022,0.18,0.0051),
@@ -3318,7 +3340,7 @@ m_df_c2 <- msigdbr(species = "Homo sapiens") %>%
 ## Hallmark Pathways
 
 Which hallmark pathways overlap for a209 and 3e in hypoxia? which are different?
-
+Normoxia
 ```{r GSEA Hallmarks}
 
 #normoxia
@@ -3389,6 +3411,7 @@ ggsave(here("plots/fig6/normoxia_hallmarks.pdf"), width=4, height=4)
 
 
 Which pathways overlap for 3e and a209 in hypoxia? Which are different?
+Hypoxia
 ```{r}
 
 #hypoxia
