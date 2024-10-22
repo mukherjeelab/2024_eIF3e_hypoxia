@@ -26,6 +26,14 @@ library(DESeq2)
 library(plotly)
 ```
 
+```{r}
+a209_col = "#CC79A7"
+si3e_col = "#56B4E9"
+si3d_col = "#E69F00"
+```
+
+
+
 ## Load transcript-level data
 
 ```{r meta data}
@@ -97,6 +105,14 @@ qcinput <- qcinput[rowSds(qcinput) > 1,]
 
 dim(qcinput)
 ```
+Split normoxia and hypoxia
+```{r}
+
+qc_input_normoxia <- qcinput[, grep("Normoxic", colnames(qcinput))]
+
+qc_input_hypoxia <- qcinput[, grep("Hypoxic", colnames(qcinput))]
+
+```
 
 
 ## Heatmap of total samples
@@ -109,6 +125,21 @@ mycor <- cor(qcinput, method = "pearson")
 heatmap <- pheatmap::pheatmap(mat = mycor)
 heatmap
 ggsave(heatmap, filename=here("plots/fig1/qc/heatmap_with_outlier.pdf"), width=11.5, height=11)
+
+#Normoxia only
+
+mycor_norm <- cor(qc_input_normoxia, method = "pearson")
+heatmap <- pheatmap::pheatmap(mat = mycor_norm)
+heatmap
+ggsave(heatmap, filename=here("plots/fig1/qc/heatmap_with_outlier_norm.pdf"), width=11.5, height=11)
+
+#Hypoxia only
+
+mycor_hyp <- cor(qc_input_hypoxia, method = "pearson")
+
+heatmap <- pheatmap::pheatmap(mat = mycor_hyp)
+heatmap
+ggsave(heatmap, filename=here("plots/fig1/qc/heatmap_with_outlier_hyp.pdf"), width=11.5, height=11)
 
 ```
 
@@ -140,6 +171,85 @@ pca <- ggplot(data = pca_res_data, aes(x=PC1, y = PC2, color = treatment, shape 
 ggplotly(pca)
 
 ggsave(pca, filename=here("plots/fig1/qc/pca_with_outlier.pdf"), width= 4, height=3)
+
+
+
+# Normoxia only
+
+
+pca_res_norm <- prcomp(scale(x = qc_input_normoxia,center = T, scale = T))
+
+pca_res_norm <- 
+  pca_res_norm$rotation %>%
+  as.data.frame() 
+
+
+pca_res_norm <- pca_res_norm %>% 
+  rownames_to_column("sample") %>%
+  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
+
+pca <- ggplot(data = pca_res_norm, aes(x=PC1, y = PC2, color = treatment, shape = type))+ 
+  geom_point(size=3) +
+  theme_few()
+
+ggplotly(pca)
+
+ggsave(pca, filename=here("plots/fig1/qc/pca_with_outlier_normoxia.pdf"), width= 4, height=3)
+
+
+
+
+
+
+
+
+#Hypoxia only
+pca_res_hyp <- prcomp(scale(x = qc_input_hypoxia,center = T, scale = T))
+
+pca_res_hyp <- 
+  pca_res_hyp$rotation %>%
+  as.data.frame() 
+
+
+pca_res_hyp <- pca_res_hyp %>% 
+  rownames_to_column("sample") %>%
+  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
+
+pca <- ggplot(data = pca_res_hyp, aes(x=PC1, y = PC2, color = treatment, shape = type))+ 
+  geom_point(size=3) +
+  theme_few()
+
+ggplotly(pca)
+
+ggsave(pca, filename=here("plots/fig1/qc/pca_with_outlier_hypoxia.pdf"), width= 4, height=3)
+
+
+#hypoxia without outlier
+
+qcinput_hyp_no_outlier <- qc_input_hypoxia[,colnames(qc_input_hypoxia) != "Hypoxic_si3e_RepB_rnaseq"] 
+
+
+pca_res_hyp <- prcomp(scale(x = qcinput_hyp_no_outlier,center = T, scale = T))
+
+pca_res_hyp <- 
+  pca_res_hyp$rotation %>%
+  as.data.frame() 
+
+
+pca_res_hyp <- pca_res_hyp %>% 
+  rownames_to_column("sample") %>%
+  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
+
+pca <- ggplot(data = pca_res_hyp, aes(x=PC1, y = PC2, color = treatment, shape = type))+ 
+  geom_point(size=3) +
+  theme_few()
+
+ggplotly(pca)
+
+ggsave(pca, filename=here("plots/fig1/qc/pca_without_outlier_hypoxia.pdf"), width= 4, height=3)
+
+
+
 
 
 ```
@@ -373,6 +483,7 @@ myGtable <- geneInfo %>%
 
 myGdata <- allCountsNorm[myGtable$gene_id,] %>%
   reshape2::melt() %>% 
+  filter(Var2 != "Hypoxic_si3e_RepB_rnaseq") %>% 
   separate(col = Var2, into = c("condition", "treatment", "rep", "library")) 
   
 colnames(myGdata)[1] <- "gene_id"
@@ -389,11 +500,169 @@ genestoplot <- myGdata %>%
   filter(condition=="Hypoxic")
 
 
+# myGdata %>%
+#   filter(treatment != "DMSO" & treatment != "a209") %>% 
+#   filter(condition=="Normoxic") %>% 
+#   ggpubr::ggbarplot(x="treatment", y="cpm")+
+#   facet_wrap(~gene_id+library)
 
-ggpubr::ggdotplot(data = genestoplot, x = "symbol", y = "cpm", fill = "symbol", facet.by = "treatment")
+
+
+
+
+# ggpubr::ggdotplot(data = genestoplot, x = "symbol", y = "cpm", fill = "symbol", facet.by = "treatment")
 
 ggsave(filename=here("plots/fig1/qc/confirm_KD.pdf"), width= 4, height=3)
 ```
+New bars
+
+Normoxia
+```{r}
+myGdata$treatment <- relevel(factor(myGdata$treatment), ref = "sictrl")
+myGdata$library <- relevel(factor(myGdata$library), ref = "rnaseq")
+
+custom_colors <- c("sictrl" = "grey", "si3d" = si3d_col, "si3e" = si3e_col)
+
+
+
+myGdata %>%
+  filter(treatment != "DMSO" & treatment != "a209") %>%
+  filter(condition == "Normoxic") %>%
+  group_by(treatment, symbol, library) %>%
+  summarise(mean_cpm = mean(cpm, na.rm = TRUE),
+            sd_cpm = sd(cpm, na.rm = TRUE)) %>%
+  ggplot(aes(x = treatment, y = mean_cpm, fill = treatment)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_errorbar(aes(ymin = mean_cpm - sd_cpm, ymax = mean_cpm + sd_cpm), 
+                width = 0.2, position = position_dodge(0.9)) +
+  facet_wrap(~symbol + library, scales = "free_y") +
+  labs(y = "Mean CPM", x = "Treatment") +
+  scale_fill_manual(values = custom_colors)+
+  theme_cowplot()
+
+ggsave(here("plots/3eanddbars.pdf"))
+```
+hypoxia
+```{r}
+#need to get rid of the outlier here
+
+myGdata %>%
+  filter(treatment != "DMSO" & treatment != "a209") %>%
+  filter(condition == "Hypoxic") %>%
+  group_by(treatment, symbol, library) %>%
+  summarise(mean_cpm = mean(cpm, na.rm = TRUE),
+            sd_cpm = sd(cpm, na.rm = TRUE)) %>%
+  ggplot(aes(x = treatment, y = mean_cpm, fill = treatment)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_errorbar(aes(ymin = mean_cpm - sd_cpm, ymax = mean_cpm + sd_cpm), 
+                width = 0.2, position = position_dodge(0.9)) +
+  facet_wrap(~symbol + library, scales = "free_y") +
+  labs(y = "Mean CPM", x = "Treatment") +
+  scale_fill_manual(values = custom_colors)+
+  theme_cowplot()
+
+ggsave(here("plots/3eanddbars_hypoxia.pdf"))
+```
+
+HIF1alpha in hypoxia
+
+S3 - ribo and rna do not change with KD. Bring in TE later.
+
+Make same for a209 and DMSO
+
+```{r}
+
+
+myGtable <- geneInfo %>% 
+  filter(symbol =="HIF1A") %>%
+  dplyr::select(gene_id,symbol) %>% 
+  unique()
+
+
+
+myGdata <- allCountsNorm[myGtable$gene_id,] %>%
+  reshape2::melt() %>% 
+  mutate(gene_id=myGtable$gene_id) %>% 
+    mutate(symbol=myGtable$symbol) %>% 
+  rownames_to_column("Var2") %>% 
+  filter(Var2 != "Hypoxic_si3e_RepB_rnaseq") %>% 
+  separate(col = Var2, into = c("condition", "treatment", "rep", "library")) 
+  
+
+colnames(myGdata)[5] <- "cpm"
+myGdata$cpm <- log2(myGdata$cpm + 1)
+
+
+myGdata$treatment <- relevel(factor(myGdata$treatment), ref = "sictrl")
+myGdata$library <- relevel(factor(myGdata$library), ref = "rnaseq")
+
+custom_colors <- c("sictrl" = "grey", "si3d" = si3d_col, "si3e" = si3e_col)
+
+
+myGdata %>%
+  filter(treatment != "DMSO" & treatment != "a209") %>%
+  filter(condition == "Hypoxic") %>%
+  group_by(treatment, symbol, library) %>%
+  summarise(mean_cpm = mean(cpm, na.rm = TRUE),
+            sd_cpm = sd(cpm, na.rm = TRUE)) %>%
+  ggplot(aes(x = treatment, y = mean_cpm, fill = treatment)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_errorbar(aes(ymin = mean_cpm - sd_cpm, ymax = mean_cpm + sd_cpm), 
+                width = 0.2, position = position_dodge(0.9)) +
+  facet_wrap(~symbol + library, scales = "free_y") +
+  labs(y = "Mean CPM", x = "Treatment") +
+  scale_fill_manual(values = custom_colors)+
+  theme_cowplot()
+
+ggsave(here("plots/hif1a.pdf"))
+
+
+
+
+```
+
+DMSO and a209
+```{r}
+custom_colors <- c("DMSO" = "grey", "a209" = a209_col)
+
+myGdata$treatment <- relevel(factor(myGdata$treatment), ref = "DMSO")
+
+
+myGdata %>%
+  filter(treatment == "DMSO" | treatment == "a209") %>%
+  filter(condition == "Hypoxic") %>%
+  group_by(treatment, symbol, library) %>%
+  summarise(mean_cpm = mean(cpm, na.rm = TRUE),
+            sd_cpm = sd(cpm, na.rm = TRUE)) %>%
+  ggplot(aes(x = treatment, y = mean_cpm, fill = treatment)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_errorbar(aes(ymin = mean_cpm - sd_cpm, ymax = mean_cpm + sd_cpm), 
+                width = 0.2, position = position_dodge(0.9)) +
+  facet_wrap(~symbol + library, scales = "free_y") +
+  labs(y = "Mean CPM", x = "Treatment") +
+  scale_fill_manual(values = custom_colors)+
+  theme_cowplot()
+
+ggsave(here("plots/hif1a_a209.pdf"))
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ```{r filter out outlier in analysis for part 2, eval=FALSE, warning=FALSE, include=FALSE}
