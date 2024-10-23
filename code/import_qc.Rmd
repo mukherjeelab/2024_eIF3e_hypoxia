@@ -87,7 +87,7 @@ hist_count <- hist(log2(rowSums(myTxi$counts)), breaks = 50)
 #distribution of abundance histogram
 hist_abundance <- hist(log2(rowSums(myTxi$abundance)), breaks = 50)
 
-#only keeping rows with counts  log2> 7 across all samples - want around 10-15k genes - want genes that are highly expressed
+#only keeping rows with counts  log2> 10 across all samples - want around 10-15k genes - want genes that are highly expressed
 keepGenes <- rownames(myTxi$counts[log2(rowSums(myTxi$counts)) > 10 ,])
 
 #removes noise
@@ -128,10 +128,155 @@ ggsave(heatmap, filename=here("plots/fig1/qc/heatmap_with_outlier.pdf"), width=1
 
 #Normoxia only
 
+
+
 mycor_norm <- cor(qc_input_normoxia, method = "pearson")
 heatmap <- pheatmap::pheatmap(mat = mycor_norm)
 heatmap
 ggsave(heatmap, filename=here("plots/fig1/qc/heatmap_with_outlier_norm.pdf"), width=11.5, height=11)
+
+#KDs
+qc_input_normoxia_kds <- qc_input_normoxia[, grep("si", colnames(qc_input_normoxia))]
+
+mycor_norm_kds <- cor(qc_input_normoxia_kds, method = "pearson")
+heatmap <- pheatmap::pheatmap(mat = mycor_norm_kds)
+heatmap
+ggsave(heatmap, filename=here("plots/fig1/qc/heatmap_norm_kds.pdf"), width=11.5, height=11)
+
+
+#kds only pca
+
+
+pca_qc_input_normoxia_kds <- prcomp(scale(x = qc_input_normoxia_kds,center = T, scale = T))
+
+pca_qc_input_normoxia_kds <- 
+  pca_qc_input_normoxia_kds$rotation %>%
+  as.data.frame() 
+
+pca_qc_input_normoxia_kds <- pca_qc_input_normoxia_kds %>% 
+  rownames_to_column("sample") %>%
+  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
+
+pca <- ggplot(data = pca_qc_input_normoxia_kds, aes(x=PC1, y = PC2, color = treatment, shape = type))+ 
+  geom_point(size=3) +
+  theme_few()
+
+ggplotly(pca)
+
+ggsave(pca, filename=here("plots/fig1/qc/pca_with_outlier_normoxia_kds_only.pdf"), width= 4, height=3)
+
+
+
+#ribo only pca
+
+qc_input_normoxia_kds_ribo <- qc_input_normoxia_kds[, grep("ribo", colnames(qc_input_normoxia_kds))]
+
+pca_qc_input_normoxia_kds_ribo <- prcomp(scale(x = qc_input_normoxia_kds_ribo,center = T, scale = T))
+
+pca_qc_input_normoxia_kds_ribo <- 
+  pca_qc_input_normoxia_kds_ribo$rotation %>%
+  as.data.frame() 
+
+pca_qc_input_normoxia_kds_ribo <- pca_qc_input_normoxia_kds_ribo %>% 
+  rownames_to_column("sample") %>%
+  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
+
+pca <- ggplot(data = pca_qc_input_normoxia_kds_ribo, aes(x=PC1, y = PC2, color = treatment, shape = type))+ 
+  geom_point(size=3) +
+  theme_few()
+
+ggplotly(pca)
+
+ggsave(pca, filename=here("plots/fig1/qc/pca_with_outlier_normoxia_kds_RIBO.pdf"), width= 4, height=3)
+
+
+#rna only pca
+
+#with outlier
+
+
+qc_input_normoxia_kds_rna <- qc_input_normoxia_kds[, grep("rna", colnames(qc_input_normoxia_kds))]
+
+pca_qc_input_normoxia_kds_rna <- prcomp(scale(x = qc_input_normoxia_kds_rna,center = T, scale = T))
+
+pca_qc_input_normoxia_kds_rna <- 
+  pca_qc_input_normoxia_kds_rna$rotation %>%
+  as.data.frame() 
+
+pca_qc_input_normoxia_kds_rna <- pca_qc_input_normoxia_kds_rna %>% 
+  rownames_to_column("sample") %>%
+  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
+
+pca <- ggplot(data = pca_qc_input_normoxia_kds_rna, aes(x=PC1, y = PC2, color = treatment, shape = type))+ 
+  geom_point(size=3) +
+  scale_shape_manual(values = c(17))+
+  theme_few()
+
+ggplotly(pca)
+
+ggsave(pca, filename=here("plots/fig1/qc/pca_with_outlier_normoxia_kds_rna.pdf"), width= 4, height=3)
+
+
+
+
+#drugs
+qc_input_normoxia_comp <- qc_input_normoxia[, grep("si", colnames(qc_input_normoxia), invert = TRUE)]
+
+mycor_norm_comp <- cor(qc_input_normoxia_comp, method = "pearson")
+heatmap <- pheatmap::pheatmap(mat = mycor_norm_comp)
+heatmap
+ggsave(heatmap, filename=here("plots/fig1/qc/heatmap_norm_comp.pdf"), width=11.5, height=11)
+
+
+#ribo only
+
+qc_input_normoxia_comp_ribo <- qc_input_normoxia_comp[, grep("ribo", colnames(qc_input_normoxia_comp))]
+
+pca_qc_input_normoxia_comp_ribo <- prcomp(scale(x = qc_input_normoxia_comp_ribo,center = T, scale = T))
+
+pca_qc_input_normoxia_comp_ribo <- 
+  pca_qc_input_normoxia_comp_ribo$rotation %>%
+  as.data.frame() 
+
+pca_qc_input_normoxia_comp_ribo <- pca_qc_input_normoxia_comp_ribo %>% 
+  rownames_to_column("sample") %>%
+  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
+
+pca <- ggplot(data = pca_qc_input_normoxia_comp_ribo, aes(x=PC1, y = PC2, color = treatment, shape = type))+ 
+  geom_point(size=3) +
+  theme_few()
+
+ggplotly(pca)
+
+ggsave(pca, filename=here("plots/fig1/qc/pca_with_outlier_normoxia_comp_ribo.pdf"), width= 4, height=3)
+
+
+
+
+#rna only
+
+qc_input_normoxia_comp_rna <- qc_input_normoxia_comp[, grep("rna", colnames(qc_input_normoxia_comp))]
+
+pca_qc_input_normoxia_comp_rna <- prcomp(scale(x = qc_input_normoxia_comp_rna,center = T, scale = T))
+
+pca_qc_input_normoxia_comp_rna <- 
+  pca_qc_input_normoxia_comp_rna$rotation %>%
+  as.data.frame() 
+
+pca_qc_input_normoxia_comp_rna <- pca_qc_input_normoxia_comp_rna %>% 
+  rownames_to_column("sample") %>%
+  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
+
+pca <- ggplot(data = pca_qc_input_normoxia_comp_rna, aes(x=PC1, y = PC2, color = treatment, shape = type))+ 
+  geom_point(size=3) +
+  scale_shape_manual(values = c(17))+
+  theme_few()
+
+ggplotly(pca)
+
+ggsave(pca, filename=here("plots/fig1/qc/pca_with_outlier_normoxia_comp_rna.pdf"), width= 4, height=3)
+
+
 
 #Hypoxia only
 
@@ -141,6 +286,93 @@ heatmap <- pheatmap::pheatmap(mat = mycor_hyp)
 heatmap
 ggsave(heatmap, filename=here("plots/fig1/qc/heatmap_with_outlier_hyp.pdf"), width=11.5, height=11)
 
+
+
+#KDs -- with outlier
+qc_input_hypoxia_kds <- qc_input_hypoxia[, grep("si", colnames(qc_input_hypoxia))]
+
+mycor_hyp_kds <- cor(qc_input_hypoxia_kds, method = "pearson")
+heatmap <- pheatmap::pheatmap(mat = mycor_hyp_kds)
+heatmap
+ggsave(heatmap, filename=here("plots/fig1/qc/heatmap_hyp_kds.pdf"), width=11.5, height=11)
+
+
+
+
+#KDs -- without outlier
+qc_input_hypoxia_kds_no_out <- qc_input_hypoxia_kds[, grep("Hypoxic_si3e_RepB_rnaseq", colnames(qc_input_hypoxia_kds), invert=TRUE)]
+
+mycor_hyp_kds_no_out <- cor(qc_input_hypoxia_kds_no_out, method = "pearson")
+heatmap <- pheatmap::pheatmap(mat = mycor_hyp_kds_no_out)
+heatmap
+ggsave(heatmap, filename=here("plots/fig1/qc/heatmap_hyp_kds_no_outlier.pdf"), width=11.5, height=11)
+
+
+
+
+
+#drugs
+qc_input_hypoxia_comp <- qc_input_hypoxia[, grep("si", colnames(qc_input_hypoxia), invert = TRUE)]
+
+mycor_hyp_comp <- cor(qc_input_hypoxia_comp, method = "pearson")
+heatmap <- pheatmap::pheatmap(mat = mycor_hyp_comp)
+heatmap
+ggsave(heatmap, filename=here("plots/fig1/qc/heatmap_hyp_comp.pdf"), width=11.5, height=11)
+
+
+
+
+#pca
+
+#ribo only
+
+qc_input_hypoxia_comp_ribo <- qc_input_hypoxia_comp[, grep("ribo", colnames(qc_input_hypoxia_comp))]
+
+pca_qc_input_hypoxia_comp_ribo <- prcomp(scale(x = qc_input_hypoxia_comp_ribo,center = T, scale = T))
+
+pca_qc_input_hypoxia_comp_ribo <- 
+  pca_qc_input_hypoxia_comp_ribo$rotation %>%
+  as.data.frame() 
+
+pca_qc_input_hypoxia_comp_ribo <- pca_qc_input_hypoxia_comp_ribo %>% 
+  rownames_to_column("sample") %>%
+  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
+
+pca <- ggplot(data = pca_qc_input_hypoxia_comp_ribo, aes(x=PC1, y = PC2, color = treatment, shape = type))+ 
+  geom_point(size=3) +
+  theme_few()
+
+ggplotly(pca)
+
+ggsave(pca, filename=here("plots/fig1/qc/pca_with_outlier_hypoxia_comp_ribo.pdf"), width= 4, height=3)
+
+
+
+
+#rna only
+
+qc_input_hypoxia_comp_rna <- qc_input_hypoxia_comp[, grep("rna", colnames(qc_input_hypoxia_comp))]
+
+pca_qc_input_hypoxia_comp_rna <- prcomp(scale(x = qc_input_hypoxia_comp_rna,center = T, scale = T))
+
+pca_qc_input_hypoxia_comp_rna <- 
+  pca_qc_input_hypoxia_comp_rna$rotation %>%
+  as.data.frame() 
+
+pca_qc_input_hypoxia_comp_rna <- pca_qc_input_hypoxia_comp_rna %>% 
+  rownames_to_column("sample") %>%
+  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
+
+pca <- ggplot(data = pca_qc_input_hypoxia_comp_rna, aes(x=PC1, y = PC2, color = treatment, shape = type))+ 
+  geom_point(size=3) +
+  scale_shape_manual(values = c(17))+
+  theme_few()
+
+ggplotly(pca)
+
+ggsave(pca, filename=here("plots/fig1/qc/pca_with_outlier_hypoxia_comp_rna.pdf"), width= 4, height=3)
+
+
 ```
 
 
@@ -149,8 +381,6 @@ ggsave(heatmap, filename=here("plots/fig1/qc/heatmap_with_outlier_hyp.pdf"), wid
 ```{r pca}
 
 pca_res_orig <- prcomp(scale(x = qcinput,center = T, scale = T))
-
-#pca plot by hypoxia and rep
 
 pca_res_data <- 
   pca_res_orig$rotation %>%
@@ -162,8 +392,6 @@ pca_res_data <- pca_res_data %>%
   separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
 
 
-#first by hypoxia and rep
-
 pca <- ggplot(data = pca_res_data, aes(x=PC1, y = PC2, color = treatment, shape = hypoxia))+ 
   geom_point(size=3) +
   theme_few()
@@ -171,6 +399,9 @@ pca <- ggplot(data = pca_res_data, aes(x=PC1, y = PC2, color = treatment, shape 
 ggplotly(pca)
 
 ggsave(pca, filename=here("plots/fig1/qc/pca_with_outlier.pdf"), width= 4, height=3)
+
+
+
 
 
 
@@ -198,7 +429,85 @@ ggsave(pca, filename=here("plots/fig1/qc/pca_with_outlier_normoxia.pdf"), width=
 
 
 
+# separate ribo vs rna
 
+#ribo
+
+qc_input_norm_ribo <- qc_input_normoxia[, grep("ribo", colnames(qc_input_normoxia))]
+
+
+pca_res_norm_ribo <- prcomp(scale(x = qc_input_norm_ribo,center = T, scale = T))
+
+pca_res_norm_ribo <- 
+  pca_res_norm_ribo$rotation %>%
+  as.data.frame() 
+
+
+pca_res_norm_ribo <- pca_res_norm_ribo %>% 
+  rownames_to_column("sample") %>%
+  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
+
+pca <- ggplot(data = pca_res_norm_ribo, aes(x=PC1, y = PC2, color = treatment, shape = type))+ 
+  geom_point(size=3) +
+  theme_few()
+
+ggplotly(pca)
+
+ggsave(pca, filename=here("plots/fig1/qc/pca_with_outlier_normoxia_RIBO.pdf"), width= 4, height=3)
+
+
+#ribo only KDS
+
+
+
+
+#ribo only drugs
+
+
+
+
+
+
+
+
+
+
+
+
+
+#RNA
+
+qc_input_norm_rna <- qc_input_normoxia[, grep("rna", colnames(qc_input_normoxia))]
+
+
+pca_res_norm_rna <- prcomp(scale(x = qc_input_norm_rna,center = T, scale = T))
+
+pca_res_norm_rna <- 
+  pca_res_norm_rna$rotation %>%
+  as.data.frame() 
+
+
+pca_res_norm_rna <- pca_res_norm_rna %>% 
+  rownames_to_column("sample") %>%
+  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
+
+pca <- ggplot(data = pca_res_norm_rna, aes(x=PC1, y = PC2, color = treatment, shape = type))+ 
+  geom_point(size=3) +
+  scale_shape_manual(values = c(17)) +
+  theme_few()
+
+ggplotly(pca)
+
+ggsave(pca, filename=here("plots/fig1/qc/pca_with_outlier_normoxia_rna.pdf"), width= 4, height=3)
+
+# rna only kds
+
+
+
+
+
+
+#rna only drugs
 
 
 
