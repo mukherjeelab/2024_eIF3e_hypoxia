@@ -178,9 +178,7 @@ metadata$rep <- recode(metadata$rep, RepA = "a", RepB = "b", RepC = "c")
 metadata <- metadata %>%
 dplyr::select(sample_id, library, treatment, condition, rep) 
 
-# write metadata for use in future analyses
 
-write_csv(metadata, here("calculate_te/metadata.csv"))
 ```
 
 # Calculate TE
@@ -216,30 +214,86 @@ complete_list <- full_te_list %>%
 
 #export complete list
 
-write_csv(complete_list, here("counts/complete_list.csv"))
+write_csv(complete_list, here("calculate_te/complete_te_list.csv"))
 
 
 ```
+
+Sanity check:
+
+Look at RNA for eIF3e and eIF3d KD compared to control
+
+```{r reformat data}
+all_long <- complete_list %>% 
+  melt() %>% 
+    separate(variable, into=(c("condition", "treatment", "rep", "type")))
+
+```
+
+
+
+```{r eIF3e RNA}
+
+rna_3e_formatted <- all_long %>% 
+  filter(symbol=="EIF3E") %>% 
+  filter(condition=="Normoxic") %>% 
+  filter(type=="rnaseq")
+  
+
+ggplot(rna_3e_formatted, aes(x=treatment, y=value))+
+  geom_point()
+
+```
+
+
+```{r eIF3d RNA}
+
+rna_3d_formatted <- all_long %>% 
+  filter(symbol=="EIF3D") %>% 
+  filter(condition=="Normoxic") %>% 
+  filter(type=="rnaseq")
+  
+
+ggplot(rna_3d_formatted, aes(x=treatment, y=value))+
+  geom_point()
+
+```
+
+
+Example of TE: Analyze ATF4 rna ribo and TE in control compared to KD
 
 Example- ATF4
 ```{r}
-atf4_list <- complete_list %>% 
+atf4_data <- all_long %>% 
   filter(symbol=="ATF4") %>% 
-  melt()
+  filter(condition=="Normoxic")
 
 
-ggplot(atf4_list, aes(x=variable, y=value))+
-  geom_point()
+ggplot(atf4_data, aes(x=treatment, y=value))+
+  geom_point()+
+  facet_wrap(~type)
 ```
 
+all looks good
 
-
-
-# Normoxia - siRNA knockdowns
+Making slight name changes and releveling factors in metadata before analysis
 
 ```{r}
 
+#change names
+metadata$library <- recode(metadata$library, rnaseq = "rna", riboseq = "ribo", teseq="te")
+metadata$rep <- recode(metadata$rep, RepA = "a", RepB = "b", RepC = "c")
+metadata$condition <- recode(metadata$condition, Normoxic = "normoxia", Hypoxic = "hypoxia")
 
+#update factor levels
+metadata$library <- relevel(x = factor(metadata$library), ref = "rna")
+metadata$treatment <- factor(metadata$treatment, levels= c("sictrl", "si3e", "si3d", "DMSO", "a209"))
+metadata$condition <- relevel(x = factor(metadata$condition), ref = "normoxia")
+
+# write metadata for use in future analyses
+
+write_csv(metadata, here("calculate_te/metadata.csv"))
 
 ```
 
+In the following analyses, pull TE and metadata from here.
