@@ -32,6 +32,7 @@ library(msigdbr)
 library(GeneOverlap)
 library(UpSetR)
 library(ComplexHeatmap)
+library(reshape2)
 ```
 
 # Load RNA signatures - generated in fig 6 code
@@ -1181,9 +1182,227 @@ ggsave("big_changes_surv_plot_a209_hyp_ye.pdf", path=here("plots"),width = 11.5,
 
 
 
+# eIF3e and eIF3d expression in patients
+
+# eIF3e
+```{r}
+#expression matrix
+
+eif3e_exp <- merged_zscores_matrix %>%
+  as.data.frame() %>% 
+  rownames_to_column("Hugo_Symbol") %>% 
+  filter(Hugo_Symbol =="EIF3E") %>% 
+  dplyr::select(-Hugo_Symbol) %>% 
+  melt(value.name = "eIF3e_level") %>% 
+  rename(patient="variable")
+
+ 
+
+ggplot(eif3e_exp, aes(x=eIF3e_level))+
+  geom_histogram(bins = 400)
+
+
+### Stratify based on z-score
+
+quantile_groups <- quantile(eif3e_exp$eIF3e_level, probs=seq(0,1,.25), na.rm=TRUE)
+
+eif3e_exp$quantile <- cut(eif3e_exp$eIF3e_level, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+eif3e_exp$patient <- gsub("\\.", "-", as.character(eif3e_exp$patient))
+
+
+#bind clin data with z score
+
+eif3e_all_data <- left_join(clin, eif3e_exp, by=c("PATIENT_ID"="patient"))
+
+
+#plot
+
+fit_all_eIF3e <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = eif3e_all_data)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, eif3e_all_data)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+surv_plot_eIF3e_only <- ggsurvplot(fit_all_eIF3e, data = eif3e_all_data, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
 
 
 
+surv_plot_eIF3e_only$plot <- surv_plot_eIF3e_only$plot + 
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 5, 
+    color = "black"
+  )+
+  theme(text = element_text(size = 14))+
+  ggtitle("Patient quartiles by eIF3e expression")
+
+surv_plot_eIF3e_only
+
+# ggsave("3d_norm_surv_plot.pdf", path=here("plots"),width = 11.5, height=8)
+
+
+ggplot(eif3e_all_data, aes(x=quantile,y=eIF3e_level, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for eIF3e")
+
+# ggsave("3e boxplot.pdf",  path=here("plots"), width=4.5, height=4)
+
+
+
+
+```
+
+
+# eIF3d
+```{r}
+
+eif3d_exp <- merged_zscores_matrix %>%
+  as.data.frame() %>% 
+  rownames_to_column("Hugo_Symbol") %>% 
+  filter(Hugo_Symbol =="EIF3D") %>% 
+  dplyr::select(-Hugo_Symbol) %>% 
+  melt(value.name = "eIF3d_level") %>% 
+  rename(patient="variable")
+
+ 
+
+ggplot(eif3d_exp, aes(x=eIF3d_level))+
+  geom_histogram(bins = 400)
+
+
+### Stratify based on z-score
+
+quantile_groups <- quantile(eif3d_exp$eIF3d_level, probs=seq(0,1,.25), na.rm=TRUE)
+
+eif3d_exp$quantile <- cut(eif3d_exp$eIF3d_level, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+eif3d_exp$patient <- gsub("\\.", "-", as.character(eif3d_exp$patient))
+
+
+#bind clin data with z score
+
+eif3d_all_data <- left_join(clin, eif3d_exp, by=c("PATIENT_ID"="patient"))
+
+
+#plot
+
+fit_all_eIF3d <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = eif3d_all_data)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, eif3d_all_data)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+surv_plot_eIF3d_only <- ggsurvplot(fit_all_eIF3d, data = eif3d_all_data, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+
+
+surv_plot_eIF3d_only$plot <- surv_plot_eIF3d_only$plot + 
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 5, 
+    color = "black"
+  )+
+  theme(text = element_text(size = 14))+
+  ggtitle("Patient quartiles by eIF3d expression")
+
+surv_plot_eIF3d_only
+
+# ggsave("3d_norm_surv_plot.pdf", path=here("plots"),width = 11.5, height=8)
+
+
+ggplot(eif3d_all_data, aes(x=quantile,y=eIF3d_level, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for eIF3d")
+
+# ggsave("3d boxplot.pdf",  path=here("plots"), width=4.5, height=4)
+
+
+
+
+```
+
+## Looking at copy number alterations in data
+
+```{r}
+cna <- read_excel(here("cbioportal_data/cna_metabric_matrix.xlsx"))
+
+eIF3e_cna <- cna %>% 
+  filter(Hugo_Symbol=="EIF3E") 
+
+eIF3e_cna[ , 2:2174] <- lapply(eIF3e_cna[ , 2:2174], as.character)
+
+
+eIF3e_cna<- eIF3e_cna%>%
+  pivot_longer(cols= 2:2174, names_to = "patient", values_to = "cna")
+
+
+#take just MB
+
+eIF3e_cna_cancer <- eIF3e_cna %>% 
+  filter(str_detect(patient, "MB-"))
+
+eIF3e_cna_cancer$cna <- as.numeric(eIF3e_cna_cancer$cna)
+
+
+ggplot(eIF3e_cna_cancer, aes(x=cna))+
+  geom_histogram()+
+  theme_cowplot()
+
+
+```
+
+3e or 3d
+
+```{r}
+eIF3_cna <- cna %>% 
+  filter(Hugo_Symbol=="EIF3E" | Hugo_Symbol=="EIF3D") 
+
+eIF3_cna[ , 2:2174] <- lapply(eIF3_cna[ , 2:2174], as.character)
+
+
+eIF3_cna<- eIF3_cna%>%
+  pivot_longer(cols= 2:2174, names_to = "patient", values_to = "cna")
+
+
+#take just MB
+
+eIF3_cna_cancer <- eIF3_cna %>% 
+  filter(str_detect(patient, "MB-"))
+
+eIF3_cna_cancer$cna <- as.numeric(eIF3_cna_cancer$cna)
+
+
+ggplot(eIF3_cna_cancer, aes(x=cna))+
+  geom_histogram()+
+  theme_cowplot()+
+  facet_wrap(~Hugo_Symbol)
+
+library(scales)
+
+ggplot(eIF3_cna_cancer, aes(x = cna)) +
+  geom_bar()+
+  theme_cowplot() +
+  facet_wrap(~Hugo_Symbol)+
+  scale_y_continuous(breaks=seq(0, 2000, by=200),
+                       labels=seq(0, 2000, by =200))
+
+
+```
 
 
 
@@ -1611,7 +1830,7 @@ pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps 
 
 ```{r}
 
-surv_plot <- ggsurvplot(fit_all, data = all_data_tcga, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+surv_plot <- ggsurvplot(fit_all, data = all_data_tcga, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
 
 
 
@@ -1767,11 +1986,11 @@ summary_coxfit_3e_norm <- summary(coxfit)
 hr <- round(summary_coxfit_3e_norm$coefficients[1, "exp(coef)"], 2)
 pval <- format.pval(summary_coxfit_3e_norm$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
 
-surv_plot_3e_hyp <- ggsurvplot(fit_all_3e_hyp, data = all_data_3e_hyp, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),legend.labs = c("depleted for eIF3e signature (hypoxia): low (Q1)","depleted: medium-low (Q2)", "enriched: medium-high (Q3)", "enriched for eIF3e signature (hypoxia): high (Q4)"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = NA, risk.table.height = 0.25, ggtheme = theme_bw())
+surv_plot_3e_hyp <- ggsurvplot(fit_all_3e_hyp, data = all_data_3e_hyp, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),legend.labs = c("depleted for eIF3e signature (hypoxia): low (Q1)","depleted: medium-low (Q2)", "enriched: medium-high (Q3)", "enriched for eIF3e signature (hypoxia): high (Q4)"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = TRUE,  risk.table.col = NA, risk.table.height = 0.25, ggtheme = theme_bw())
 
-surv_plot_3e_hyp <- ggsurvplot(fit_all_3e_hyp, data = all_data_3e_hyp, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = NA, risk.table.height = 0.25, ggtheme = theme_bw())
+surv_plot_3e_hyp <- ggsurvplot(fit_all_3e_hyp, data = all_data_3e_hyp, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
 
-
+surv_plot_3e_hyp
 
 surv_plot_3e_hyp$plot <- surv_plot_3e_hyp$plot + 
   annotate(
@@ -1921,7 +2140,7 @@ pval <- format.pval(summary_coxfit_3d_norm$coefficients[1, "Pr(>|z|)"], digits =
 
 surv_plot_3d_hyp <- ggsurvplot(fit_all_3d_hyp, data = all_data_3d_hyp, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),legend.labs = c("depleted for eIF3d signature (hypoxia): low (Q1)","depleted: medium-low (Q2)", "enriched: medium-high (Q3)", "enriched for eIF3d signature (hypoxia): high (Q4)"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = NA, risk.table.height = 0.25, ggtheme = theme_bw())
 
-surv_plot_3d_hyp <- ggsurvplot(fit_all_3d_hyp, data = all_data_3d_hyp, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = FALSE,  risk.table.col = NA, risk.table.height = 0.25, ggtheme = theme_bw())
+surv_plot_3d_hyp <- ggsurvplot(fit_all_3d_hyp, data = all_data_3d_hyp, size = 1, palette = c("#E7B800", "pink", "purple", "#2E9FDF"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = FALSE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
 
 
 
@@ -1938,7 +2157,7 @@ surv_plot_3d_hyp$plot <- surv_plot_3d_hyp$plot +
 
 surv_plot_3d_hyp
 
-ggsave("3d_hyp_surv_plot_tcga.pdf", path=here("plots"),width = 11.5, height=8)
+ggsave("3d_hyp_surv_plot_tcga.pdf", path=here("plots"),width = 4.5, height=5)
 
 
 
