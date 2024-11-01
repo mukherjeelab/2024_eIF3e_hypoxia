@@ -16,6 +16,8 @@ library(here)
 library(janitor)
 library(tximport)
 library(tidyverse)
+library(ggpubr)
+library(reshape2)
 ```
 
 ```{r colors}
@@ -38,6 +40,35 @@ metadata <- metadata %>%
 #rRNA depletion = RNA seq
 
 ```
+
+### organize metadata
+
+Remove outlier, determine factor levels, rename variable
+
+```{r}
+#rename variables remove outlier
+metadata <- metadata %>% 
+  filter(sample_id != "NM2023_0113") %>%
+  dplyr::rename("treatment" = "treatment1") %>% 
+  dplyr::rename("rep" = "treatment2") %>% 
+  dplyr::rename("condition" = "genotype")
+
+#edit factor levels
+metadata$library <- relevel(x = factor(metadata$library), ref = "rnaseq")
+metadata$library <- recode(metadata$library, rnaseq = "rna", riboseq = "ribo")
+
+metadata$treatment <- relevel(x = factor(metadata$treatment), ref = "sictrl")
+metadata$condition <- relevel(x = factor(metadata$condition), ref = "Normoxic")
+metadata$condition <- recode(metadata$condition, Normoxic = "normoxia", Hypoxic = "hypoxia")
+metadata$rep <- recode(metadata$rep, RepA = "a", RepB = "b", RepC = "c")
+
+metadata <- metadata %>%
+dplyr::select(sample_id, library, treatment, condition, rep) 
+
+
+```
+
+
 
 
 ```{r import gene info}
@@ -62,7 +93,7 @@ myquantfiles <- paste(here(), "/salmon/",
                       "/quant.sf.gz",
                       sep = "")
 
-names(myquantfiles) <- paste(metadata$genotype, metadata$treatment1, metadata$treatment2, metadata$library, sep = "_")
+names(myquantfiles) <- paste(metadata$condition, metadata$treatment, metadata$rep, metadata$library, sep = "_")
 
 #import salmon files
 myTxi <- tximport(myquantfiles, type = "salmon", tx2gene = tx2gene)
@@ -127,18 +158,33 @@ allCounts <- myTxi$counts %>%
   as.matrix() %>%
   round(.,0)
 
+all_raw_filtered_counts <- allCounts %>% 
+  as.data.frame() %>% 
+  rownames_to_column("gene_id")
+
+#export allCounts for DeSeq analysis
+write_csv(all_raw_filtered_counts, here("calculate_te/raw_filtered_allCounts.csv"))
+
+
 allCountsNorm <- edgeR::cpm(allCounts[,order(colnames(allCounts))])
 
 riboN <- log2(1+ as.matrix(allCountsNorm[,grep(pattern = "ribo",colnames(allCountsNorm))]))
 rnaN <- log2(1 + as.matrix(allCountsNorm[,grep(pattern = "rna",colnames(allCountsNorm))])) 
 
-TE_original <- riboN - rnaN
+
+#remove matching ribo outlier for rna outlier for the sake of TE
+
+cols_to_keep <- grep("hypoxia_si3e_b_ribo", colnames(riboN), invert = TRUE)
+riboN_edit <- riboN[, cols_to_keep]
+
+
+TE_original <- riboN_edit - rnaN
 
 hist(TE_original)
 
 #center data --
 
-TE <- (riboN - rnaN) + 0.7616566
+TE <- (riboN_edit - rnaN) + 0.7616566
 
 hist(TE)
 
@@ -155,39 +201,8 @@ rna_counts <- as.matrix(allCounts[,grep(pattern = "rna",colnames(allCounts))])
 
 ```
 
-### Organize metadata
-Remove outlier, determine factor levels, rename variables
-
-```{r}
-#rename variables remove outlier
-metadata <- metadata %>% 
-  filter(sample_id != "NM2023_0113") %>%
-  dplyr::rename("treatment" = "treatment1") %>% 
-  dplyr::rename("rep" = "treatment2") %>% 
-  dplyr::rename("condition" = "genotype")
-
-#edit factor levels
-metadata$library <- relevel(x = factor(metadata$library), ref = "rnaseq")
-metadata$library <- recode(metadata$library, rnaseq = "rna", riboseq = "ribo")
-
-metadata$treatment <- relevel(x = factor(metadata$treatment), ref = "sictrl")
-metadata$condition <- relevel(x = factor(metadata$condition), ref = "Normoxic")
-metadata$condition <- recode(metadata$condition, Normoxic = "normoxia", Hypoxic = "hypoxia")
-metadata$rep <- recode(metadata$rep, RepA = "a", RepB = "b", RepC = "c")
-
-metadata <- metadata %>%
-dplyr::select(sample_id, library, treatment, condition, rep) 
-
-
-```
-
 # Calculate TE
 
-I need TE, rna, and ribo across the board in one dataset and for each condition
-TE
-plus TE ribo
-plus TE rna
-plus symbol
 ```{r}
 
 full_te_list <- TE %>% 
@@ -211,6 +226,9 @@ full_te_list <- full_te_list %>%
 
 complete_list <- full_te_list %>% 
   left_join(full_ribo_list, by= "gene_id")
+# 
+# complete_list <- complete_list %>% 
+#   dplyr::select(-Hypoxic_si3e_RepB_rnaseq)
 
 #export complete list
 
@@ -236,8 +254,8 @@ all_long <- complete_list %>%
 
 rna_3e_formatted <- all_long %>% 
   filter(symbol=="EIF3E") %>% 
-  filter(condition=="Normoxic") %>% 
-  filter(type=="rnaseq")
+  filter(condition=="normoxia") %>% 
+  filter(type=="rna")
   
 
 ggplot(rna_3e_formatted, aes(x=treatment, y=value))+
@@ -250,8 +268,8 @@ ggplot(rna_3e_formatted, aes(x=treatment, y=value))+
 
 rna_3d_formatted <- all_long %>% 
   filter(symbol=="EIF3D") %>% 
-  filter(condition=="Normoxic") %>% 
-  filter(type=="rnaseq")
+  filter(condition=="normoxia") %>% 
+  filter(type=="rna")
   
 
 ggplot(rna_3d_formatted, aes(x=treatment, y=value))+
@@ -266,7 +284,7 @@ Example- ATF4
 ```{r}
 atf4_data <- all_long %>% 
   filter(symbol=="ATF4") %>% 
-  filter(condition=="Normoxic")
+  filter(condition=="normoxia")
 
 
 ggplot(atf4_data, aes(x=treatment, y=value))+
