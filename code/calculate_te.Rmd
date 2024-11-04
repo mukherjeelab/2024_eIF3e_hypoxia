@@ -106,7 +106,7 @@ hist_count <- hist(log2(rowSums(myTxi$counts)), breaks = 50)
 hist_abundance <- hist(log2(rowSums(myTxi$abundance)), breaks = 50)
 
 #@NEEL i am using a cutoff of 10 here. previously i used a cutoff of 7. Numbers will be slightly different. what do you think.
-#only keeping rows with counts  log2> 7 across all samples - want around 10-15k genes - want genes that are highly expressed
+#only keeping rows with counts  log2> 10 across all samples - want around 10-15k genes - want genes that are highly expressed
 keepGenes <- rownames(myTxi$counts[log2(rowSums(myTxi$counts)) > 10 ,])
 
 #removes noise and keeps only highly expressed genes
@@ -226,11 +226,7 @@ full_te_list <- full_te_list %>%
 
 complete_list <- full_te_list %>% 
   left_join(full_ribo_list, by= "gene_id")
-# 
-# complete_list <- complete_list %>% 
-#   dplyr::select(-Hypoxic_si3e_RepB_rnaseq)
 
-#export complete list
 
 write_csv(complete_list, here("calculate_te/complete_te_list.csv"))
 

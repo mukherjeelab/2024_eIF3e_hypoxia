@@ -177,6 +177,61 @@ rna_ribo_counts <- as.matrix(raw_counts_edit)
 
 ```
 
+Confirm KDs in hypoxia
+
+
+```{r}
+all_gene_te <- read_csv(here("calculate_te/complete_te_list.csv"))
+
+all_gene_te_long <- all_gene_te %>% 
+  melt() %>% 
+  separate(variable, into = c("condition", "treatment", "rep", "type")) %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment != "a209") %>% 
+  filter(treatment != "DMSO")
+
+all_gene_te_long$treatment <- relevel(factor(all_gene_te_long$treatment), ref = "sictrl")
+
+e_and_d <-all_gene_te_long %>% 
+  filter(symbol=="EIF3E" | symbol=="EIF3D")
+
+ggstripchart(data = e_and_d, x = "treatment", y = "value", color = "treatment", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2))+
+  facet_wrap(~symbol+type)
+
+
+bars_e_d_norm <- e_and_d %>% 
+  filter(type != "TE")
+
+bars_e_d_summary <- bars_e_d_norm %>%
+  group_by(symbol, type, treatment) %>%
+  summarise(
+    mean_value = mean(value),
+    sd = sd(value)  # Standard deviation
+  )
+
+bars_e_d_summary$type <- factor(bars_e_d_summary$type, levels=c("rna","ribo"))
+
+ggplot(bars_e_d_summary, aes(x = treatment, y = mean_value, fill = treatment)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin = mean_value - sd, ymax = mean_value + sd), 
+                width = 0.2, position = position_dodge(0.9)) +
+  facet_wrap(~ symbol + type) +
+  scale_fill_manual(values = c("grey",si3d_col,si3e_col)) +
+  theme_cowplot()+
+    theme(legend.position = "none")
+
+ggsave(here("plots/fig3/e_d_rna_ribo_hypoxia.pdf"), width = 4, height = 4.5)
+
+```
+
+
+
+
+
+
+
+
+
 ## Acute hypoxic response: Control normoxia to hypoxia.
 
 ### TE changes
@@ -940,7 +995,7 @@ dataset= "hypoxia_3e"
 all_counts_hypox_si3e <- data.frame(dataset, upreg, downreg)
 all_counts_hypox_si3e
 
-write_csv(res_hypox_si3e, here(counts/fig3/"hypoxia_si_ctrl_3e.csv"))
+write_csv(res_hypox_si3e, here("counts/fig3/hypoxia_si_ctrl_3e.csv"))
 
 
 
@@ -985,7 +1040,7 @@ res_hypox_si3d <- lfcShrink(dds = ddsMat_hypox_si3d, coef = resultsNames(ddsMat_
   inner_join(gene_symbol, .)
 
 
-write_csv(res_hypox_si3d, here(counts/fig3/"hypoxia_si_ctrl_3d.csv"))
+write_csv(res_hypox_si3d, here("counts/fig3/hypoxia_si_ctrl_3d.csv"))
 
 
 # visualization -----------------------------------------------------------------
@@ -1030,13 +1085,13 @@ To compare normoxia to hypxia
 ```{r}
 
 #3d
-res_te_3d <-read_csv(here("counts/fig1/normoxia_sictrl_3d.csv"))
+res_normox_si3d <-read_csv(here("counts/fig1/normoxia_sictrl_3d.csv"))
 
-upreg <- res_te_3d %>%
+upreg <- res_normox_si3d %>%
   filter(padj < .05 & log2FoldChange >0) %>%
   nrow()
 
-downreg <- res_te_3d %>%
+downreg <- res_normox_si3d %>%
   filter(padj < .05 & log2FoldChange <0) %>%
   nrow()
 
@@ -1050,13 +1105,13 @@ all_counts_normox_si3d
 #3e
 
 
-res_te_3e <-read_csv(here("counts/fig1/normoxia_sictrl_3e.csv"))
+res_normox_si3e <-read_csv(here("counts/fig1/normoxia_sictrl_3e.csv"))
 
-upreg <- res_te_3e %>%
+upreg <- res_normox_si3e %>%
   filter(padj < .05 & log2FoldChange >0) %>%
   nrow()
 
-downreg <- res_te_3e %>%
+downreg <- res_normox_si3e %>%
   filter(padj < .05 & log2FoldChange <0) %>%
   nrow()
 
@@ -1772,7 +1827,6 @@ gene_type <- unique(gene_type)
 
 ```
 
-Grab TE lists - 6
 
 ```{r}
 
@@ -1818,33 +1872,34 @@ write_csv(hyp_3d, here("counts/fig3/hyp_3d_te.csv"))
 write_csv(hyp_3e, here("counts/fig3/hyp_3e_te.csv"))
 ```
 
-
-Now, separate lists by direction of change - use for venn diagrams and for pathway analyses
+## Venn diagram and pathway analysis
+Separate lists by direction of change
 ```{r}
-norm_3d_up <- norm_3d %>% 
+
+norm_3d_up <- res_normox_si3d %>% 
   filter(padj < 0.05 & log2FoldChange > 0) %>% pull(gene_id)
 
-norm_3d_down <- norm_3d %>% 
+norm_3d_down <- res_normox_si3d %>% 
   filter(padj < 0.05 & log2FoldChange < 0) %>% pull(gene_id)
 
-norm_3e_up <- norm_3e %>% 
+norm_3e_up <- res_normox_si3e %>% 
   filter(padj < 0.05 & log2FoldChange > 0) %>% pull(gene_id)
 
-norm_3e_down <- norm_3e %>% 
+norm_3e_down <- res_normox_si3e %>% 
   filter(padj < 0.05 & log2FoldChange < 0) %>% pull(gene_id)
 
 
 
-hyp_3d_up <- hyp_3d %>% 
+hyp_3d_up <- res_hypox_si3d %>% 
   filter(padj < 0.05 & log2FoldChange > 0) %>% pull(gene_id)
 
-hyp_3d_down <- hyp_3d %>% 
+hyp_3d_down <- res_hypox_si3d %>% 
   filter(padj < 0.05 & log2FoldChange < 0) %>% pull(gene_id)
 
-hyp_3e_up <- hyp_3e %>% 
+hyp_3e_up <- res_hypox_si3e %>% 
   filter(padj < 0.05 & log2FoldChange > 0) %>% pull(gene_id)
 
-hyp_3e_down <- hyp_3e %>% 
+hyp_3e_down <- res_hypox_si3e %>% 
   filter(padj < 0.05 & log2FoldChange < 0) %>% pull(gene_id)
 
 norm_te_up <- list(
@@ -1866,13 +1921,11 @@ hyp_te_down <- list(
   hyp_3d_down = hyp_3d_down,
   hyp_3e_down = hyp_3e_down
 )
-
-
 ```
 
 
 
-## Venn diagram of changes - normoxia
+## Venn diagram of changes - normoxia - delete? is this in figure 1 or needed?
 
 ```{r}
 ggvenn(norm_te_up, auto_scale = T, fill_color = c("#E69F00","#56B4E9"))
@@ -1884,16 +1937,17 @@ ggvenn(norm_te_down, auto_scale = T, fill_color = c("#E69F00","#56B4E9"))
 ggsave(here("plots/normtedown_venn.pdf"), width = 3, height=2.5)
 
 
+
 stopifnot(
-identical(norm_3d$gene_id,norm_3e$gene_id))
+identical(res_normox_si3d$gene_id,res_normox_si3e$gene_id))
 
 norm_sig_te <- data.frame(
-  gene_id = norm_3d$gene_id,
-  symbol = norm_3d$symbol,
-  te_3d = norm_3d$log2FoldChange,
-  padj_3d = norm_3d$padj,
-  te_3e = norm_3e$log2FoldChange,
-  padj_3e = norm_3e$padj
+  gene_id = res_normox_si3d$gene_id,
+  symbol = res_normox_si3d$symbol,
+  te_3d = res_normox_si3d$log2FoldChange,
+  padj_3d = res_normox_si3d$padj,
+  te_3e = res_normox_si3e$log2FoldChange,
+  padj_3e = res_normox_si3e$padj
 ) %>%
   filter(gene_id %in% c(norm_3e_up,
                         norm_3e_down,
@@ -1956,19 +2010,13 @@ ggvenn(hyp_te_down, auto_scale = T, fill_color = c("#E69F00","#56B4E9"))
 ggsave(here("plots/hyptedown_venn.pdf"), width = 3, height=2.5)
 
 
-setdiff(hyp_3e$gene_id, hyp_3d$gene_id)
-# remove from dataset
-
-hyp_3e <- hyp_3e %>% 
-  filter(gene_id != "ENSG00000186844.5")
-
 hyp_sig_te <- data.frame(
-  gene_id = hyp_3d$gene_id,
-  symbol = hyp_3d$symbol,
-  te_3d = hyp_3d$log2FoldChange,
-  padj_3d = hyp_3d$padj,
-  te_3e = hyp_3e$log2FoldChange,
-  padj_3e = hyp_3e$padj) %>%
+  gene_id = res_hypox_si3d$gene_id,
+  symbol = res_hypox_si3d$symbol,
+  te_3d = res_hypox_si3d$log2FoldChange,
+  padj_3d = res_hypox_si3d$padj,
+  te_3e = res_hypox_si3e$log2FoldChange,
+  padj_3e = res_hypox_si3e$padj) %>%
   filter(gene_id %in% c(hyp_3e_up,
                         hyp_3e_down,
                         hyp_3d_up,
@@ -2017,8 +2065,7 @@ ggsave(here("plots/fig3/hyp_e_d.pdf"), scatter, width=4, height=4)
 
 ```
 
-
-## Pathway analysis setup from below
+## Pathway analysis setup
 ## Hypoxia only
 
 3d/e
@@ -2027,8 +2074,9 @@ ggsave(here("plots/fig3/hyp_e_d.pdf"), scatter, width=4, height=4)
 
 #3d lists
 
-eif3d_hyp <- hyp_3d$log2FoldChange
-names(eif3d_hyp) <- hyp_3d$symbol
+
+eif3d_hyp <- res_hypox_si3d$log2FoldChange
+names(eif3d_hyp) <- res_hypox_si3d$symbol
 
 eif3d_hyp <- sort(eif3d_hyp, decreasing = TRUE)
 
@@ -2036,9 +2084,8 @@ eif3d_hyp <- eif3d_hyp[!duplicated(names(eif3d_hyp))]
 
 #3e lists
 
-eif3e_hyp <- hyp_3e$log2FoldChange
-
-names(eif3e_hyp) <- hyp_3e$symbol
+eif3e_hyp <- res_hypox_si3e$log2FoldChange
+names(eif3e_hyp) <- res_hypox_si3e$symbol
 
 eif3e_hyp <- sort(eif3e_hyp, decreasing = TRUE)
 
@@ -2047,10 +2094,8 @@ eif3e_hyp <- eif3e_hyp[!duplicated(names(eif3e_hyp))]
 
 ```
 
-
+### Hallmark and C2 pathway setup
 ```{r}
-# hallmark and c2 setup
-
 m_df_h <- msigdbr(species = "Homo sapiens") %>%
   filter(gs_cat == "H") %>% 
   dplyr::select(gs_name, gene_symbol)
@@ -2061,7 +2106,7 @@ m_df_c2 <- msigdbr(species = "Homo sapiens") %>%
 ```
 
 
-### Hallmark pathways enriched in hypoxia
+### Hallmark pathway enrichment analysis
 
 ```{r GSEA Hallmarks}
 
@@ -2085,7 +2130,6 @@ eif3e_te_h <- GSEA(
   maxGSSize = 1000,
   TERM2GENE = m_df_h
   )
-
 
 
 hyp_te_h <- dplyr::full_join(
@@ -2120,8 +2164,7 @@ ggscatter(data = hyp_te_h,
   geom_hline(yintercept = 0, linetype = "dashed") +
   ylim(-2.5,2.5) +
   xlim(-2.5,2.5) + theme_prism()+
-  guides(color = FALSE)+
-    geom_text_repel(aes(label = ID), size = 2)
+  guides(color = FALSE)
 
 DT::datatable(hyp_te_h) %>%
   formatRound(which(sapply(hyp_te_h,is.numeric)), digits = 3)
@@ -2145,6 +2188,44 @@ write_csv(hyp_h_table, here("counts/fig3/hyp_hallmarks_table.csv"))
 
 ```
 
+Visualize a different way -- with bars
+
+
+```{r}
+
+
+hyp_te_h_3d <-
+  eif3d_te_h@result %>%
+  dplyr::select(ID,NES,pvalue,qvalue) %>% 
+  mutate(sample="eIF3d")
+
+hyp_te_h_3e <-
+  eif3e_te_h@result %>% 
+  dplyr::select(ID,NES,pvalue,qvalue) %>% 
+  mutate(sample="eIF3e")
+
+hyp_hallmark <- rbind(hyp_te_h_3d, hyp_te_h_3e) %>% 
+  mutate(significant = case_when(
+    qvalue < 0.05 ~"*",
+    .default=""
+  ))
+
+pathways_to_include <- hyp_hallmark %>% 
+  filter(significant=="*")
+
+pathways_to_include <- pathways_to_include$ID
+
+hyp_hallmark %>%
+  filter(ID %in% pathways_to_include) %>%
+  ggplot(aes(x = ID, y = NES, fill = sample)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = significant), 
+            position = position_dodge(width = 0.9), 
+            hjust = -0.2) +  # Adjust hjust for better alignment
+  theme_cowplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  coord_flip()
+```
 
 
 ### KEGG
@@ -2292,6 +2373,12 @@ hyp_react_table <- hyp_te_react %>%
 
 write_csv(hyp_react_table, here("counts/fig3/hyp_react_table.csv"))
 ```
+
+
+## HIF1alpha in si3e and si3d - rna and ribo
+
+
+
 
 
 # Extracting RNA changes in with 3e and 3d knockdown in normoxia and hypoxia

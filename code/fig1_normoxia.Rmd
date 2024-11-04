@@ -51,42 +51,12 @@ theme(axis.title.y=element_text(size=11),
 
 ```
 
-## Load and organize metadata
-```{r metadata}
-# metadata <- read_csv(here("accessories","metadata_NM.csv"), skip = 0) %>% 
-#   clean_names() %>% 
-#   mutate(library = ifelse(library_prep_kit=="Qiagen_miRNA", "riboseq", "rnaseq"))
-# 
-# metadata <- metadata %>% 
-#   filter(sample_id != "NM2023_0113") %>%
-#   dplyr::rename("treatment" = "treatment1") %>% 
-#   dplyr::rename("rep" = "treatment2") %>% 
-#   dplyr::rename("condition" = "genotype")
-# 
-# metadata$library <- relevel(x = factor(metadata$library), ref = "rnaseq")
-# metadata$library <- recode(metadata$library, rnaseq = "rna", riboseq = "ribo")
-# 
-# metadata$treatment <- relevel(x = factor(metadata$treatment), ref = "sictrl")
-# metadata$condition <- relevel(x = factor(metadata$condition), ref = "Normoxic")
-# metadata$condition <- recode(metadata$condition, Normoxic = "normoxia", Hypoxic = "hypoxia")
-# metadata$rep <- recode(metadata$rep, RepA = "a", RepB = "b", RepC = "c")
-# 
-# metadata <- metadata %>%
-# dplyr::select(sample_id, library, treatment, condition, rep) 
-# 
-# # write metadata for use in future analyses
-# 
-# write_csv(metadata, here("counts/fig1/metadata.csv"))
-#   
-```
-
 ## load metadata
 ```{r}
 metadata <- read_csv(here("calculate_te/metadata.csv"))
 ```
 
 ## filter metadata for samples of interest
-
 ```{r}
 metadata_norm <- metadata %>% 
   filter(treatment %in% c("sictrl","si3d","si3e")) %>%
@@ -107,174 +77,10 @@ gene_symbol <- geneInfo %>% dplyr::select(gene_id, symbol) %>% unique()
 
 ```
 
-
-
-
-## load salmon files - remove
-```{r import and filter, message=FALSE, warning=FALSE}
-# create the tx2 gene file for tximport
-geneInfo <- read_csv(here("accessories","gencode.v26.primary.info.csv.gz"), col_names = F) %>%
-  filter(!str_detect(X2, "pre_"))
-
-colnames(geneInfo) <- c("gene_id","transcript_id","biotype","symbol")
-
-#map transcripts to gene
-tx2gene <- geneInfo[,c(2,1)]
-gene_symbol <- geneInfo %>% dplyr::select(gene_id, symbol) %>% unique()
-
-#load quant files based on metadata names
-myquantfiles <- paste(here(), "/salmon/",
-                      metadata_norm$sample_id,
-                      "/quant.sf.gz",
-                      sep = "")
-
-names(myquantfiles) <- paste(metadata_norm$condition,
-                             metadata_norm$treatment,
-                             metadata_norm$library,
-                             metadata_norm$rep,
-                             sep = "_")
-
-
-myTxi <- tximport(myquantfiles, type = "salmon", tx2gene = tx2gene)
-
-
-
-#only keeping rows with enough counts - want around 10-15k genes
-
-# hist(log2(rowSums(myTxi$counts)), breaks = 40)
-keepGenes <- rownames(myTxi$counts[log2(rowSums(myTxi$counts)) > 7,])
-
-pc <-geneInfo %>%
-  filter(biotype =="protein_coding") %>%
-  pull(gene_id) %>%
-  unique()
-pc_keep <- pc[pc %in% keepGenes]
-
-
-# remove non-polyadenylated mRNAs
-nonpolyA <- readxl::read_xlsx(path = here("accessories","polyAminus.xlsx"), sheet = 1) %>% 
-   pull(Gene)
-
-nonpolyA_ID <- geneInfo %>%
-  filter(symbol %in% nonpolyA) %>% 
-  pull(gene_id) %>% 
-  unique()
-
-
-# we want to remove any genes that match these annotation categories # before we do DE analysis
-blacklist_smRNA <- c("snoRNA","miRNA","snRNA","rRNA","Mt_tRNA","scaRNA","Mt_tRNA","Mt_rRNA")
-
-# there are 5,355 genes we want to exclude
-blacklist_smRNA_ID <-geneInfo %>%
-  filter(biotype %in% blacklist_smRNA) %>% 
-  pull(gene_id) %>% 
-  unique()
-
-
-genes_to_kill <- unique(c(blacklist_smRNA_ID,nonpolyA_ID))
-
-
-```
-
-## extract rna, ribo, and te counts - remove
-remove
-```{r deltaTE, message=FALSE, warning=FALSE}
-# separate out RNA counts versus ribo count
-# from https://currentprotocols.onlinelibrary.wiley.com/doi/full/10.1002/cpmb.108
-
-allCounts <- myTxi$counts %>%
-  as.data.frame() %>% 
-  rownames_to_column(var = "gene") %>% 
-  filter(gene %in% pc_keep) %>%
-  filter(!gene %in% genes_to_kill) %>%
-  column_to_rownames(var = "gene") %>% 
-  as.matrix() %>%
-  round(.,0)
-
-allCountsNorm <- edgeR::cpm(allCounts[,order(colnames(allCounts))])
-
-riboN <- log2(
-  1+ as.matrix(allCountsNorm[,grep(pattern = "ribo",colnames(allCountsNorm))])
-) 
-rnaN <- log2( 1 + as.matrix(allCountsNorm[,grep(pattern = "rna",colnames(allCountsNorm))])
-) 
-
-# as.data.frame(riboN)%>% melt() %>% view()
-
-TE_original <- riboN - rnaN
-
-# @kate wondering why you are adding 0.828 to TE  --- this centers TE at 0. is this important?
-
-TE <- (riboN - rnaN) + 0.828 
-colnames(TE) <- gsub(pattern = "ribo", replacement = "TE", x = colnames(TE))
-
-gghistogram(as.data.frame(TE_original) %>% melt(), x="value")
-
-median(as.data.frame(TE_original) %>% melt() %>% pull(value))
-# this is why im using 0.828! BUT i still don't know why that is necessary.
-
-gghistogram(as.data.frame(TE) %>% melt(), x="value")
-
-
-
-
-
-ribo_counts <- as.matrix(allCounts[,grep(pattern = "ribo",colnames(allCounts))])
-rna_counts <- as.matrix(allCounts[,grep(pattern = "rna",colnames(allCounts))])
-
-# remove 3d libs
-counts_3e <- allCounts[,!grepl("si3d",colnames(allCounts))]
-metadata_norm_3e <- metadata_norm %>% filter(treatment != "si3d") %>% droplevels()
-
-# remove 3e libs
-counts_3d <- allCounts[,!grepl("si3e",colnames(allCounts))]
-metadata_norm_3d <- metadata_norm %>% filter(treatment != "si3e") %>% droplevels()
-
-ddsMat_3d <- DESeqDataSetFromMatrix(
-  countData = counts_3d,
-  colData = metadata_norm_3d,
-  design = ~treatment + library + treatment:library
-  )
-
-ddsMat_3d <- DESeq(ddsMat_3d)
-resultsNames(ddsMat_3d)
-res_te_3d <- results(ddsMat_3d, name=resultsNames(ddsMat_3d)[4], cooksCutoff=F, independentFiltering=F)
-
-
-res_te_3d <- lfcShrink(dds = ddsMat_3d, coef = resultsNames(ddsMat_3d)[4], res = res_te_3d) %>% 
-  as.data.frame %>% 
-  rownames_to_column(var = "gene_id") %>%
-  inner_join(gene_symbol, .) %>%
-  filter(!symbol %in% nonpolyA) 
-
-
-ddsMat_3e <- DESeqDataSetFromMatrix(
-  countData = counts_3e,
-  colData = metadata_norm_3e,
-  design = ~treatment + library + treatment:library
-  )
-
-ddsMat_3e <- DESeq(ddsMat_3e)
-
-res_te_3e <- results(ddsMat_3e,
-                name=resultsNames(ddsMat_3e)[4],
-                cooksCutoff=F, independentFiltering=F)
-
-res_te_3e <- lfcShrink(
-  dds = ddsMat_3e,
-  coef = resultsNames(ddsMat_3e)[4],
-  res = res_te_3e) %>% 
-  as.data.frame %>% 
-  rownames_to_column(var = "gene_id") %>%
-  inner_join(gene_symbol, .) %>%
-  filter(!symbol %in% nonpolyA)  
-```
-
 ## Separate ribo counts, rna counts, and te counts
 ```{r}
 raw_counts <- read_csv(here("calculate_te/raw_filtered_allCounts.csv")) %>% 
   column_to_rownames("gene_id")
-
 
 raw_counts_edit <- raw_counts %>%
   dplyr::select(!matches("DMSO|a209"))
@@ -285,14 +91,11 @@ rna_counts <- as.matrix(raw_counts_edit[,grep(pattern = "rna",colnames(raw_count
 
 rna_ribo_counts <- as.matrix(raw_counts_edit)
 
-
 ```
 
 ## Delta TE eIF3d KD vs. sicontrol (normoxia only here and everything below)
 
 ```{r}
-#organize counts
-# rna_ribo_3d <- rna_ribo_counts[,!grepl("si3e",colnames(rna_ribo_counts))]
 
 #organize metadata
 metadata_norm_3d <- metadata_norm %>% 
@@ -334,8 +137,6 @@ write_csv(res_te_3d, here("counts/fig1/normoxia_sictrl_3d.csv"))
 ## Delta TE eIF3e KD vs. sicontrol (normoxia only here and everything below)
 
 ```{r}
-#organize counts
-# rna_ribo_3e <- rna_ribo_counts[,!grepl("si3e",colnames(rna_ribo_counts))]
 
 #organize metadata
 metadata_norm_3e <- metadata_norm %>% 
@@ -380,13 +181,13 @@ write_csv(res_te_3e, here("counts/fig1/normoxia_sictrl_3e.csv"))
 
 ## Import TE 
 Calculated previously in calculate_te.Rmd
-allgene TE has normalized counts
+allgene TE has normalized counts for RNA and RIBO as well
 ```{r}
 all_gene_te <- read_csv(here("calculate_te/complete_te_list.csv"))
 
 all_gene_te_long <- all_gene_te %>% 
   melt() %>% 
-  separate(variable, into = c("condition", "treatment", "rep"))
+  separate(variable, into = c("condition", "treatment", "rep", "type"))
 
 slimmed_te <- all_gene_te_long %>% 
   filter(condition=="normoxia") %>% 
@@ -472,11 +273,40 @@ Visualize e and d specifically: controls
 e_and_d <-slimmed_te %>% 
   filter(symbol=="EIF3E" | symbol=="EIF3D")
 
-ggstripchart(data = e_and_d, x = "treatment", y = "value", color = "treatment", facet.by = "symbol", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2))+
+ggstripchart(data = e_and_d, x = "treatment", y = "value", color = "treatment", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2))+
   facet_wrap(~symbol+type)
 
 
 ```
+
+Replot as averages with standard deviations
+
+```{r}
+bars_e_d_norm <- e_and_d %>% 
+  filter(type != "TE")
+
+bars_e_d_summary <- bars_e_d_norm %>%
+  group_by(symbol, type, treatment) %>%
+  summarise(
+    mean_value = mean(value),
+    sd = sd(value)  # Standard deviation
+  )
+
+bars_e_d_summary$type <- factor(bars_e_d_summary$type, levels=c("rna","ribo"))
+
+ggplot(bars_e_d_summary, aes(x = treatment, y = mean_value, fill = treatment)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin = mean_value - sd, ymax = mean_value + sd), 
+                width = 0.2, position = position_dodge(0.9)) +
+  facet_wrap(~ symbol + type) +
+  scale_fill_manual(values = c("grey",si3d_col,si3e_col)) +
+  theme_cowplot()+
+    theme(legend.position = "none")
+
+ggsave(here("plots/fig1/e_d_rna_ribo.pdf"), width = 4, height = 4.5)
+
+```
+
 
 
 
@@ -523,8 +353,6 @@ ggvenn(norm_te_down, auto_scale = T, fill_color = c(si3d_col,si3e_col), text_siz
 ggsave(width = 2, height = 2, filename = here("plots/fig1/venndown.pdf"))
 
 
-# stopifnot(
-# identical(res_te_3d$gene_id,res_te_3e$gene_id))
 ```
 
 ### Density scatter plot
@@ -708,45 +536,9 @@ norm_hallmark %>%
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
   coord_flip()
 
+ggsave(here("plots/fig1/pathway_bars.pdf"))
 
 
-
-
-
-norm_te_h <- dplyr::full_join(
-  eif3d_te_h@result %>%
-  dplyr::select(ID,NES,pvalue,qvalue) %>%
-  rename_with(~ paste0("eif3d_", .), is.numeric),
-  eif3e_te_h@result %>%
-  dplyr::select(ID,NES,pvalue,qvalue) %>%
-  rename_with(~ paste0("eif3e_", .), is.numeric),
-  by = "ID") %>% 
-  filter(eif3d_pvalue < 0.05 | eif3e_pvalue < 0.05)  %>%
-  dplyr::arrange(-eif3e_NES) 
-
-
-ribo_counts <- as.matrix(raw_counts_edit[,grep(pattern = "ribo",colnames(raw_counts_edit))])
-rna_counts <- as.matrix(raw_counts_edit[,grep(pattern = "rna",colnames(raw_counts_edit))])
-
-long_hall <-
-norm_te_h %>% 
-  melt()
-
-
-
-ggbarplot(data = norm_te_h,
-          x = "eif3d_NES",
-          y = "eif3e_NES",
-          color = "color", palette = c("black", "red"),
-          xlab = "si-eIF3d NES",
-          ylab = "si-eIF3e NES") +
-  geom_vline(xintercept = 0, linetype = "dashed") +
-  geom_hline(yintercept = 0, linetype = "dashed") +
-  ylim(-2.5, 2.5) +
-  xlim(-2.5, 2.5) +
-  theme_prism(base_size = 12) +
-  guides(color = "none") +
-  geom_text_repel(aes(label = ID), size = 3)
 ```
 
 
@@ -823,11 +615,6 @@ norm_kegg_table <- norm_te_kegg %>%
                             ifelse(eif3d_NES < 0 & eif3e_NES > 0, "up_3e_down_3d", "NA")))))
 
 write_csv(norm_kegg_table, here("counts/fig1/norm_kegg_table.csv"))
-
-
-
-
-
 
 
 ```
