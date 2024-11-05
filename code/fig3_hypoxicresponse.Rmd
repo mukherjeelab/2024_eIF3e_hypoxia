@@ -166,9 +166,6 @@ ggsave(here("plots/fig3/hif_hypoxia.pdf"), width = 4, height = 3)
 
 
 
-
-
-
 ## Acute hypoxic response: Control normoxia to hypoxia.
 
 ### TE changes

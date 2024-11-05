@@ -7,13 +7,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-# a209 TE changes in acute hypoxic response
-# bar chart of te changes in normoxia and hypoxia, indicating amplification in hypoxia
-# odds ratio comparing a209 and 3e in normoxia then in hypoxia
-# venn diagram of overlap of 3e and 209 in normoxia, up and down separated, and then in hypoxia
-# pathway analysis of overlap
-
-
 ```{r install packages, echo=FALSE}
 library(here)
 library(janitor)
@@ -87,6 +80,49 @@ rna_counts <- as.matrix(raw_counts_edit[,grep(pattern = "rna",colnames(raw_count
 
 
 rna_ribo_counts <- as.matrix(raw_counts_edit)
+
+```
+
+
+
+## HIF1alpha in a209 treated - rna and ribo - in figure 7 supplement
+
+```{r}
+
+all_gene_te <- read_csv(here("calculate_te/complete_te_list.csv"))
+
+all_gene_te_long <- all_gene_te %>% 
+  melt() %>% 
+  separate(variable, into = c("condition", "treatment", "rep", "type")) %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment == "a209"| treatment =="DMSO")
+
+all_gene_te_long$treatment <- relevel(factor(all_gene_te_long$treatment), ref = "DMSO")
+
+
+hif <-all_gene_te_long %>% 
+  filter(symbol=="HIF1A") %>% 
+  filter(type != "TE")
+
+hif_summary <- hif %>%
+  group_by(symbol, type, treatment) %>%
+  summarise(
+    mean_value = mean(value),
+    sd = sd(value)  # Standard deviation
+  )
+
+hif_summary$type <- factor(hif_summary$type, levels=c("rna","ribo"))
+
+ggplot(hif_summary, aes(x = treatment, y = mean_value, fill = treatment)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin = mean_value - sd, ymax = mean_value + sd), 
+                width = 0.2, position = position_dodge(0.9)) +
+  facet_wrap(~ symbol + type) +
+  scale_fill_manual(values = c("grey",a209_col)) +
+  theme_cowplot()+
+    theme(legend.position = "none")
+
+ggsave(here("plots/fig6/hif_a209_hypoxia.pdf"), width = 4, height = 3)
 
 ```
 
@@ -268,7 +304,7 @@ all_counts_acute_DMSO_ribo <- data.frame(dataset, upreg, downreg)
 
 ```
 
-## Visualize DMSO acute hypoxic changes
+## Visualize DMSO acute hypoxic changes -- do we wnat this?
 ```{r}
 
 acute_ctrl_counts <- rbind(all_counts_acute_DMSO_rna, all_counts_acute_DMSO_ribo) %>% melt()
@@ -328,21 +364,21 @@ res_acute_a209 <- lfcShrink(dds = ddsMat_acute_a209, coef = resultsNames(ddsMat_
 
 # visualization -----------------------------------------------------------------
   
-  volcano <- EnhancedVolcano(toptable = res_acute_a209,
-                x = "log2FoldChange",
-                y = "padj",
-                lab = res_acute_a209$symbol,
-                pCutoff = 0.05,
-                xlim = c(-5,5),
-                title = "Acute Hypoxic Response - a209",
-                subtitle = "",
-                legendPosition = "right",
-                col = c('grey', 'black', 'blue', 'red3'),
-                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
-      'p-value & Log (base 2) FC'))
-
-volcano
-#might not want this for the paper
+#   volcano <- EnhancedVolcano(toptable = res_acute_a209,
+#                 x = "log2FoldChange",
+#                 y = "padj",
+#                 lab = res_acute_a209$symbol,
+#                 pCutoff = 0.05,
+#                 xlim = c(-5,5),
+#                 title = "Acute Hypoxic Response - a209",
+#                 subtitle = "",
+#                 legendPosition = "right",
+#                 col = c('grey', 'black', 'blue', 'red3'),
+#                 legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+#       'p-value & Log (base 2) FC'))
+# 
+# volcano
+# #might not want this for the paper
 
 # count table -------------------------------------------------------------------
 
@@ -560,7 +596,7 @@ scatter_acute_dmso_a209 <- ggMarginal(scatter_acute_dmso_a209, type = "histogram
 
 scatter_acute_dmso_a209
 
-ggsave(filename= here("plots/fig6/acute_dmso_a209.pdf"), scatter, height=4, width=4)
+ggsave(filename= here("plots/fig6/acute_dmso_a209.pdf"), scatter_acute_dmso_a209, height=4, width=4)
 
 ```
 
@@ -636,7 +672,7 @@ downreg <- res_normox_a209 %>%
 dataset= "normoxia_a209"
 
 all_counts_normox_a209 <- data.frame(dataset, upreg, downreg)
-all_counts_hypox_a209
+all_counts_normox_a209
 
 write_csv(res_normox_a209, here("counts/fig6/hypoxia_si_ctrl_a209.csv"))
 
@@ -724,10 +760,6 @@ write_csv(res_hypox_a209, here("counts/fig6/hypoxia_si_ctrl_a209.csv"))
 
 ```
 
-
-
-
-
 ### Visualize normoxic vs hyoxic response for a209
 ```{r}
 hyp_vs_norm_a209 <- rbind(all_counts_normox_a209, all_counts_hypox_a209) %>% 
@@ -743,11 +775,11 @@ a209_bar <- ggbarplot(data = hyp_vs_norm_a209, x = "condition", y = "value", fil
   xlab("")+
   theme_prism()+
   theme_cowplot(font_size = 12)+
-  scale_y_continuous(limits = c(0, 1600))
+  scale_y_continuous(limits = c(0, 300))
 
 a209_bar
 
-ggsave(here("plots/fig6/a209bars.pdf"), eif3e_bar, width = 3, height = 4)
+ggsave(here("plots/fig6/a209bars.pdf"), a209_bar, width = 3, height = 4)
 
 ```
 
@@ -918,128 +950,6 @@ a209_hypoxia_down$gs_name <- rep("a209_hypoxia_down")
 
 The following analysis determines the number of genes that overlap in each condition and the statistical significance (p-value) of their overlap (odds ratio).
 
-Make gene lists - normoxia
-```{r}
-#up
-
-si3e_normoxia_up <- big_comparisons$normoxia$si3e %>% 
-  as.data.frame() %>% 
-  filter(padj < .05 & log2FoldChange > 0) %>%
-dplyr::select(symbol)
-
-si3e_normoxia_up$gs_name <- rep("si3e_normoxia_up")
-
-
-si3d_normoxia_up <- big_comparisons$normoxia$si3d %>% 
-  as.data.frame() %>% 
-  filter(padj < .05 & log2FoldChange > 0) %>%
-  dplyr::select(symbol)
-
-si3d_normoxia_up$gs_name <- rep("si3d_normoxia_up")
-
-
-
-a209_normoxia_up <- big_comparisons$normoxia$a209 %>% 
-  as.data.frame() %>% 
-  filter(padj < .05 & log2FoldChange > 0) %>%
-  dplyr::select(symbol)
-
-a209_normoxia_up$gs_name <- rep("a209_normoxia_up")
-
-
-# down
-
-si3e_normoxia_down <- big_comparisons$normoxia$si3e %>% 
-  as.data.frame() %>% 
-  filter(padj < .05 & log2FoldChange < 0) %>%
-  dplyr::select(symbol)
-
-si3e_normoxia_down$gs_name <- rep("si3e_normoxia_down")
-
-
-si3d_normoxia_down <- big_comparisons$normoxia$si3d %>% 
-  as.data.frame() %>% 
-  filter(padj < .05 & log2FoldChange < 0) %>%
-  dplyr::select(symbol)
-
-si3d_normoxia_down$gs_name <- rep("si3d_normoxia_down")
-
-
-a209_normoxia_down <- big_comparisons$normoxia$a209 %>% 
-  as.data.frame() %>% 
-  filter(padj < .05 & log2FoldChange < 0) %>%
-  dplyr::select(symbol)
-
-a209_normoxia_down$gs_name <- rep("a209_normoxia_down")
-
-
-```
-
-### Odds ratios in hypoxia
-
-Make gene lists - Hypoxia
-```{r}
-
-#up
-
-si3e_hypoxia_up <- big_comparisons$hypoxia$si3e %>% 
-  as.data.frame() %>% 
-  filter(padj < .05 & log2FoldChange > 0) %>%
-  dplyr::select(symbol)
-
-si3e_hypoxia_up$gs_name <- rep("si3e_hypoxia_up")
-
-
-si3d_hypoxia_up <- big_comparisons$hypoxia$si3d %>% 
-  as.data.frame() %>% 
-  filter(padj < .05 & log2FoldChange > 0) %>%
-  dplyr::select(symbol)
-
-si3d_hypoxia_up$gs_name <- rep("si3d_hypoxia_up")
-
-
-
-a209_hypoxia_up <- big_comparisons$hypoxia$a209 %>% 
-  as.data.frame() %>% 
-  filter(padj < .05 & log2FoldChange > 0) %>%
-  dplyr::select(symbol)
-
-a209_hypoxia_up$gs_name <- rep("a209_hypoxia_up")
-
-
-
-# down
-
-si3e_hypoxia_down <- big_comparisons$hypoxia$si3e %>% 
-  as.data.frame() %>% 
-  filter(padj < .05 & log2FoldChange < 0) %>%
-  dplyr::select(symbol)
-
-si3e_hypoxia_down$gs_name <- rep("si3e_hypoxia_down")
-
-
-si3d_hypoxia_down <- big_comparisons$hypoxia$si3d %>% 
-  as.data.frame() %>% 
-  filter(padj < .05 & log2FoldChange < 0) %>%
-  dplyr::select(symbol)
-
-si3d_hypoxia_down$gs_name <- rep("si3d_hypoxia_down")
-
-
-
-a209_hypoxia_down <- big_comparisons$hypoxia$a209 %>% 
-  as.data.frame() %>% 
-  filter(padj < .05 & log2FoldChange < 0) %>%
-  dplyr::select(symbol)
-
-a209_hypoxia_down$gs_name <- rep("a209_hypoxia_down")
-
-
-
-
-
-```
-
 
 Create a matrix that compares each condition for gene overlap analysis.
 ```{r}
@@ -1048,6 +958,16 @@ all_lists <- bind_rows(si3e_normoxia_up, si3d_normoxia_up, a209_normoxia_up, si3
   separate(gs_name, c("sample", "condition", "direction"))
 ```
 
+
+### get number of expressed genes for universe value
+```{r}
+all_209_symbols_expressed <- rbind(
+res_normox_a209,
+res_hypox_a209)
+
+universe <- unique(all_209_symbols_expressed$symbol)
+
+```
 
 
 ### Normoxia analysis
@@ -1065,22 +985,12 @@ gom.allsamples <- split(norm_matrix_comb$symbol, norm_matrix_comb$description)
 
 #double check genome size here
 
-gom.all <- newGOM(gom.allsamples, gom.allsamples, genome.size = 9608)
+gom.all <- newGOM(gom.allsamples, gom.allsamples, genome.size = 11629)
 
 norm_all.odds.matrix <- getMatrix(gom.all, "odds")
 norm_all.pval.matrix <- getMatrix(gom.all, "pval")
 
 
-```
-
-### Odds values
-```{r}
-#knitr::kable(all.odds.matrix, valign = 't')
-```
-
-### P values
-```{r}
-#knitr::kable(all.pval.matrix, valign = 't')
 ```
 
 # plot odds ratios as bars with p values
@@ -1115,11 +1025,11 @@ odds_pval <- odds_pval %>%
   mutate(group = ifelse(comparison== "a209, down-si3d, down" | comparison== "a209, up-si3d, up", "si3d", "si3e"))
 
 
-ggpubr::ggbarplot(odds_pval, x="comparison_with_a209", y="odds_value", fill="group", label = odds_pval$label, title="a209 overlaps in normoxia", palette = c(si3d_col, si3e_col), ylim=(c(0,6)))+
+ggpubr::ggbarplot(odds_pval, x="comparison_with_a209", y="odds_value", fill="group", label = odds_pval$label, title="a209 overlaps in normoxia", palette = c(si3d_col, si3e_col), ylim=(c(0,7)))+
   geom_hline(aes(yintercept=1))
 
 
-ggsave(here("plots/fig6/normoverlap.pdf"), width=4, height=3)
+ggsave(here("plots/fig6/normoverlap.pdf"), width=4, height=4)
 
 ```
 
@@ -1136,7 +1046,7 @@ hyp_matrix_comb <- hyp_matrix %>%
 
 gom.allsamples <- split(hyp_matrix_comb$symbol, hyp_matrix_comb$description)
 
-gom.all <- newGOM(gom.allsamples, gom.allsamples, genome.size = 9608)
+gom.all <- newGOM(gom.allsamples, gom.allsamples, genome.size = 11629)
 
 hyp_all.odds.matrix <- getMatrix(gom.all, "odds")
 hyp_all.pval.matrix <- getMatrix(gom.all, "pval")
@@ -1176,68 +1086,17 @@ odds_pval$comparison_with_a209 <- factor(odds_pval$comparison_with_a209, levels 
 odds_pval <- odds_pval %>% 
   mutate(group = ifelse(comparison== "a209, down-si3d, down" | comparison== "a209, up-si3d, up", "si3d", "si3e"))
 
-ggpubr::ggbarplot(odds_pval, x="comparison_with_a209", y="odds_value", fill="group", label = odds_pval$label, title="a209 overlaps in hypoxia", palette = c(si3d_col, si3e_col), ylim=(c(0,6)))+
+ggpubr::ggbarplot(odds_pval, x="comparison_with_a209", y="odds_value", fill="group", label = odds_pval$label, title="a209 overlaps in hypoxia", palette = c(si3d_col, si3e_col), ylim=(c(0,7)))+
   geom_hline(aes(yintercept=1))
 
 
-ggsave(filename=here("plots/fig6/hypoverlap.pdf"), width=4, height=3)
+ggsave(filename=here("plots/fig6/hypoverlap.pdf"), width=4, height=4)
 
 
 
 ```
 
 
-Scatterplot of eFI3e vs a209 in hypoxia
-
-## Hypoxia
-
-```{r}
-
-
-
-hyp_sig_te <- data.frame(
-  gene_id = res_hypox_si3e$gene_id,
-  symbol = res_hypox_si3e$symbol,
-  te_a209 = res_hypox_a209$log2FoldChange,
-  te_3e = res_hypox_si3e$log2FoldChange
-) %>%
-  filter(gene_id %in% c(hyp_3e_up,
-                        hyp_3e_down,
-                        a209_hypoxia_up,
-                        a209_hypoxia_down)) 
-
-
-
-scatter <- ggscatter(data = hyp_sig_te,
-          x = "te_a209",
-          y = "te_3e",
-          xlab="a209 TE",
-          ylab="si-eIF3e TE",
-          alpha = 0.25,
-          title = "Compare TE of sig genes - Hypoxia", xlim=c(-2,2), ylim = c(-2,2)) +
-   stat_cor(
-   aes(label =
-         paste(
-           after_stat(rr.label),
-           ..p.label..,
-           sep = "~`,`~")
-       )
-   )
-
-
-
-scatter <- ggMarginal(scatter, type = "histogram",
-           xparams = list(binwidth = .3, fill = a209_col),
-           yparams = list(binwidth = .3, fill = si3e_col)
-           )
-
-scatter
-
-ggsave(filename=here("plots/fig6/hyp_3e_a209_te_scatter.pdf"),scatter,width=4, height=4)
-
-
-
-```
 
 ## Pathway analysis
 
@@ -1316,7 +1175,7 @@ m_df_c2 <- msigdbr(species = "Homo sapiens") %>%
 ```
 
 
-## Hallmark Pathways
+## Hallmark Pathways -- delete normoxia?
 
 Which hallmark pathways overlap for a209 and 3e in hypoxia? which are different?
 Normoxia
@@ -1496,16 +1355,13 @@ hyp_hallmark %>%
   theme_cowplot() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
   coord_flip()
+
+ggsave(here("plots/fig6/hallmarkbars.pdf"), width=8, height=6)
+
 ```
 
-### HIF1alpha with DMSO and a209
 
-
-
-
-
-
-
+## end updates here
 
 
 ### Venn diagram of overlaps of a209 and eIF3e in normoxia and hypoxia (unused in paper)
