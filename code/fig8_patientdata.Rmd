@@ -16,23 +16,12 @@ library(here)
 library(tidyverse)
 library(janitor)
 library(readxl)
-library(cBioPortalData)
-library(MetaIntegrator)
-library(cbioportalR)
-library(pheatmap)
+library(DESeq2)
+library(ggprism)
+library(survminer)
 library(cowplot)
 library(ggpubr)
 library(survival)
-library(survminer)
-library(GSVA)
-library(GSEABase)
-library(matrixStats)
-library(clusterProfiler)
-library(msigdbr)
-library(GeneOverlap)
-library(UpSetR)
-library(ComplexHeatmap)
-library(reshape2)
 ```
 
 
@@ -42,8 +31,7 @@ Pull in raw RNA data and do differential gene expression
 
 ## load metadata
 ```{r}
-metadata <- read_csv(here("calculate_te/metadata.csv"))
-
+metadata <- read_csv(here("counts/calculate_te/metadata.csv"))
 ```
 
 ```{r}
@@ -60,7 +48,7 @@ gene_symbol <- geneInfo %>% dplyr::select(gene_id, symbol) %>% unique()
 
 ## Separate ribo counts, rna counts, and te counts
 ```{r}
-raw_counts <- read_csv(here("calculate_te/raw_filtered_allCounts.csv")) %>% 
+raw_counts <- read_csv(here("counts/calculate_te/raw_filtered_allCounts.csv")) %>% 
   column_to_rownames("gene_id")
 
 ribo_counts <- as.matrix(raw_counts[,grep(pattern = "ribo",colnames(raw_counts))])
@@ -70,7 +58,7 @@ rna_ribo_counts <- as.matrix(raw_counts)
 
 ```
 
-# 3e hypoxia rna
+# 3e hypoxia rna @Kate if we keep generate signatures code we can skip the deseq2 and import from there
 ```{r}
 
 metadata_loop <- metadata %>% 
@@ -167,8 +155,9 @@ sample_info <- metadata_loop %>%
     filter(symbol=="EIF3D")
 
 ```
-# RIBO and TE sig-- in another file not for pub?
+#@Kate RIBO and TE sig-- in another file not for pub?
 
+#@Neel the major thing here is I'm doing this analysis using a cutoff of 1 LFC for the rna signature (rather than 0.5 LFC cutoff etc). We may want 0.5-- the interpretation is very similar either way
 
 # Prepare survival analysis
 ### Separate RNA signatures by direction
@@ -228,10 +217,6 @@ dedup <- zscores %>%
   summarise(across(everything(), mean))
 
 
-# z_clean <- zscores %>%
-#   filter(!Hugo_Symbol %in% dup_genes) %>% 
-#   bind_rows(., dedup)
-
 merged_zscores <- zscores %>%
   filter(!Hugo_Symbol %in% dup_genes) %>% 
   bind_rows(., dedup) %>% 
@@ -239,7 +224,6 @@ merged_zscores <- zscores %>%
   column_to_rownames("Hugo_Symbol") %>% 
   as.data.frame()
 
-# exp <- merged_zscores[raw$symbol,] don't want to subset this yet
 
 ```
 
@@ -382,7 +366,8 @@ ggplot(all_data_3e_hyp, aes(x=quantile,y=total_z_score, group=quantile)) +
   ggtitle("Patient scores for eIF3e hypoxia signature")
 
 
-# maybe something like this could be relevant
+#@Kate-- decide if needed. Connor wanted to see this but not used in paper. Same with charts below in this chunk
+
 ggviolin(data = all_data_3e_hyp %>% filter(ER_IHC != ""), y = "total_z_score", x = "ER_IHC", fill = "ER_IHC", palette = ggokabeito::palette_okabe_ito(), add = "median_iqr" ) +
   rotate_x_text(45)
 
@@ -393,8 +378,6 @@ ggviolin(data = all_data_3e_hyp %>% filter(THREEGENE != ""), y = "total_z_score"
 #claudin subtype
 ggviolin(data = all_data_3e_hyp , y = "total_z_score", x = "CLAUDIN_SUBTYPE", fill = "CLAUDIN_SUBTYPE", palette = ggokabeito::palette_okabe_ito(), add = "median_iqr" ) +
   rotate_x_text(45)
-
-
 
 
 ```
@@ -457,7 +440,7 @@ ggplot(all_data_3d_hyp, aes(x=quantile,y=total_z_score, group=quantile)) +
   theme_cowplot()+
   ggtitle("Patient scores for eIF3d hypoxia signature")
 
-
+#@Kate decide if this is wanted-- probably is not
 # maybe something like this could be relevant
 ggviolin(data = all_data_3d_hyp %>% filter(ER_IHC != ""), y = "total_z_score", x = "ER_IHC", fill = "ER_IHC", palette = ggokabeito::palette_okabe_ito(), add = "median_iqr" ) +
   rotate_x_text(45)
@@ -570,8 +553,8 @@ ggplot(all_data_hif_ye, aes(x=quantile,y=z_score, group=quantile)) +
 ```{r}
 
 patient_ye_and_3e <- left_join(sig_zscores_3e, sig_zscores_hyp_signature, by="patient") %>% 
-  rename("hypoxia_z_score"="z_score") %>% 
-   rename("eIF3e_z_score"="total_z_score")
+  dplyr::rename("hypoxia_z_score"="z_score") %>% 
+   dplyr::rename("eIF3e_z_score"="total_z_score")
 
 ggplot(patient_ye_and_3e, aes(x=hypoxia_z_score, y= eIF3e_z_score))+
   geom_point()+
@@ -660,6 +643,7 @@ ggsave("surv_plot_3e_and_hypoxia_sig.pdf", path=here("plots/fig8"),width = 11.5,
 
 Control: excluding points in the middle as a negative control for the survival curve analysis
 Same as earlier with a filter
+@Kate and @Neel do we need this in here?? -- I think I can remove this whole chunk
 ```{r}
 
 ctrl_patient_ye_and_3e <- patient_ye_and_3e %>% 
@@ -716,35 +700,35 @@ ctrl_patient_ye_and_3e_hyp_clin$quadrant <- factor(ctrl_patient_ye_and_3e_hyp_cl
 
 quadrant_levels <- levels(ctrl_patient_ye_and_3e_hyp_clin$quadrant)
 
-ctrl_surv_plot_3e_and_hypoxia_sig<-
-ggsurvplot(fit_all_hypoxia_3e,
-           data = ctrl_patient_ye_and_3e_hyp_clin,
-           size = 1,
-           palette = c("#E7B800", "pink", "purple", "#2E9FDF"), 
-           break.time.by = 1,
-           ylab="Overall Survival",
-           xlab = "Time in years",
-           xlim = c(0,10),
-           font.x = 30,      
-           font.y = 30,      
-           font.tickslab = 25,
-           font.legend = 7,
-           conf.int = FALSE,
-           pval = F,
-           risk.table = FALSE,
-           risk.table.col = "strata",
-           risk.table.height = 0.25,
-           ggtheme = theme_prism())
-
-ctrl_surv_plot_3e_and_hypoxia_sig$plot +
-  annotate(
-    "text", 
-    x = 3, y = 0.2, 
-    label = paste("HR =", hr, "\np =", pval), 
-    size = 12, 
-    color = "black"
-  )
-
+# ctrl_surv_plot_3e_and_hypoxia_sig<-
+# ggsurvplot(fit_all_hypoxia_3e,
+#            data = ctrl_patient_ye_and_3e_hyp_clin,
+#            size = 1,
+#            palette = c("#E7B800", "pink", "purple", "#2E9FDF"), 
+#            break.time.by = 1,
+#            ylab="Overall Survival",
+#            xlab = "Time in years",
+#            xlim = c(0,10),
+#            font.x = 30,      
+#            font.y = 30,      
+#            font.tickslab = 25,
+#            font.legend = 7,
+#            conf.int = FALSE,
+#            pval = F,
+#            risk.table = FALSE,
+#            risk.table.col = "strata",
+#            risk.table.height = 0.25,
+#            ggtheme = theme_prism())
+# 
+# ctrl_surv_plot_3e_and_hypoxia_sig$plot +
+#   annotate(
+#     "text", 
+#     x = 3, y = 0.2, 
+#     label = paste("HR =", hr, "\np =", pval), 
+#     size = 12, 
+#     color = "black"
+#   )
+# 
 
 #trend remains, even when taking out values with low levels of changes
 
@@ -752,7 +736,6 @@ ctrl_surv_plot_3e_and_hypoxia_sig$plot +
 ```
 
 ## Controls
-
 
 ## Positive control
 
@@ -764,16 +747,11 @@ fit_pos <- survfit(Surv(OS_YEARS, OS_STATUS) ~ OS_STATUS, data = all_data_3e_hyp
 
 ggsurvplot(fit_pos, data = all_data_3e_hyp, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("alive", "died_from_cancer"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
 
-
-
 ```
 
 ## Negative Control for eIF3e signature
 
 Now neg control -- random genes comprising signatures-- same number of genes just random
-
-pos genes = 1747 genes
-neg genes = 1638 genes
 
 In my 3e hyp signature, there eare:
 78 up genes
@@ -861,16 +839,16 @@ surv_plot_neg_ctrl$plot +
 
 #boxplot of quartile expression
 
-# ggplot(all_data_neg_ctrl, aes(x=quantile,y=total_z_score, group=quantile)) +
-#   geom_boxplot()+
-#   theme_cowplot()+
-#   ggtitle("neg ctrl z scores")
+ggplot(all_data_neg_ctrl, aes(x=quantile,y=total_z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("neg ctrl z scores")
 
 
 ```
 
 Repeat this 1000 times and determine how many times after 1000 we get a significant p value at random
-Keeping this commented out because it takes forever
+Keeping this commented out because it takes forever @Kate probably remove, or if needed do this faster
 ```{r}
 # Vector to store p-values
 # pval_results <- numeric(1000)
@@ -923,7 +901,7 @@ Keeping this commented out because it takes forever
 # cat("Proportion of significant p-values:", proportion_significant, "\n")
 
 ```
-Proportion of significant p-values: 441/1000 -- this is insignificant. -- what went wrong here?
+
 
 # Repeat analysis using TCGA dataset
 TCGA Firehouse legacy
@@ -946,20 +924,12 @@ dedup <- zscores_tcga_all_symbol %>%
   group_by(Hugo_Symbol) %>%
   summarise(across(everything(), mean))
 
-# z_clean <- zscores %>%
-#   filter(!Hugo_Symbol %in% dup_genes) %>% 
-#   bind_rows(., dedup)
-
 merged_zscores_tcga <- zscores_tcga_all_symbol %>%
   filter(!Hugo_Symbol %in% dup_genes_tcga) %>% 
   bind_rows(., dedup) %>% 
   as.tibble() %>%
   column_to_rownames("Hugo_Symbol") %>% 
   as.data.frame()
-
-# merged_tcga_zscores_matrix <- merged_zscores_tcga %>% 
-#   column_to_rownames("Hugo_Symbol") %>% 
-#   as.matrix()
 
 ```
 
@@ -1073,9 +1043,6 @@ surv_plot_3e_tcga$plot +
   )
 ggsave("tcga_3e.pdf", path=here("plots/fig8"),width = 11.5, height=8)
 
-
-
-
 #boxplot of quartile expression
 
 ggplot(all_tcga_3e, aes(x=quantile,y=total_z_score, group=quantile)) +
@@ -1176,7 +1143,6 @@ ggplot(all_tcga_3d, aes(x=quantile,y=total_z_score, group=quantile)) +
 ```
 
 
-################
 ## Positive control
 
 Visualize OS_STATUS
@@ -1191,12 +1157,9 @@ ggsurvplot(fit_pos, data = all_data_3e_hyp, size = 1, palette = c("#E7B800", "#2
 
 ```
 
-## Negative Control for eIF3e signature
+## Negative Control for eIF3e signature @Kate need to find a way to do this better (like done in MPRA) with P values
 
 Now neg control -- random genes comprising signatures-- same number of genes just random
-
-old pos genes = 1747 genes
-old neg genes = 1638 genes
 
 In my 3e hyp signature, there are:
 78 up genes
@@ -1283,36 +1246,36 @@ surv_plot_neg_ctrl$plot +
 
 ```
 
-Repeat this 1000 times and determine how many times after 1000 we get a significant p value at random
-Keeping this commented out because it takes forever
+Repeat this 1000 times
+Keeping this commented out because it takes forever @Kate fix-- and decide if we want TCGA data in the paper
 ```{r}
-# Vector to store p-values
+# #Vector to store p-values
 # pval_results <- numeric(1000)
 # 
 # for (i in 1:1000) {
 #   # Select random samples for positive and negative gene lists
 #   fake_pos_list <- all_genes[sample(1:length(all_genes), 78)]
 #   fake_neg_list <- all_genes[sample(1:length(all_genes), 77)]
-#   
+# 
 #   # Reset neg_ctrl_zscores each iteration
 #   neg_ctrl_zscores <- data.frame(patient = colnames(exp_3e),
 #                                  up_z_score = NA,
 #                                  down_z_score = NA)
-#   
+# 
 #   # Calculate z-scores
 #   for (j in 1:nrow(neg_ctrl_zscores)) {
 #     neg_ctrl_zscores[j, 2] <- mean(exp_3e[fake_pos_list, j], na.rm = TRUE)
 #     neg_ctrl_zscores[j, 3] <- mean(exp_3e[fake_neg_list, j], na.rm = TRUE)
 #   }
-#   
+# 
 #   neg_ctrl_zscores <- neg_ctrl_zscores %>%
 #     mutate(total_z_score = up_z_score - down_z_score)
 # 
 #   # Determine quantiles and add to dataframe
 #   quantile_groups <- quantile(neg_ctrl_zscores$total_z_score, probs = seq(0, 1, 0.25), na.rm = TRUE)
-#   neg_ctrl_zscores$quantile <- cut(neg_ctrl_zscores$total_z_score, 
-#                                    breaks = quantile_groups, 
-#                                    include.lowest = TRUE, 
+#   neg_ctrl_zscores$quantile <- cut(neg_ctrl_zscores$total_z_score,
+#                                    breaks = quantile_groups,
+#                                    include.lowest = TRUE,
 #                                    labels = FALSE)
 # 
 #   neg_ctrl_zscores$patient <- gsub("\\.", "-", neg_ctrl_zscores$patient)
@@ -1339,7 +1302,7 @@ Keeping this commented out because it takes forever
 ```
 
 
-## Looking at copy number alterations in data - probably delete for manuscript
+## Looking at copy number alterations in data - @Kate probably delete for manuscript, everything below
 
 ```{r}
 cna <- read_excel(here("cbioportal_data/cna_metabric_matrix.xlsx"))

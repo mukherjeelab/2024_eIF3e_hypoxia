@@ -21,7 +21,7 @@ library(reshape2)
 ```
 
 ```{r colors}
-a209_col = "#009E73"
+a209_col = "#CC79A7"
 si3e_col = "#56B4E9"
 si3d_col = "#E69F00"
 ```
@@ -105,7 +105,7 @@ hist_count <- hist(log2(rowSums(myTxi$counts)), breaks = 50)
 #distribution of abundance histogram
 hist_abundance <- hist(log2(rowSums(myTxi$abundance)), breaks = 50)
 
-#@NEEL i am using a cutoff of 10 here. previously i used a cutoff of 7. Numbers will be slightly different. what do you think.
+
 #only keeping rows with counts  log2> 10 across all samples - want around 10-15k genes - want genes that are highly expressed
 keepGenes <- rownames(myTxi$counts[log2(rowSums(myTxi$counts)) > 10 ,])
 
@@ -163,7 +163,7 @@ all_raw_filtered_counts <- allCounts %>%
   rownames_to_column("gene_id")
 
 #export allCounts for DeSeq analysis
-write_csv(all_raw_filtered_counts, here("calculate_te/raw_filtered_allCounts.csv"))
+write_csv(all_raw_filtered_counts, here("counts/calculate_te/raw_filtered_allCounts.csv"))
 
 
 allCountsNorm <- edgeR::cpm(allCounts[,order(colnames(allCounts))])
@@ -209,7 +209,7 @@ full_te_list <- TE %>%
   as.data.frame() %>%
   rownames_to_column("gene_id") %>% 
   left_join(gene_symbol, by="gene_id") %>% 
-  select(symbol, everything())
+  dplyr::select(symbol, everything())
 
 
 full_rna_list <- rnaN %>% 
@@ -228,7 +228,7 @@ complete_list <- full_te_list %>%
   left_join(full_ribo_list, by= "gene_id")
 
 
-write_csv(complete_list, here("calculate_te/complete_te_list.csv"))
+write_csv(complete_list, here("counts/calculate_te/complete_te_list.csv"))
 
 
 ```
@@ -243,8 +243,6 @@ all_long <- complete_list %>%
     separate(variable, into=(c("condition", "treatment", "rep", "type")))
 
 ```
-
-
 
 ```{r eIF3e RNA}
 
@@ -306,7 +304,7 @@ metadata$condition <- relevel(x = factor(metadata$condition), ref = "normoxia")
 
 # write metadata for use in future analyses
 
-write_csv(metadata, here("calculate_te/metadata.csv"))
+write_csv(metadata, here("counts/calculate_te/metadata.csv"))
 
 ```
 

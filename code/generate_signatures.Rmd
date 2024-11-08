@@ -1,0 +1,1040 @@
+---
+title: "Generate signatures"
+author: "Kate"
+date: "2024-11-08"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+This is probably not needed for the paper. Unless we add something with TE sigantures. But, we need a place to calcualte these for our other work.
+
+TE signatures generated already, can pull in, then export subset.
+RNA signatures generated for eIF3e and eIF3d in hypoxia in fig 8
+Ribo signatures needed
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(here)
+library(tidyverse)
+library(janitor)
+library(readxl)
+library(DESeq2)
+library(ggprism)
+library(survminer)
+library(cowplot)
+library(ggpubr)
+library(survival)
+library(writexl)
+```
+
+## load metadata
+```{r}
+metadata <- read_csv(here("counts/calculate_te/metadata.csv"))
+```
+
+```{r}
+geneInfo <- read_csv(here("accessories","gencode.v26.primary.info.csv.gz"), col_names = F) %>%
+  filter(!str_detect(X2, "pre_"))
+
+colnames(geneInfo) <- c("gene_id","transcript_id","biotype","symbol")
+
+#map transcripts to gene
+tx2gene <- geneInfo[,c(2,1)]
+gene_symbol <- geneInfo %>% dplyr::select(gene_id, symbol) %>% unique()
+
+```
+
+## Load raw counts for DeSEQ analyses
+```{r}
+raw_counts <- read_csv(here("counts/calculate_te/raw_filtered_allCounts.csv")) %>% 
+  column_to_rownames("gene_id")
+
+ribo_counts <- as.matrix(raw_counts[,grep(pattern = "ribo",colnames(raw_counts))])
+rna_counts <- as.matrix(raw_counts[,grep(pattern = "rna",colnames(raw_counts))])
+
+rna_ribo_counts <- as.matrix(raw_counts)
+
+```
+
+# TE signatures
+1. Read in KNOCKDOWN signatures.
+2. Inverse knockdown signature so it is a 3e/3d signature.
+3. Save subset as siganture
+
+## KD TE in normoxia
+
+3e normoxia
+```{r}
+
+KD_te_sig_3e_norm <- read_csv(here("counts/fig1/normoxia_sictrl_3e.csv"))
+
+#test, look at atf4, consistently down with knockdowns, so should be up with signature
+
+te_sig_3e_norm <- KD_te_sig_3e_norm %>% 
+  mutate(log2FoldChange = -log2FoldChange)
+
+te_sig_3e_norm %>% filter(symbol=="ATF4")
+#positive now
+
+
+#subset TE
+
+te_sig_3e_norm <- te_sig_3e_norm %>% 
+  filter(padj < 0.05)
+
+tally(te_sig_3e_norm)
+
+#writing to excel for others to use
+write_xlsx(te_sig_3e_norm, here("counts/signatures/te_sig_3e_norm_no_cutoff.xlsx"))
+
+#0.5 LFC cutoff
+
+te_sig_3e_norm_cutoff <- te_sig_3e_norm %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+
+tally(te_sig_3e_norm_cutoff)
+
+write_xlsx(te_sig_3e_norm_cutoff, here("counts/signatures/te_sig_3e_norm_0.5_cutoff.xlsx"))
+
+```
+
+3d normoxia
+
+```{r}
+KD_te_sig_3d_norm <- read_csv(here("counts/fig1/normoxia_sictrl_3d.csv"))
+
+#test, look at atf4, consistently down with knockdowns, so should be up with signature
+
+te_sig_3d_norm <- KD_te_sig_3d_norm %>% 
+  mutate(log2FoldChange = -log2FoldChange)
+
+te_sig_3d_norm %>% filter(symbol=="ATF4")
+#positive now
+
+
+#subset TE
+
+te_sig_3d_norm <- te_sig_3d_norm %>% 
+  filter(padj < 0.05)
+
+tally(te_sig_3d_norm)
+
+#writing to excel for others to use
+write_xlsx(te_sig_3d_norm, here("counts/signatures/te_sig_3d_norm_no_cutoff.xlsx"))
+
+#0.5 LFC cutoff
+
+te_sig_3d_norm_cutoff <- te_sig_3d_norm %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+
+tally(te_sig_3d_norm_cutoff)
+
+write_xlsx(te_sig_3d_norm_cutoff, here("counts/signatures/te_sig_3d_norm_0.5_cutoff.xlsx"))
+
+```
+
+
+## KD TE in hypoxia
+
+3e hypoxia
+```{r}
+
+KD_te_sig_3e_hyp <- read_csv(here("counts/fig3/hypoxia_si_ctrl_3e.csv"))
+
+#test, look at atf4, consistently down with knockdowns, so should be up with signature
+
+te_sig_3e_hyp <- KD_te_sig_3e_hyp %>% 
+  mutate(log2FoldChange = -log2FoldChange)
+
+te_sig_3e_hyp %>% filter(symbol=="ATF4")
+#positive now
+
+
+#subset TE
+
+te_sig_3e_hyp <- te_sig_3e_hyp %>% 
+  filter(padj < 0.05)
+
+tally(te_sig_3e_hyp)
+
+#writing to excel for others to use
+write_xlsx(te_sig_3e_hyp, here("counts/signatures/te_sig_3e_hyp_no_cutoff.xlsx"))
+
+#0.5 LFC cutoff
+
+te_sig_3e_hyp_cutoff <- te_sig_3e_hyp %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+
+tally(te_sig_3e_hyp_cutoff)
+
+write_xlsx(te_sig_3e_hyp_cutoff, here("counts/signatures/te_sig_3e_hyp_0.5_cutoff.xlsx"))
+
+```
+
+3d hypoxia
+
+```{r}
+KD_te_sig_3d_hyp <- read_csv(here("counts/fig3/hypoxia_si_ctrl_3d.csv"))
+
+#test, look at atf4, consistently down with knockdowns, so should be up with signature
+
+te_sig_3d_hyp <- KD_te_sig_3d_hyp %>% 
+  mutate(log2FoldChange = -log2FoldChange)
+
+te_sig_3d_hyp %>% filter(symbol=="ATF4")
+#positive now
+
+
+#subset TE
+
+te_sig_3d_hyp <- te_sig_3d_hyp %>% 
+  filter(padj < 0.05)
+
+tally(te_sig_3d_hyp)
+
+#writing to excel for others to use
+write_xlsx(te_sig_3d_hyp, here("counts/signatures/te_sig_3d_hyp_no_cutoff.xlsx"))
+
+#0.5 LFC cutoff
+
+te_sig_3d_hyp_cutoff <- te_sig_3d_hyp %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+
+tally(te_sig_3d_hyp_cutoff)
+
+write_xlsx(te_sig_3d_hyp_cutoff, here("counts/signatures/te_sig_3d_hyp_0.5_cutoff.xlsx"))
+
+```
+
+## a209 TE signatures: remember ATF4 TE siganture will be the same as the 3e signature. so it is like a high 3e signature (or the inverse of a drug signature)
+
+Norm and hyp
+
+a209 normoxia
+```{r}
+
+KD_te_sig_a209_norm <- read_csv(here("counts/fig6/normoxia_dmso_a209.csv"))
+
+
+te_sig_a209_norm <- KD_te_sig_a209_norm %>% 
+  mutate(log2FoldChange = -log2FoldChange)
+
+
+#subset TE
+
+te_sig_a209_norm <- te_sig_a209_norm %>% 
+  filter(padj < 0.05)
+
+tally(te_sig_a209_norm)
+
+#writing to excel for others to use
+write_xlsx(te_sig_a209_norm, here("counts/signatures/te_sig_a209_norm_no_cutoff.xlsx"))
+
+#0.5 LFC cutoff
+
+te_sig_a209_norm_cutoff <- te_sig_a209_norm %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+
+tally(te_sig_a209_norm_cutoff)
+
+write_xlsx(te_sig_a209_norm_cutoff, here("counts/signatures/te_sig_a209_norm_0.5_cutoff.xlsx"))
+
+```
+
+
+a209 hypoxia
+```{r}
+
+KD_te_sig_a209_hyp <- read_csv(here("counts/fig6/hypoxia_dmso_a209.csv"))
+
+
+te_sig_a209_hyp <- KD_te_sig_a209_hyp %>% 
+  mutate(log2FoldChange = -log2FoldChange)
+
+
+#subset TE
+
+te_sig_a209_hyp <- te_sig_a209_hyp %>% 
+  filter(padj < 0.05)
+
+tally(te_sig_a209_hyp)
+
+#writing to excel for others to use
+write_xlsx(te_sig_a209_hyp, here("counts/signatures/te_sig_a209_hyp_no_cutoff.xlsx"))
+
+#0.5 LFC cutoff
+
+te_sig_a209_hyp_cutoff <- te_sig_a209_hyp %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+
+tally(te_sig_a209_hyp_cutoff)
+
+write_xlsx(te_sig_a209_hyp_cutoff, here("counts/signatures/te_sig_a209_hyp_0.5_cutoff.xlsx"))
+
+```
+
+
+# RNA signatures
+Same rules apply: 3e is UP. a209 sig is a 3e expression UP dataset.
+Need to do deseq on these
+
+## 3e normoxia rna
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="normoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3e")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("si3e", "sictrl"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  rna_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_norm_3e <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+# export to excel ---------------------------------------------------------------
+  res_norm_3e <- res_norm_3e %>% 
+    filter(padj < 0.05)
+  tally(res_norm_3e)
+  
+  
+  #confirm direction is UP
+  res_norm_3e %>% 
+    filter(symbol=="EIF3E")
+  
+writexl::write_xlsx(x = res_norm_3e, path = here("counts/signatures/rna_signature_3e_normoxia_no_cutoff.xlsx"), col_names = T)
+
+
+#filter for cutoff
+
+res_norm_3e_cutoff <- res_norm_3e %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+  
+writexl::write_xlsx(x = res_norm_3e_cutoff, path = here("counts/signatures/rna_signature_3e_normoxia_0.5_cutoff.xlsx"), col_names = T)
+  
+tally(res_norm_3e_cutoff)
+    
+
+```
+
+
+## 3d normoxia rna
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="normoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3d")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("si3d", "sictrl"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  rna_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_norm_3d <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+# export to excel ---------------------------------------------------------------
+  res_norm_3d <- res_norm_3d %>% 
+    filter(padj < 0.05)
+  tally(res_norm_3d)
+  
+  
+  #confirm direction is UP
+  res_norm_3d %>% 
+    filter(symbol=="EIF3D")
+  
+writexl::write_xlsx(x = res_norm_3d, path = here("counts/signatures/rna_signature_3d_normoxia_no_cutoff.xlsx"), col_names = T)
+
+
+#filter for cutoff
+
+res_norm_3d_cutoff <- res_norm_3d %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+  
+writexl::write_xlsx(x = res_norm_3d_cutoff, path = here("counts/signatures/rna_signature_3d_normoxia_0.5_cutoff.xlsx"), col_names = T)
+  
+tally(res_norm_3d_cutoff)
+    
+
+```
+
+
+## 3e hypoxia rna
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3e")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("si3e", "sictrl"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  rna_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_hyp_3e <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+# export to excel ---------------------------------------------------------------
+  res_hyp_3e <- res_hyp_3e %>% 
+    filter(padj < 0.05)
+  tally(res_hyp_3e)
+  
+  
+  #confirm direction is UP
+  res_hyp_3e %>% 
+    filter(symbol=="EIF3E")
+  
+writexl::write_xlsx(x = res_hyp_3e, path = here("counts/signatures/rna_signature_3e_hypoxia_no_cutoff.xlsx"), col_names = T)
+
+
+#filter for cutoff
+
+res_hyp_3e_cutoff <- res_hyp_3e %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+  
+writexl::write_xlsx(x = res_hyp_3e_cutoff, path = here("counts/signatures/rna_signature_3e_hypoxia_0.5_cutoff.xlsx"), col_names = T)
+  
+tally(res_hyp_3e_cutoff)
+    
+
+```
+
+
+## 3d hypoxia rna
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3d")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("si3d", "sictrl"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  rna_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_hyp_3d <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+# export to excel ---------------------------------------------------------------
+  res_hyp_3d <- res_hyp_3d %>% 
+    filter(padj < 0.05)
+  tally(res_hyp_3d)
+  
+  
+  #confirm direction is UP
+  res_hyp_3d %>% 
+    filter(symbol=="EIF3D")
+  
+writexl::write_xlsx(x = res_hyp_3d, path = here("counts/signatures/rna_signature_3d_hypoxia_no_cutoff.xlsx"), col_names = T)
+
+
+#filter for cutoff
+
+res_hyp_3d_cutoff <- res_hyp_3d %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+  
+writexl::write_xlsx(x = res_hyp_3d_cutoff, path = here("counts/signatures/rna_signature_3d_hypoxia_0.5_cutoff.xlsx"), col_names = T)
+  
+tally(res_hyp_3d_cutoff)
+    
+
+```
+
+
+## a209 normoxia RNA
+
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="normoxia") %>% 
+  filter(treatment=="DMSO"|treatment=="a209")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("a209", "DMSO"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  rna_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_norm_a209 <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+# export to excel ---------------------------------------------------------------
+  res_norm_a209 <- res_norm_a209 %>% 
+    filter(padj < 0.05)
+  tally(res_norm_a209)
+  
+writexl::write_xlsx(x = res_norm_a209, path = here("counts/signatures/rna_signature_a209_normoxia_no_cutoff.xlsx"), col_names = T)
+
+
+#filter for cutoff
+
+res_norm_a209_cutoff <- res_norm_a209 %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+  
+writexl::write_xlsx(x = res_norm_a209_cutoff, path = here("counts/signatures/rna_signature_a209_normoxia_0.5_cutoff.xlsx"), col_names = T)
+  
+tally(res_norm_a209_cutoff)
+    
+
+```
+
+
+## a209 hypoxia RNA
+
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment=="DMSO"|treatment=="a209")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("a209", "DMSO"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  rna_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_hyp_a209 <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+# export to excel ---------------------------------------------------------------
+  res_hyp_a209 <- res_hyp_a209 %>% 
+    filter(padj < 0.05)
+  tally(res_hyp_a209)
+  
+writexl::write_xlsx(x = res_hyp_a209, path = here("counts/signatures/rna_signature_a209_hypoxia_no_cutoff.xlsx"), col_names = T)
+
+
+#filter for cutoff
+
+res_hyp_a209_cutoff <- res_hyp_a209 %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+  
+writexl::write_xlsx(x = res_hyp_a209_cutoff, path = here("counts/signatures/rna_signature_a209_hypoxia_0.5_cutoff.xlsx"), col_names = T)
+  
+tally(res_hyp_a209_cutoff)
+    
+
+```
+
+
+# RIBO signatures
+Same rules apply: 3e is UP. a209 sig is a 3e expression UP dataset.
+Need to do deseq on these
+
+## 3e normoxia ribo
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="ribo") %>% 
+  filter(condition=="normoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3e")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("si3e", "sictrl"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  ribo_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = ribo_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_norm_3e <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+# export to excel ---------------------------------------------------------------
+  res_norm_3e <- res_norm_3e %>% 
+    filter(padj < 0.05)
+  tally(res_norm_3e)
+  
+  
+  #confirm direction is UP
+  res_norm_3e %>% 
+    filter(symbol=="EIF3E")
+  
+writexl::write_xlsx(x = res_norm_3e, path = here("counts/signatures/ribo_signature_3e_normoxia_no_cutoff.xlsx"), col_names = T)
+
+
+#filter for cutoff
+
+res_norm_3e_cutoff <- res_norm_3e %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+  
+writexl::write_xlsx(x = res_norm_3e_cutoff, path = here("counts/signatures/ribo_signature_3e_normoxia_0.5_cutoff.xlsx"), col_names = T)
+  
+tally(res_norm_3e_cutoff)
+    
+
+```
+
+
+## 3d normoxia ribo
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="ribo") %>% 
+  filter(condition=="normoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3d")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("si3d", "sictrl"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  ribo_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = ribo_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_norm_3d <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+# export to excel ---------------------------------------------------------------
+  res_norm_3d <- res_norm_3d %>% 
+    filter(padj < 0.05)
+  tally(res_norm_3d)
+  
+  
+  #confirm direction is UP
+  res_norm_3d %>% 
+    filter(symbol=="EIF3D")
+  
+writexl::write_xlsx(x = res_norm_3d, path = here("counts/signatures/ribo_signature_3d_normoxia_no_cutoff.xlsx"), col_names = T)
+
+
+#filter for cutoff
+
+res_norm_3d_cutoff <- res_norm_3d %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+  
+writexl::write_xlsx(x = res_norm_3d_cutoff, path = here("counts/signatures/ribo_signature_3d_normoxia_0.5_cutoff.xlsx"), col_names = T)
+  
+tally(res_norm_3d_cutoff)
+    
+
+```
+
+
+## 3e hypoxia ribo
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="ribo") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3e")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("si3e", "sictrl"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  ribo_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = ribo_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_hyp_3e <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+# export to excel ---------------------------------------------------------------
+  res_hyp_3e <- res_hyp_3e %>% 
+    filter(padj < 0.05)
+  tally(res_hyp_3e)
+  
+  
+  #confirm direction is UP
+  res_hyp_3e %>% 
+    filter(symbol=="EIF3E")
+  
+writexl::write_xlsx(x = res_hyp_3e, path = here("counts/signatures/ribo_signature_3e_hypoxia_no_cutoff.xlsx"), col_names = T)
+
+
+#filter for cutoff
+
+res_hyp_3e_cutoff <- res_hyp_3e %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+  
+writexl::write_xlsx(x = res_hyp_3e_cutoff, path = here("counts/signatures/ribo_signature_3e_hypoxia_0.5_cutoff.xlsx"), col_names = T)
+  
+tally(res_hyp_3e_cutoff)
+    
+
+```
+
+
+## 3d hypoxia ribo
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="ribo") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3d")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("si3d", "sictrl"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  ribo_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = ribo_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_hyp_3d <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+# export to excel ---------------------------------------------------------------
+  res_hyp_3d <- res_hyp_3d %>% 
+    filter(padj < 0.05)
+  tally(res_hyp_3d)
+  
+  
+  #confirm direction is UP
+  res_hyp_3d %>% 
+    filter(symbol=="EIF3D")
+  
+writexl::write_xlsx(x = res_hyp_3d, path = here("counts/signatures/ribo_signature_3d_hypoxia_no_cutoff.xlsx"), col_names = T)
+
+
+#filter for cutoff
+
+res_hyp_3d_cutoff <- res_hyp_3d %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+  
+writexl::write_xlsx(x = res_hyp_3d_cutoff, path = here("counts/signatures/ribo_signature_3d_hypoxia_0.5_cutoff.xlsx"), col_names = T)
+  
+tally(res_hyp_3d_cutoff)
+    
+
+```
+
+
+## a209 normoxia ribo
+
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="ribo") %>% 
+  filter(condition=="normoxia") %>% 
+  filter(treatment=="DMSO"|treatment=="a209")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("a209", "DMSO"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  ribo_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = ribo_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_norm_a209 <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+# export to excel ---------------------------------------------------------------
+  res_norm_a209 <- res_norm_a209 %>% 
+    filter(padj < 0.05)
+  tally(res_norm_a209)
+  
+writexl::write_xlsx(x = res_norm_a209, path = here("counts/signatures/ribo_signature_a209_normoxia_no_cutoff.xlsx"), col_names = T)
+
+
+#filter for cutoff
+
+res_norm_a209_cutoff <- res_norm_a209 %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+  
+writexl::write_xlsx(x = res_norm_a209_cutoff, path = here("counts/signatures/ribo_signature_a209_normoxia_0.5_cutoff.xlsx"), col_names = T)
+  
+tally(res_norm_a209_cutoff)
+    
+
+```
+
+
+## a209 hypoxia ribo
+
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="ribo") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment=="DMSO"|treatment=="a209")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("a209", "DMSO"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  ribo_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = ribo_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_hyp_a209 <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+# export to excel ---------------------------------------------------------------
+  res_hyp_a209 <- res_hyp_a209 %>% 
+    filter(padj < 0.05)
+  tally(res_hyp_a209)
+  
+writexl::write_xlsx(x = res_hyp_a209, path = here("counts/signatures/ribo_signature_a209_hypoxia_no_cutoff.xlsx"), col_names = T)
+
+
+#filter for cutoff
+
+res_hyp_a209_cutoff <- res_hyp_a209 %>% 
+  filter(log2FoldChange < -0.5 | log2FoldChange > 0.5)
+  
+writexl::write_xlsx(x = res_hyp_a209_cutoff, path = here("counts/signatures/ribo_signature_a209_hypoxia_0.5_cutoff.xlsx"), col_names = T)
+  
+tally(res_hyp_a209_cutoff)
+    
+
+```
+

@@ -13,9 +13,7 @@ Quality Control
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
 ```{r install packages, include=FALSE}
-
 library(here)
 library(tximport)
 library(tidyverse)
@@ -34,8 +32,7 @@ si3d_col = "#E69F00"
 
 ## Load transcript-level data
 
-Importing metadata, including the outlier. And importing all salmon counts, as done in calculate_TE.Rmd
-
+Importing metadata and all salmon counts
 ```{r meta data}
 metadata <- read_csv(here("accessories","metadata_NM.csv"), skip = 0) %>% 
   clean_names()
@@ -82,7 +79,7 @@ gene_symbol <- geneInfo %>% dplyr::select(gene_id, symbol) %>% unique()
 ```
 
 
-At this step @Neel, I am not filtering for protein coding only as I do in calculate_te.Rmd. Should I be doing that here as well?
+@Neel, here, I am not filtering for protein coding only as I do in calculate_te.Rmd.  Is that ok?
 
 ```{r txi import, include=FALSE}
 #name files to import
@@ -129,27 +126,24 @@ qc_input_hypoxia <- qcinput[, grep("hypoxia", colnames(qcinput))]
 
 ```
 
-# Start here- Visualizations
+# Visualizations
 
 # Figure 1: Normoxia, knockdowns
 
-### Heatmap of ribo and RNA in normoxia
+Heatmap of ribo and RNA in normoxia
 ```{r}
 #KDs
 qc_input_normoxia_kds <- qc_input_normoxia[, grep("si", colnames(qc_input_normoxia))]
 mycor_norm_kds <- cor(qc_input_normoxia_kds, method = "pearson")
 heatmap <- pheatmap::pheatmap(mat = mycor_norm_kds)
 heatmap
-ggsave(heatmap, filename=here("plots/fig1/qc/heatmap_norm_kds.pdf"), width=11.5, height=11)
-
-
+ggsave(heatmap, filename=here("plots/qc/heatmap_norm_kds.pdf"), width=11.5, height=11)
 
 # RIBO average correlation coefficient
 
 qc_input_normoxia_kds_ribo <- qc_input_normoxia_kds[, grep("ribo", colnames(qc_input_normoxia_kds))]
 
 mycor_ribo_norm_kds <- cor(qc_input_normoxia_kds_ribo, method = "pearson")
-
 
 # Extract the lower triangular part of the matrix without the diagonal
 lower_tri <- mycor_ribo_norm_kds[lower.tri(mycor_ribo_norm_kds, diag=FALSE)]
@@ -159,7 +153,6 @@ average_correlation <- mean(lower_tri)
 
 # Print the result
 average_correlation
-
 
 
 # rna average correlation coefficient
@@ -181,8 +174,7 @@ average_correlation
 ```
 
 
-
-PCAs for figure 1 -- delete
+PCAs for figure 1 -- @Kate - decide whether to delete
 ```{r}
 #kds only pca
 pca_qc_input_normoxia_kds <- prcomp(scale(x = qc_input_normoxia_kds,center = T, scale = T))
@@ -201,14 +193,11 @@ pca <- ggplot(data = pca_qc_input_normoxia_kds, aes(x=PC1, y = PC2, color = trea
 
 ggplotly(pca)
 
-ggsave(pca, filename=here("plots/fig1/qc/pca_with_outlier_normoxia_kds_only.pdf"), width= 4, height=3)
+ggsave(pca, filename=here("plots/qc/pca_with_outlier_normoxia_kds_only.pdf"), width= 4, height=3)
 
 ```
 
-
-
 # Figure 2: Hypoxia, knockdowns
-
 
 PCA plot with and without outlier
 
@@ -239,7 +228,7 @@ pca_qc_input_hypoxia_kds_plot <- ggplot(data = pca_qc_input_hypoxia_kds, aes(x=P
 
 ggplotly(pca_qc_input_hypoxia_kds_plot)
 
-ggsave(pca_qc_input_hypoxia_kds_plot, filename=here("plots/fig1/qc/pca_hypoxia_kds.pdf"), width= 4, height=3)
+ggsave(pca_qc_input_hypoxia_kds_plot, filename=here("plots/qc/pca_hypoxia_kds.pdf"), width= 4, height=3)
 ```
 
 PCA without outlier
@@ -259,19 +248,18 @@ pca_qc_input_hypoxia_kds_plot_no_out <- ggplot(data = pca_qc_input_hypoxia_kds_n
 
 ggplotly(pca_qc_input_hypoxia_kds_plot_no_out)
 
-ggsave(pca_qc_input_hypoxia_kds_plot_no_out, filename=here("plots/fig1/qc/pca_hypoxia_kds_no_out.pdf"), width= 4, height=3)
+ggsave(pca_qc_input_hypoxia_kds_plot_no_out, filename=here("plots/qc/pca_hypoxia_kds_no_out.pdf"), width= 4, height=3)
 ```
 
 Heatmap
 
-with outlier- remove?
-
+with outlier- @Kate remove?
 
 ```{r}
 mycor_hyp_kds <- cor(qc_input_hypoxia_kds, method = "pearson")
 heatmap_hypoxia <- pheatmap::pheatmap(mat = mycor_hyp_kds)
 heatmap_hypoxia
-ggsave(heatmap_hypoxia, filename=here("plots/fig1/qc/heatmap_hyp_kds.pdf"), width=11.5, height=11)
+ggsave(heatmap_hypoxia, filename=here("plots/qc/heatmap_hyp_kds.pdf"), width=11.5, height=11)
 
 ```
 
@@ -280,7 +268,7 @@ heatmap without outlier
 mycor_hyp_kds <- cor(qc_input_hypoxia_kds_no_outlier, method = "pearson")
 heatmap_hypoxia <- pheatmap::pheatmap(mat = mycor_hyp_kds)
 heatmap_hypoxia
-ggsave(heatmap_hypoxia, filename=here("plots/fig1/qc/heatmap_hyp_kds_no_outlier.pdf"), width=11.5, height=11)
+ggsave(heatmap_hypoxia, filename=here("plots/qc/heatmap_hyp_kds_no_outlier.pdf"), width=11.5, height=11)
 
 
 
@@ -322,7 +310,6 @@ average_correlation
 
 ```
 
-
 # Figure 7: DMSO, a209, Normoxia, Hypoxia
 
 Normoxia Heatmap
@@ -335,7 +322,7 @@ qc_input_normoxia_compound <- qc_input_normoxia[, grep("si", colnames(qc_input_n
 mycor_norm_compound <- cor(qc_input_normoxia_compound, method = "pearson")
 heatmap_normoxia <- pheatmap::pheatmap(mat = mycor_norm_compound)
 heatmap_normoxia
-ggsave(heatmap_normoxia, filename=here("plots/fig1/qc/heatmap_norm_compound.pdf"), width=11.5, height=11)
+ggsave(heatmap_normoxia, filename=here("plots/qc/heatmap_norm_compound.pdf"), width=11.5, height=11)
 
 
 # correlation coefficients
@@ -387,7 +374,7 @@ qc_input_hypoxia_compound <- qc_input_hypoxia[, grep("si", colnames(qc_input_hyp
 mycor_hyp_compound <- cor(qc_input_hypoxia_compound, method = "pearson")
 heatmap_hypoxia <- pheatmap::pheatmap(mat = mycor_hyp_compound)
 heatmap_hypoxia
-ggsave(heatmap_hypoxia, filename=here("plots/fig1/qc/heatmap_hyp_compound.pdf"), width=11.5, height=11)
+ggsave(heatmap_hypoxia, filename=here("plots/qc/heatmap_hyp_compound.pdf"), width=11.5, height=11)
 
 
 # correlation coefficients

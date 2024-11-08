@@ -39,7 +39,7 @@ library(ggprism)
 
 colors
 ```{r}
-a209_col = "#009E73"
+a209_col = "#CC79A7"
 si3e_col = "#56B4E9"
 si3d_col = "#E69F00"
 ```
@@ -48,7 +48,7 @@ si3d_col = "#E69F00"
 ## Load and filter metadata
 Normoxic, hypoxic, and KDs only
 ```{r}
-metadata <- read_csv(here("calculate_te/metadata.csv"))
+metadata <- read_csv(here("counts/calculate_te/metadata.csv"))
 
 metadata_norm <- metadata %>% 
   filter(treatment %in% c("sictrl","si3d","si3e"))
@@ -70,7 +70,7 @@ gene_symbol <- geneInfo %>% dplyr::select(gene_id, symbol) %>% unique()
 
 ## Separate ribo counts, rna counts, and te counts
 ```{r}
-raw_counts <- read_csv(here("calculate_te/raw_filtered_allCounts.csv")) %>% 
+raw_counts <- read_csv(here("counts/calculate_te/raw_filtered_allCounts.csv")) %>% 
   column_to_rownames("gene_id")
 
 
@@ -88,9 +88,8 @@ rna_ribo_counts <- as.matrix(raw_counts_edit)
 
 Confirm KDs in hypoxia
 
-
 ```{r}
-all_gene_te <- read_csv(here("calculate_te/complete_te_list.csv"))
+all_gene_te <- read_csv(here("counts/calculate_te/complete_te_list.csv"))
 
 all_gene_te_long <- all_gene_te %>% 
   melt() %>% 
@@ -133,7 +132,6 @@ ggsave(here("plots/fig3/e_d_rna_ribo_hypoxia.pdf"), width = 4, height = 4.5)
 
 ```
 
-
 ## HIF1alpha in si3e and si3d - rna and ribo
 
 ```{r}
@@ -163,7 +161,6 @@ ggplot(hif_summary, aes(x = treatment, y = mean_value, fill = treatment)) +
 ggsave(here("plots/fig3/hif_hypoxia.pdf"), width = 4, height = 3)
 
 ```
-
 
 
 ## Acute hypoxic response: Control normoxia to hypoxia.
@@ -205,21 +202,21 @@ res_acute_sictrl <- lfcShrink(dds = ddsMat_acute_sictrl, coef = resultsNames(dds
 
 
 # visualization -----------------------------------------------------------------
-  
-  volcano <- EnhancedVolcano(toptable = res_acute_sictrl,
-                x = "log2FoldChange",
-                y = "padj",
-                lab = res_acute_sictrl$symbol,
-                pCutoff = 0.05,
-                xlim = c(-5,5),
-                title = "Acute Hypoxic Response - sictrl",
-                subtitle = "",
-                legendPosition = "right",
-                col = c('grey', 'black', 'blue', 'red3'),
-                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
-      'p-value & Log (base 2) FC'))
-
-volcano
+#  @Kate delete if unwanted for paper
+#   volcano <- EnhancedVolcano(toptable = res_acute_sictrl,
+#                 x = "log2FoldChange",
+#                 y = "padj",
+#                 lab = res_acute_sictrl$symbol,
+#                 pCutoff = 0.05,
+#                 xlim = c(-5,5),
+#                 title = "Acute Hypoxic Response - sictrl",
+#                 subtitle = "",
+#                 legendPosition = "right",
+#                 col = c('grey', 'black', 'blue', 'red3'),
+#                 legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+#       'p-value & Log (base 2) FC'))
+# 
+# volcano
 #might not want this for the paper
 
 # count table -------------------------------------------------------------------
@@ -360,7 +357,6 @@ ggsave(here("plots/fig3/acute_sictrl_counts.pdf"), width=4, height=4)
 
 
 ```
-acute control - rna vs ribo 
 
 
 ## Acute hypoxic response: si-eIF3d normoxia to hypoxia.
@@ -402,22 +398,22 @@ res_acute_si3d <- lfcShrink(dds = ddsMat_acute_si3d, coef = resultsNames(ddsMat_
 
 
 # visualization -----------------------------------------------------------------
-  
-  volcano <- EnhancedVolcano(toptable = res_acute_si3d,
-                x = "log2FoldChange",
-                y = "padj",
-                lab = res_acute_si3d$symbol,
-                pCutoff = 0.05,
-                xlim = c(-5,5),
-                title = "Acute Hypoxic Response - si3d",
-                subtitle = "",
-                legendPosition = "right",
-                col = c('grey', 'black', 'blue', 'red3'),
-                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
-      'p-value & Log (base 2) FC'))
-
-volcano
-#might not want this for the paper
+#   #@Kate remove
+#   volcano <- EnhancedVolcano(toptable = res_acute_si3d,
+#                 x = "log2FoldChange",
+#                 y = "padj",
+#                 lab = res_acute_si3d$symbol,
+#                 pCutoff = 0.05,
+#                 xlim = c(-5,5),
+#                 title = "Acute Hypoxic Response - si3d",
+#                 subtitle = "",
+#                 legendPosition = "right",
+#                 col = c('grey', 'black', 'blue', 'red3'),
+#                 legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+#       'p-value & Log (base 2) FC'))
+# 
+# volcano
+# #might not want this for the paper
 
 # count table -------------------------------------------------------------------
 
@@ -579,21 +575,21 @@ res_acute_si3e <- lfcShrink(dds = ddsMat_acute_si3e, coef = resultsNames(ddsMat_
 
 
 # visualization -----------------------------------------------------------------
-  
-  volcano <- EnhancedVolcano(toptable = res_acute_si3e,
-                x = "log2FoldChange",
-                y = "padj",
-                lab = res_acute_si3e$symbol,
-                pCutoff = 0.05,
-                xlim = c(-5,5),
-                title = "Acute Hypoxic Response - si3e",
-                subtitle = "",
-                legendPosition = "right",
-                col = c('grey', 'black', 'blue', 'red3'),
-                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
-      'p-value & Log (base 2) FC'))
-
-volcano
+  #@Kate remove
+#   volcano <- EnhancedVolcano(toptable = res_acute_si3e,
+#                 x = "log2FoldChange",
+#                 y = "padj",
+#                 lab = res_acute_si3e$symbol,
+#                 pCutoff = 0.05,
+#                 xlim = c(-5,5),
+#                 title = "Acute Hypoxic Response - si3e",
+#                 subtitle = "",
+#                 legendPosition = "right",
+#                 col = c('grey', 'black', 'blue', 'red3'),
+#                 legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+#       'p-value & Log (base 2) FC'))
+# 
+# volcano
 #might not want this for the paper
 
 # count table -------------------------------------------------------------------
@@ -609,8 +605,6 @@ downreg <- res_acute_si3e %>%
 all_counts_acute_si3e <- data.frame(upreg, downreg)
 all_counts_acute_si3e
 ```
-
-
 
 ### RNA changes
 ```{r}
@@ -663,7 +657,6 @@ dataset="rna"
 all_counts_acute_si3e_rna <- data.frame(dataset, upreg, downreg)
 
 ```
-
 
 ### RIBO changes
 
@@ -718,7 +711,6 @@ all_counts_acute_si3e_ribo <- data.frame(dataset, upreg, downreg)
 
 ```
 
-
 ## Export all acute changes as a single table
 
 ```{r}
@@ -766,7 +758,6 @@ all_changes <- purrr::reduce(list(sictrl_te,sictrl_ribo,sictrl_rna,si3e_te,si3e_
 
 write_csv(all_changes, here("counts/fig3/all_norm_to_hyp_changes.csv"))
 ```
-
 
 
 ## Visualize acute hypoxic response with histograms
@@ -849,7 +840,7 @@ scatter_3d_acute <- ggMarginal(scatter_3d_acute, type = "histogram",
            yparams = list(binwidth = .1, fill = "#E69F00")
            )
 
-scatter
+scatter_3d_acute
 
 ggsave(here("plots/fig3/acute_3d.pdf"), scatter_3d_acute, height=4, width=4)
 
@@ -897,7 +888,7 @@ res_hypox_si3e <- lfcShrink(dds = ddsMat_hypox_si3e, coef = resultsNames(ddsMat_
 
 
 # visualization -----------------------------------------------------------------
-  
+  #@Kate remove
 #   volcano <- EnhancedVolcano(toptable = res_hypox_si3e,
 #                 x = "log2FoldChange",
 #                 y = "padj",
@@ -930,8 +921,6 @@ all_counts_hypox_si3e <- data.frame(dataset, upreg, downreg)
 all_counts_hypox_si3e
 
 write_csv(res_hypox_si3e, here("counts/fig3/hypoxia_si_ctrl_3e.csv"))
-
-
 
 ```
 
@@ -978,7 +967,7 @@ write_csv(res_hypox_si3d, here("counts/fig3/hypoxia_si_ctrl_3d.csv"))
 
 
 # visualization -----------------------------------------------------------------
-  
+  #@Kate remove
   # volcano <- EnhancedVolcano(toptable = res_hypox_si3d,
   #               x = "log2FoldChange",
   #               y = "padj",
@@ -1013,9 +1002,8 @@ all_counts_hypox_si3d
 
 ```
 
-### Pull in normoxia numbers from figure 1 
-To compare normoxia to hypxia
-
+### Pull in normoxia DEG from figure 1
+To compare normoxia to hypoxia
 ```{r}
 
 #3d
@@ -1034,10 +1022,7 @@ dataset="normoxia_3d"
 all_counts_normox_si3d <- data.frame(dataset, upreg, downreg)
 all_counts_normox_si3d
 
-
-
 #3e
-
 
 res_normox_si3e <-read_csv(here("counts/fig1/normoxia_sictrl_3e.csv"))
 
@@ -1110,8 +1095,6 @@ ggsave(here("plots/fig3/eIF3dbars.pdf"), eif3d_bar, width = 3, height = 4)
 Separate lists by direction of change -- delete? -- add back depending on whether we want that scatter plot in the supplement
 ```{r}
 
-
-
 hyp_3d_up <- res_hypox_si3d %>%
   filter(padj < 0.05 & log2FoldChange > 0) %>% pull(gene_id)
 
@@ -1124,24 +1107,21 @@ hyp_3e_up <- res_hypox_si3e %>%
 hyp_3e_down <- res_hypox_si3e %>%
   filter(padj < 0.05 & log2FoldChange < 0) %>% pull(gene_id)
 
-
-
-hyp_te_up <- list(
-  hyp_3d_up = hyp_3d_up,
-  hyp_3e_up = hyp_3e_up
-)
-
-hyp_te_down <- list(
-  hyp_3d_down = hyp_3d_down,
-  hyp_3e_down = hyp_3e_down
-)
+# @Kate delete
+# 
+# hyp_te_up <- list(
+#   hyp_3d_up = hyp_3d_up,
+#   hyp_3e_up = hyp_3e_up
+# )
+# 
+# hyp_te_down <- list(
+#   hyp_3d_down = hyp_3d_down,
+#   hyp_3e_down = hyp_3e_down
+# )
 ```
 
-
-
-## Venn diagram of changes - hypoxia -- add this scatter plot back if we want it for figure 3
-
 ```{r}
+#@Kate delete if we do no t need
 # ggvenn(hyp_te_up, auto_scale = T, fill_color = c("#E69F00","#56B4E9"))
 # 
 # ggsave(here("plots/hypteup_venn.pdf"), width = 3, height=2.5)
@@ -1206,12 +1186,9 @@ ggsave(here("plots/fig3/hyp_e_d.pdf"), scatter_hypoxia, width=4, height=4)
 
 
 ```
+@Kate delete everything below if we do not want pathway analysis in the paper for this figure
 
 ## Pathway analysis gene list setup
-## Hypoxia only
-
-3d/e
-
 ```{r prep GSEA analysis}
 
 #3d lists
@@ -1515,197 +1492,3 @@ hyp_react_table <- hyp_te_react %>%
 
 write_csv(hyp_react_table, here("counts/fig3/hyp_react_table.csv"))
 ```
-
-
-
-
-
-# Extracting RNA changes in with 3e and 3d knockdown in normoxia and hypoxia
-
-# Differential gene expression to compare:
-## 2. Normoxia KD effect
-## 3. Hypoxia KD effect
-
-## 2 and 3
-
-1. sictrl to eIF3e
-2. sictrl to eIF3d
-
-```{r}
-# comparisons -------------------------------------------------------------------
-
-control_vector <- "sictrl"
-test_vector <- c("si3e", "si3d")
-condition_vector <- c("normoxia", "hypoxia")
-
-
-# set shell dataframes ----------------------------------------------------------
-
-rna_comparisons <- list()
-sig_rna_comparisons <- list()
-big_sig_rna_comparisons <- list()
-big_rna_comparisons <- list()
-counts <- tribble(~condition, ~sample, ~RNAupreg, ~RNAdownreg)
-rna_values <-list()
-
-for(i in condition_vector) {
-  
-    metadata_cond <- metadata_kds %>% 
-    filter(condition== i) %>% 
-      filter(library=="rna")
-    
-    metadata_cond$treatment <- as.factor(metadata_cond$treatment)
-    
-    metadata_cond$treatment <- factor(metadata_cond$treatment, levels=c("sictrl", "si3e", "si3d"))
-    
-    levels(metadata_cond$treatment)
-    
-
-for (j in test_vector) {
-# set up data -------------------------------------------------------------------
-
-  
-  # i = "hypoxia"
-  # j = "si3e"
-  
-  metadata_loop <- metadata_cond %>% 
-  filter(treatment == "sictrl" | treatment == j)
-  
-  # make sample info from metadata
-  sample_info <- metadata_loop %>% dplyr::select(condition, treatment, rep, library, sample_id)
-  
-  
-  sample_info <- sample_info %>% 
-    mutate("name" = 
-  paste(sample_info$condition, sample_info$treatment, sample_info$library, sample_info$rep, sep = "_"))
-  
-  
-  
-    sample_info$treatment <- relevel(x = factor(sample_info$treatment), ref = "sictrl")
-
-  #filter AllCounts for i
-  
-  names <- as.character(sample_info$name)
-    
-  allCounts_subset <- allCounts[, colnames(allCounts) %in% names]
-  
-
-# Deseq analysis ----------------------------------------------------------------
-  
-  ddsMat <- DESeqDataSetFromMatrix(countData = allCounts_subset, 
-                                 colData = sample_info, 
-                                 design = ~treatment)
-  ddsMat <- DESeq(ddsMat)
-
-  res_rna_loop <- results(ddsMat, name=resultsNames(ddsMat)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
-  
-  print(resultsNames(ddsMat)[2])
-
-  res_rna_loop <- lfcShrink(dds = ddsMat, coef = resultsNames(ddsMat)[2], res = res_rna_loop) %>% 
-  as.data.frame() %>% 
-  rownames_to_column(var = "gene_id") %>%
-  inner_join(gene_symbol, .) %>% 
-  filter(!symbol %in% nonpolyA)  
-  
-  sig_rna_loop <- res_rna_loop %>% 
-    filter(padj < 0.05)
-  
-  sig_rna_loop_up <- sig_rna_loop %>% 
-    filter(log2FoldChange>0)
-  
-  sig_rna_loop_down <- sig_rna_loop %>% 
-    filter(log2FoldChange<0)
-  
-  sig_rna_comparisons[[j]] <- sig_rna_loop
-
-  rna_comparisons[[j]] <- res_rna_loop
-
-  
-# visualization -----------------------------------------------------------------
-  
-  volcano <- EnhancedVolcano(toptable = res_rna_loop,
-                x = "log2FoldChange",
-                y = "padj",
-                lab = res_rna_loop$symbol,
-                pCutoff = 0.05,
-                xlim = c(-5,5),
-                title = paste0(i, j, "_RNA_volcano"),
-                subtitle = "",
-                legendPosition = "right",
-                col = c('grey', 'black', 'blue', 'red3'),
-                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
-      'p-value & Log (base 2) FC'))
-
-print(volcano)
-
-
-# count table -------------------------------------------------------------------
-
-up <- res_rna_loop %>%
-  filter(padj < .05 & log2FoldChange >0) %>%
-  nrow()
-
-down <- res_rna_loop %>%
-  filter(padj < .05 & log2FoldChange <0) %>%
-  nrow()
-
-
-
-new_df <- data.frame(i, j, up, down) %>% 
-  rename("sample" = "j") %>% 
-rename("condition" = "i")
-
-counts <- rbind(counts, new_df)
-
-}
-    big_sig_rna_comparisons[[i]] <- sig_rna_comparisons
-
-  big_rna_comparisons[[i]] <- rna_comparisons
-}
-
-```
-
-Export rna lists as excel docs
-
-```{r}
-library(openxlsx)
-
-wb <- createWorkbook()
-
-# Loop through each category and dataframe to add them as sheets
-for (category in names(big_rna_comparisons)) {
-  for (df_name in names(big_rna_comparisons[[category]])) {
-    # Create a sheet name based on category and dataframe name
-    sheet_name <- paste(category, df_name, sep = "_")
-    # Add the dataframe to the workbook
-    addWorksheet(wb, sheet_name)
-    writeData(wb, sheet = sheet_name, x = big_rna_comparisons[[category]][[df_name]])
-  }
-}
-
-# Save the workbook to an Excel file
-saveWorkbook(wb, file = here("counts/fig3/rna_values_after_KD.xlsx"), overwrite = TRUE)
-
-```
-
-# now export sig only rna changes
-```{r}
-wb <- createWorkbook()
-
-# Loop through each category and dataframe to add them as sheets
-for (category in names(big_sig_rna_comparisons)) {
-  for (df_name in names(big_sig_rna_comparisons[[category]])) {
-    # Create a sheet name based on category and dataframe name
-    sheet_name <- paste(category, df_name, sep = "_")
-    # Add the dataframe to the workbook
-    addWorksheet(wb, sheet_name)
-    writeData(wb, sheet = sheet_name, x = big_sig_rna_comparisons[[category]][[df_name]])
-  }
-}
-
-# Save the workbook to an Excel file
-saveWorkbook(wb, file = here("counts/fig3/rna_values_after_KD.xlsx"), overwrite = TRUE)
-
-```
-
-

@@ -37,23 +37,18 @@ library(DT)
 library(edgeR)
 library(ggprism)
 library(ggExtra)
-library(reshape2)
 
 ```
 
 ```{r}
-a209_col = "#009E73"
+a209_col = "#CC79A7"
 si3e_col = "#56B4E9"
 si3d_col = "#E69F00"
-
-theme(axis.title.y=element_text(size=11),
-      axis.title.x=element_text(size=11))
-
 ```
 
 ## load metadata
 ```{r}
-metadata <- read_csv(here("calculate_te/metadata.csv"))
+metadata <- read_csv(here("counts/calculate_te/metadata.csv"))
 ```
 
 ## filter metadata for samples of interest
@@ -79,7 +74,7 @@ gene_symbol <- geneInfo %>% dplyr::select(gene_id, symbol) %>% unique()
 
 ## Separate ribo counts, rna counts, and te counts
 ```{r}
-raw_counts <- read_csv(here("calculate_te/raw_filtered_allCounts.csv")) %>% 
+raw_counts <- read_csv(here("counts/calculate_te/raw_filtered_allCounts.csv")) %>% 
   column_to_rownames("gene_id")
 
 raw_counts_edit <- raw_counts %>%
@@ -175,15 +170,13 @@ res_te_3e <- lfcShrink(dds = ddsMat_3e, coef = resultsNames(ddsMat_3e)[4], res =
 
 write_csv(res_te_3e, here("counts/fig1/normoxia_sictrl_3e.csv"))
 
-
-
 ```
 
 ## Import TE 
 Calculated previously in calculate_te.Rmd
 allgene TE has normalized counts for RNA and RIBO as well
 ```{r}
-all_gene_te <- read_csv(here("calculate_te/complete_te_list.csv"))
+all_gene_te <- read_csv(here("counts/calculate_te/complete_te_list.csv"))
 
 all_gene_te_long <- all_gene_te %>% 
   melt() %>% 
@@ -193,7 +186,6 @@ slimmed_te <- all_gene_te_long %>%
   filter(condition=="normoxia") %>% 
   filter(treatment != "a209") %>% 
   filter(treatment != "DMSO")
-
 
 ```
 
@@ -266,7 +258,6 @@ ggsave(width = 5.5, height = 2.5, filename = here("plots/fig1/egenes.pdf"))
 ```
 
 
-
 Visualize e and d specifically: controls
 
 ```{r}
@@ -306,9 +297,6 @@ ggplot(bars_e_d_summary, aes(x = treatment, y = mean_value, fill = treatment)) +
 ggsave(here("plots/fig1/e_d_rna_ribo.pdf"), width = 4, height = 4.5)
 
 ```
-
-
-
 
 
 ## Venn diagram of 3e/d gene overlaps in normoxia
@@ -356,6 +344,7 @@ ggsave(width = 2, height = 2, filename = here("plots/fig1/venndown.pdf"))
 ```
 
 ### Density scatter plot
+@Neel not sure we want this. Or maybe we want this without a line and with just an R-squared value?
 ```{r}
 norm_sig_te <- data.frame(
   gene_id = res_te_3d$gene_id,
@@ -397,8 +386,6 @@ ggscatter(data = norm_sig_te,
 
 scatter
 
-#ggplotly(scat, tooltip="all")
-
 ggsave(width = 5, height = 5, filename = here("plots/fig1/normoxia_quadrants.pdf"))
 
 ```
@@ -433,6 +420,7 @@ m_df_c2 <- msigdbr(species = "Homo sapiens") %>%
 ```
 
 ### Hallmark pathways
+@Kate delete if we are just using bars instead
 ```{r GSEA Hallmarks}
 
 eif3d_te_h <- GSEA(
@@ -500,9 +488,7 @@ write_csv(norm_h_table, here("counts/fig1/norm_h_table.csv"))
 ```
 
 ## Visualize a different way. - bars
-
 ```{r}
-
 
 norm_te_h_3d <-
   eif3d_te_h@result %>%
@@ -534,22 +520,16 @@ norm_hallmark %>%
             hjust = -0.2) +  # Adjust hjust for better alignment
   theme_cowplot() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  scale_fill_manual(values=c(si3d_col, si3e_col))+
   coord_flip()
 
 ggsave(here("plots/fig1/pathway_bars.pdf"))
 
-
 ```
 
 
-
-
-
-
-
-
 ### KEGG pathways
-
+@Kate - are we using Kegg in supplement? if not, delete
 ```{r GSEA KEGG}
 eif3d_te_kegg <- GSEA(
   geneList = eif3d_te,
@@ -621,7 +601,7 @@ write_csv(norm_kegg_table, here("counts/fig1/norm_kegg_table.csv"))
 
 
 ### REACTOME pathways
-
+@ Kate same with reactome
 ```{r GSEA REACTOME}
 eif3d_te_reactome <- GSEA(
   geneList = eif3d_te,
