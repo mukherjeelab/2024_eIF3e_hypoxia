@@ -11,6 +11,9 @@ editor_options:
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
 ```
 
+
+@Kate Get rid of all pathway stuff
+
 ```{r install packages, echo=FALSE}
 library(here)
 library(janitor)
@@ -35,10 +38,14 @@ library(edgeR)
 library(cowplot)
 library(ggExtra)
 library(ggprism)
+library(reshape2)
 ```
 
 colors
 ```{r}
+
+theme_set(theme_prism())
+
 a209_col = "#CC79A7"
 si3e_col = "#56B4E9"
 si3d_col = "#E69F00"
@@ -125,7 +132,7 @@ ggplot(bars_e_d_summary, aes(x = treatment, y = mean_value, fill = treatment)) +
                 width = 0.2, position = position_dodge(0.9)) +
   facet_wrap(~ symbol + type) +
   scale_fill_manual(values = c("grey",si3d_col,si3e_col)) +
-  theme_cowplot()+
+  # theme_cowplot()+
     theme(legend.position = "none")
 
 ggsave(here("plots/fig3/e_d_rna_ribo_hypoxia.pdf"), width = 4, height = 4.5)
@@ -155,7 +162,7 @@ ggplot(hif_summary, aes(x = treatment, y = mean_value, fill = treatment)) +
                 width = 0.2, position = position_dodge(0.9)) +
   facet_wrap(~ symbol + type) +
   scale_fill_manual(values = c("grey",si3d_col,si3e_col)) +
-  theme_cowplot()+
+  # theme_cowplot()+
     theme(legend.position = "none")
 
 ggsave(here("plots/fig3/hif_hypoxia.pdf"), width = 4, height = 3)
@@ -350,8 +357,8 @@ acute_ctrl_counts$dataset <- relevel(acute_ctrl_counts$dataset, ref = "rna")
 
 ggbarplot(acute_ctrl_counts, x="variable", y="value")+
   facet_wrap(~dataset)+
-    geom_text(aes(label = value), vjust = -0.3)+
-  theme_cowplot()
+    geom_text(aes(label = value), vjust = -0.3)
+  # theme_cowplot()
 
 ggsave(here("plots/fig3/acute_sictrl_counts.pdf"), width=4, height=4)
 
@@ -777,7 +784,7 @@ ctrl_acute <- ggplot(data = ctrl, aes(x = LFC_rna_sictrl, y = LFC_ribo_sictrl)) 
   geom_point(alpha=.25) +
   ylab(bquote(Log[2]~"si-CTRL LFC"~"RIBO: hypoxia vs normoxia")) +
   xlab(bquote(Log[2]~"si-CTRL LFC"~"RNA: hypoxia vs normoxia")) +
-    theme_cowplot(font_size = 5)+
+    # theme_cowplot(font_size = 5)+
   theme_prism()
 
 ctrl_acute <- ggMarginal(ctrl_acute, type = "histogram",
@@ -806,7 +813,7 @@ scatter_3e_acute <- ggplot(data = sig_sictrl, aes(x = LFC_te_sictrl, y = LFC_te_
   geom_point(alpha=.25) +
   ylab(bquote(Log[2]~"si-eIF3e LFC"~"TE: hypoxia vs normoxia")) +
   xlab(bquote(Log[2]~"si-CTRL LFC"~"TE: hypoxia vs normoxia")) +
-    theme_cowplot(font_size = 9)+
+    # theme_cowplot(font_size = 9)+
   theme_prism()
 
 scatter_3e_acute <- ggMarginal(scatter_3e_acute, type = "histogram",
@@ -832,7 +839,7 @@ scatter_3d_acute <- ggplot(data = sig_sictrl, aes(x = LFC_te_sictrl, y = LFC_te_
   geom_point(alpha=.25) +
   ylab(bquote(Log[2]~"si-eIF3d LFC"~"TE: hypoxia vs normoxia")) +
   xlab(bquote(Log[2]~"si-ctrl LFC"~"TE: hypoxia vs normoxia")) +
-    theme_cowplot(font_size = 9)+
+    # theme_cowplot(font_size = 9)+
   theme_prism()
 
 scatter_3d_acute <- ggMarginal(scatter_3d_acute, type = "histogram",
@@ -1060,12 +1067,12 @@ eif3e_bar <- ggbarplot(data = eif3e_counts, x = "condition", y = "value", fill =
   ylab("Transcript counts")+
   xlab("")+
   theme_prism()+
-  theme_cowplot(font_size = 12)+
+  # theme_cowplot(font_size = 12)+
   scale_y_continuous(limits = c(0, 1600))
 
 eif3e_bar
 
-ggsave(here("plots/fig3/eIF3ebars.pdf"), eif3e_bar, width = 3, height = 4)
+ggsave(here("plots/fig3/eIF3ebars.pdf"), eif3e_bar, width = 4, height = 4)
 
 ```
 
@@ -1081,12 +1088,12 @@ eif3d_bar <- ggbarplot(data = eif3d_counts, x = "condition", y = "value", fill =
   ylab("Transcript counts")+
   xlab("")+
   theme_prism()+
-  theme_cowplot(font_size = 12)+
+  # theme_cowplot(font_size = 12)+
   scale_y_continuous(limits = c(0, 1600))
 
 eif3d_bar
 
-ggsave(here("plots/fig3/eIF3dbars.pdf"), eif3d_bar, width = 3, height = 4)
+ggsave(here("plots/fig3/eIF3dbars.pdf"), eif3d_bar, width = 4, height = 4)
 
 ```
 
@@ -1338,7 +1345,7 @@ hyp_hallmark %>%
   geom_text(aes(label = significant), 
             position = position_dodge(width = 0.9), 
             hjust = -0.2) +  # Adjust hjust for better alignment
-  theme_cowplot() +
+  # theme_cowplot() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
   coord_flip()
 

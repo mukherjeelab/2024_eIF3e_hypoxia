@@ -37,10 +37,15 @@ library(DT)
 library(edgeR)
 library(ggprism)
 library(ggExtra)
+library(reshape2)
 
 ```
 
 ```{r}
+
+theme_set(theme_prism())
+
+
 a209_col = "#CC79A7"
 si3e_col = "#56B4E9"
 si3d_col = "#E69F00"
@@ -291,7 +296,7 @@ ggplot(bars_e_d_summary, aes(x = treatment, y = mean_value, fill = treatment)) +
                 width = 0.2, position = position_dodge(0.9)) +
   facet_wrap(~ symbol + type) +
   scale_fill_manual(values = c("grey",si3d_col,si3e_col)) +
-  theme_cowplot()+
+  # theme_cowplot()+
     theme(legend.position = "none")
 
 ggsave(here("plots/fig1/e_d_rna_ribo.pdf"), width = 4, height = 4.5)
@@ -518,7 +523,7 @@ norm_hallmark %>%
   geom_text(aes(label = significant), 
             position = position_dodge(width = 0.9), 
             hjust = -0.2) +  # Adjust hjust for better alignment
-  theme_cowplot() +
+  # theme_cowplot() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
   scale_fill_manual(values=c(si3d_col, si3e_col))+
   coord_flip()
