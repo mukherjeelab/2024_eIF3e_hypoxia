@@ -2001,6 +2001,56 @@ ggsave("cna_3d.pdf", path=here("plots/fig8"),width = 8, height=6)
 
 ```
 
+barchart of copy numbers
+```{r}
+cna_bar <-
+cna %>% 
+  filter(Hugo_Symbol=="EIF3D"|Hugo_Symbol=="EIF3E") %>% 
+  pivot_longer(cols= 2:2174, names_to = "patient", values_to = "cna")
+
+cna_bar$patient <- gsub("^MB.", "MB-", cna_bar$patient)
+
+cna_bar_cancer <- cna_bar %>% 
+  filter(str_detect(patient, "MB-"))
+
+cna_bar_cancer$cna <- as.numeric(cna_bar_cancer$cna)
+
+
+cna_bar_cancer %>% 
+ group_by(cna) %>% 
+  summarise(count = n()) %>%
+  mutate(percentage = count / sum(count) * 100)
+
+
+cna_percent <-
+cna_bar_cancer %>%
+  group_by(Hugo_Symbol, cna) %>%  # Group by gene symbol and cna
+  summarise(count = n()) %>%      # Count occurrences of each cna per gene symbol
+  group_by(Hugo_Symbol) %>%       # Group by gene symbol to calculate percentage within each gene
+  mutate(percentage = count / sum(count) * 100)
+
+
+ggplot(cna_percent, aes(x=cna, y=percentage, fill=Hugo_Symbol))+
+  geom_bar(stat="identity")+
+  facet_wrap(~Hugo_Symbol)+
+  scale_fill_manual(values = c(si3d_col, si3e_col))+
+  theme_prism()
+
+
+ggsave("cna_percentages.pdf", path=here("plots/fig8"),width = 4, height=2)
+
+
+
+
+
+
+
+
+```
+
+
+
+
 myc
 ```{r}
 myc_cna <- cna %>% 

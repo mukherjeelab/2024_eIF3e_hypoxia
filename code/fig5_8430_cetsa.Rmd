@@ -38,6 +38,8 @@ stats_df <- stats_df %>%
 
 genes2lab <- stats_df$name[stats_df$D_vs_C_diff > 0.5]
 
+genes2lab <- stats_df$name[stats_df$name=="EIF3E"|stats_df$name=="EIF3D"]
+
 cpd8430_volcano <- EnhancedVolcano(stats_df, 
                                    title = "",
                                    subtitle = "",
