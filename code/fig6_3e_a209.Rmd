@@ -517,7 +517,7 @@ colnames(DMSO_rna)[3] ="padj_rna_DMSO"
 
 a209_te <- res_acute_a209[,c(1,4,7)]
 colnames(a209_te)[2] ="LFC_te_a209"
-colnames(a209_te)[3] ="padj_te_3e"
+colnames(a209_te)[3] ="padj_te_a209"
 
 a209_ribo <- res_acute_a209_ribo[,c(1,4,7)]
 colnames(a209_ribo)[2] ="LFC_ribo_a209"
@@ -574,6 +574,30 @@ DMSO_acute
 
 sig_DMSO <- all_changes_dmso_a209 %>% 
   filter(padj_te_DMSO <0.05)
+
+#counts DMSO
+sig_DMSO %>% 
+  filter(LFC_te_DMSO < 0) %>% 
+  filter(padj_te_DMSO < 0.05) %>% 
+  nrow()
+
+sig_DMSO %>% 
+  filter(LFC_te_DMSO > 0) %>% 
+  filter(padj_te_DMSO < 0.05) %>% 
+  nrow()
+
+#counts a209
+sig_DMSO %>% 
+  filter(LFC_te_a209 < 0) %>% 
+  filter(padj_te_a209 < 0.05) %>% 
+  nrow()
+
+sig_DMSO %>% 
+  filter(LFC_te_a209 > 0) %>% 
+  filter(padj_te_a209 < 0.05) %>% 
+  nrow()
+
+
 
 scatter_acute_dmso_a209 <- ggplot(data = sig_DMSO, aes(x = LFC_te_DMSO, y = LFC_te_a209)) + 
   ylim(-2,2) + 

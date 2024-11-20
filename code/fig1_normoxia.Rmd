@@ -263,6 +263,21 @@ ggsave(width = 5.5, height = 2.5, filename = here("plots/fig1/egenes.pdf"))
 ```
 
 
+export common d and e only for neel to visualize differently
+
+```{r}
+
+three_cats <-
+slimmed_te %>% 
+  filter(symbol %in% e_genes|symbol %in% d_genes|symbol %in% common) %>% 
+  filter(type=="TE")
+
+write_csv(three_cats, here("counts/example_genes.csv"))
+
+```
+
+
+
 Visualize e and d specifically: controls
 
 ```{r}
@@ -529,6 +544,22 @@ norm_hallmark %>%
   coord_flip()
 
 ggsave(here("plots/fig1/pathway_bars.pdf"))
+
+```
+# Look at hypoxia specificially
+
+```{r}
+library(enrichplot)
+#3e
+gseaplot(eif3e_te_h, geneSetID= "HALLMARK_HYPOXIA", color.line = si3e_col, color.vline = si3e_col, ylim=c(-0.4,0.4))
+
+
+ggsave(here("plots/fig1/eIF3e_hypoxiapathway.pdf"), width=6, height=5)
+
+
+gseaplot(eif3d_te_h, geneSetID= "HALLMARK_HYPOXIA", color.line = si3d_col, color.vline = si3d_col)
+ggsave(here("plots/fig1/eIF3d_hypoxiapathway.pdf"), width=6, height=5)
+
 
 ```
 

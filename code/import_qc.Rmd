@@ -130,14 +130,33 @@ qc_input_hypoxia <- qcinput[, grep("hypoxia", colnames(qcinput))]
 
 # Figure 1: Normoxia, knockdowns
 
-Heatmap of ribo and RNA in normoxia
+Heatmap of ribo and RNA in normoxia @kate remove separate ribo and rna heatmaps
 ```{r}
 #KDs
 qc_input_normoxia_kds <- qc_input_normoxia[, grep("si", colnames(qc_input_normoxia))]
 mycor_norm_kds <- cor(qc_input_normoxia_kds, method = "pearson")
-heatmap <- pheatmap::pheatmap(mat = mycor_norm_kds)
-heatmap
-ggsave(heatmap, filename=here("plots/qc/heatmap_norm_kds.pdf"), width=11.5, height=11)
+
+colnames(mycor_norm_kds) <- gsub("^normoxia_", "", colnames(mycor_norm_kds))  # Remove "normoxia_" prefix
+rownames(mycor_norm_kds) <- gsub("^normoxia_", "", rownames(mycor_norm_kds))  # Same for row names
+
+# Replace underscores with spaces
+colnames(mycor_norm_kds) <- gsub("_", " ", colnames(mycor_norm_kds))
+rownames(mycor_norm_kds) <- gsub("_", " ", rownames(mycor_norm_kds))
+
+# Create the heatmap with the cleaned-up names
+heatmap_normoxia <- pheatmap::pheatmap(
+  mat = mycor_norm_kds,
+  border_color = "black",  # Black borders around cells
+   #color = colorRampPalette(c("blue", "white", "red"))(100),  # Custom color gradient
+   scale = "none",  
+  cluster_rows = TRUE,  
+  cluster_cols = TRUE,  
+  fontsize = 12 
+)
+
+
+heatmap_normoxia
+ggsave(heatmap_normoxia, filename=here("plots/qc/heatmap_normoxia_kds.pdf"), width=4.5, height=4)
 
 # RIBO average correlation coefficient
 
@@ -174,7 +193,7 @@ average_correlation
 ```
 
 
-PCAs for figure 1 -- @Kate - decide whether to delete
+PCAs for figure 1 -- @Kate - delete once we decide this is done for usre
 ```{r}
 #kds only pca
 pca_qc_input_normoxia_kds <- prcomp(scale(x = qc_input_normoxia_kds,center = T, scale = T))
@@ -253,17 +272,39 @@ ggsave(pca_qc_input_hypoxia_kds_plot_no_out, filename=here("plots/qc/pca_hypoxia
 
 Heatmap
 
-with outlier- @Kate remove?
+with outlier- @Kate-- make main heatmap for fig 3?
 
 ```{r}
 mycor_hyp_kds <- cor(qc_input_hypoxia_kds, method = "pearson")
-heatmap_hypoxia <- pheatmap::pheatmap(mat = mycor_hyp_kds)
+
+colnames(mycor_hyp_kds) <- gsub("^hypoxia_", "", colnames(mycor_hyp_kds))  # Remove "hypoxia_" prefix
+rownames(mycor_hyp_kds) <- gsub("^hypoxia_", "", rownames(mycor_hyp_kds))  # Same for row names
+
+# Replace underscores with spaces
+colnames(mycor_hyp_kds) <- gsub("_", " ", colnames(mycor_hyp_kds))
+rownames(mycor_hyp_kds) <- gsub("_", " ", rownames(mycor_hyp_kds))
+
+# Create the heatmap with the cleaned-up names
+heatmap_hypoxia <- pheatmap::pheatmap(
+  mat = mycor_hyp_kds,
+  border_color = "black",  # Black borders around cells
+   #color = colorRampPalette(c("blue", "white", "red"))(100),  # Custom color gradient
+   scale = "none",  
+  cluster_rows = TRUE,  
+  cluster_cols = TRUE,  
+  fontsize = 12 
+)
+
+
+
+
+
 heatmap_hypoxia
-ggsave(heatmap_hypoxia, filename=here("plots/qc/heatmap_hyp_kds.pdf"), width=11.5, height=11)
+ggsave(heatmap_hypoxia, filename=here("plots/qc/heatmap_hyp_kds_w_outlier.pdf"), width=4.5, height=4)
 
 ```
 
-heatmap without outlier
+heatmap without outlier - @Kate delete
 ```{r}
 mycor_hyp_kds <- cor(qc_input_hypoxia_kds_no_outlier, method = "pearson")
 heatmap_hypoxia <- pheatmap::pheatmap(mat = mycor_hyp_kds)
@@ -320,9 +361,28 @@ Normoxia Heatmap
 qc_input_normoxia_compound <- qc_input_normoxia[, grep("si", colnames(qc_input_normoxia), invert=TRUE)]
 
 mycor_norm_compound <- cor(qc_input_normoxia_compound, method = "pearson")
-heatmap_normoxia <- pheatmap::pheatmap(mat = mycor_norm_compound)
-heatmap_normoxia
-ggsave(heatmap_normoxia, filename=here("plots/qc/heatmap_norm_compound.pdf"), width=11.5, height=11)
+
+colnames(mycor_norm_compound) <- gsub("^normoxia_", "", colnames(mycor_norm_compound))  # Remove "normoxia_" prefix
+rownames(mycor_norm_compound) <- gsub("^normoxia_", "", rownames(mycor_norm_compound))  # Same for row names
+
+# Replace underscores with spaces
+colnames(mycor_norm_compound) <- gsub("_", " ", colnames(mycor_norm_compound))
+rownames(mycor_norm_compound) <- gsub("_", " ", rownames(mycor_norm_compound))
+
+# Create the heatmap with the cleaned-up names
+heatmap_normoxia_compound <- pheatmap::pheatmap(
+  mat = mycor_norm_compound,
+  border_color = "black",  # Black borders around cells
+   #color = colorRampPalette(c("blue", "white", "red"))(100),  # Custom color gradient
+   scale = "none",  
+  cluster_rows = TRUE,  
+  cluster_cols = TRUE,  
+  fontsize = 12 
+)
+
+
+heatmap_normoxia_compound
+ggsave(heatmap_normoxia_compound, filename=here("plots/qc/heatmap_normoxia_compounds.pdf"), width=4.5, height=4)
 
 
 # correlation coefficients
@@ -368,13 +428,32 @@ Hypoxia heatmap
 ```{r}
 
 #heatmap
-
 qc_input_hypoxia_compound <- qc_input_hypoxia[, grep("si", colnames(qc_input_hypoxia), invert=TRUE)]
 
 mycor_hyp_compound <- cor(qc_input_hypoxia_compound, method = "pearson")
-heatmap_hypoxia <- pheatmap::pheatmap(mat = mycor_hyp_compound)
-heatmap_hypoxia
-ggsave(heatmap_hypoxia, filename=here("plots/qc/heatmap_hyp_compound.pdf"), width=11.5, height=11)
+
+colnames(mycor_hyp_compound) <- gsub("^hypoxia_", "", colnames(mycor_hyp_compound))  # Remove "hypoxia_" prefix
+rownames(mycor_hyp_compound) <- gsub("^hypoxia_", "", rownames(mycor_hyp_compound))  # Same for row names
+
+# Replace underscores with spaces
+colnames(mycor_hyp_compound) <- gsub("_", " ", colnames(mycor_hyp_compound))
+rownames(mycor_hyp_compound) <- gsub("_", " ", rownames(mycor_hyp_compound))
+
+# Create the heatmap with the cleaned-up names
+heatmap_hypoxia_compound <- pheatmap::pheatmap(
+  mat = mycor_hyp_compound,
+  border_color = "black",  # Black borders around cells
+   #color = colorRampPalette(c("blue", "white", "red"))(100),  # Custom color gradient
+   scale = "none",  
+  cluster_rows = TRUE,  
+  cluster_cols = TRUE,  
+  fontsize = 12 
+)
+
+
+heatmap_hypoxia_compound
+ggsave(heatmap_hypoxia_compound, filename=here("plots/qc/heatmap_hypoxia_compounds.pdf"), width=4.5, height=4)
+
 
 
 # correlation coefficients

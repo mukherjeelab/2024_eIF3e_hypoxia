@@ -530,12 +530,17 @@ clin$OS_YEARS[which(clin$OS_YEARS >= 10)] <- 10
 
 ```
 
+### visualizing high and low quartile in each survival plot for the paper.
+
 ## 3e survival
 ```{r}
 #bind clin data with z score data
 
 all_data_3e_hyp <- left_join(clin, sig_zscores_3e, by=c("PATIENT_ID"="patient")) %>% 
   filter(quantile != "NA")
+
+all_data_3e_hyp <- all_data_3e_hyp %>% 
+  filter(quantile == 1 | quantile == 4)
 
 fit_all_3e_hyp <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_data_3e_hyp)
 
@@ -548,14 +553,16 @@ hr <- round(summary_coxfit_3e_norm$coefficients[1, "exp(coef)"], 2)
 pval <- format.pval(summary_coxfit_3e_norm$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
 
 #3e_colors
-colors <- grDevices::colorRampPalette(c("grey", si3e_col))(4)
+colors <- grDevices::colorRampPalette(c("grey", si3e_col))(2)
+
 
 surv_plot_3e_hyp<-
 ggsurvplot(fit_all_3e_hyp,
            data = all_data_3e_hyp,
            size = 1,
            palette =colors, 
-           legend.labs=c("Low 3e", "Med-Low 3e", "Med-High 3e", "High 3e"),
+          legend.labs=c("Low 3e", "High 3e"),
+         #  legend.labs=c("Low 3e", "Med-Low 3e", "Med-High 3e", "High 3e"),
            break.time.by = 1,
            ylab="Overall Survival",
            xlab = "Time in years",
@@ -615,6 +622,9 @@ ggviolin(data = all_data_3e_hyp , y = "total_z_score", x = "CLAUDIN_SUBTYPE", fi
 all_data_3d_hyp <- left_join(clin, sig_zscores_3d, by=c("PATIENT_ID"="patient")) %>% 
   filter(quantile != "NA")
 
+all_data_3d_hyp <- all_data_3d_hyp %>% 
+  filter(quantile == 1 | quantile == 4)
+
 fit_all_3d_hyp <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_data_3d_hyp)
 
 
@@ -625,14 +635,14 @@ summary_coxfit_3d_norm <- summary(coxfit)
 hr <- round(summary_coxfit_3d_norm$coefficients[1, "exp(coef)"], 2)
 pval <- format.pval(summary_coxfit_3d_norm$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
 
-colors <- grDevices::colorRampPalette(c("grey", si3d_col))(4)
+colors <- grDevices::colorRampPalette(c("grey", si3d_col))(2)
 
 surv_plot_3d_hyp<-
 ggsurvplot(fit_all_3d_hyp,
            data = all_data_3d_hyp,
            size = 1,
            palette = colors, 
-          legend.labs=c("Low 3d", "Med-Low 3d", "Med-High 3d", "High 3d"),
+          legend.labs=c("Low 3d", "High 3d"),
            break.time.by = 1,
            ylab="Overall Survival",
            xlab = "Time in years",
@@ -850,6 +860,8 @@ sig_zscores_hyp_signature$patient <- gsub("\\.", "-", sig_zscores_hyp_signature$
 
 all_data_hif_ye <- left_join(clin, sig_zscores_hyp_signature, by=c("PATIENT_ID"="patient"))
 
+all_data_hif_ye <- all_data_hif_ye %>% 
+  filter(quantile == 1 | quantile == 4)
 
 #plot
 
@@ -863,7 +875,7 @@ summary_coxfit_ye <- summary(coxfit)
 hr <- round(summary_coxfit_ye$coefficients[1, "exp(coef)"], 2)
 pval <- format.pval(summary_coxfit_ye$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
 
-colors <- grDevices::colorRampPalette(c("grey", "red"))(4)
+colors <- grDevices::colorRampPalette(c("grey", "red"))(2)
 
 surv_plot_ye_hyp<-
 ggsurvplot(fit_all_data_hif_ye,
@@ -871,7 +883,7 @@ ggsurvplot(fit_all_data_hif_ye,
            size = 1,
            palette = colors, 
            break.time.by = 1,
-          legend.labs=c("Low Hypoxia", "Med-Low Hypoxia", "Med-High Hypoxia", "High Hypoxia"),
+          legend.labs=c("Low Hypoxia", "High Hypoxia"),
            ylab="Overall Survival",
            xlab = "Time in years",
            xlim = c(0,10),
@@ -1373,7 +1385,8 @@ clin_small$OS_YEARS[which(clin_small$OS_YEARS >= 10)] <- 10
 #bind clin data with z score data
 
 all_tcga_3e <- left_join(clin_small, sig_zscores_3e_tcga, by=c("PATIENT_ID"="patient")) %>% 
-  filter(quantile != "NA")
+  filter(quantile != "NA") %>% 
+  filter(quantile==1 | quantile==4)
 
 fit_tcga_3e <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_tcga_3e)
 
@@ -1384,7 +1397,7 @@ summary_coxfit<- summary(coxfit)
 hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
 pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
 
-colors <- grDevices::colorRampPalette(c("grey", si3e_col))(4)
+colors <- grDevices::colorRampPalette(c("grey", si3e_col))(2)
 
 
 surv_plot_3e_tcga<-
@@ -1392,7 +1405,7 @@ ggsurvplot(fit_tcga_3e,
            data = all_tcga_3e,
            size = 1,
            palette = colors, 
-          legend.labs=c("Low 3e", "Med-Low 3e", "Med-High 3e", "High 3e"),
+          legend.labs=c("Low 3e", "High 3e"),
            break.time.by = 1,
            ylab="Overall Survival",
            xlab = "Time in years",
@@ -1416,7 +1429,7 @@ surv_plot_3e_tcga$plot +
     size = 12, 
     color = "black"
   )
-ggsave("tcga_3e.pdf", path=here("plots/fig8"),width = 11.5, height=8)
+ggsave("tcga_3e.pdf", path=here("plots/fig8"),width = 8, height=6)
 
 #boxplot of quartile expression
 
@@ -1463,7 +1476,9 @@ sig_zscores_3d_tcga$patient <- sub("-[^-]*$", "", sig_zscores_3d_tcga$patient)
 #bind clin data with z score data
 
 all_tcga_3d <- left_join(clin_small, sig_zscores_3d_tcga, by=c("PATIENT_ID"="patient")) %>% 
-  filter(quantile != "NA")
+  filter(quantile != "NA") %>% 
+    filter(quantile==1 | quantile==4)
+
 
 fit_tcga_3d <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_tcga_3d)
 
@@ -1474,7 +1489,7 @@ summary_coxfit<- summary(coxfit)
 hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
 pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
 
-colors <- grDevices::colorRampPalette(c("grey", si3d_col))(4)
+colors <- grDevices::colorRampPalette(c("grey", si3d_col))(2)
 
 
 surv_plot_3d_tcga<-
@@ -1482,7 +1497,7 @@ ggsurvplot(fit_tcga_3d,
            data = all_tcga_3d,
            size = 1,
            palette = colors,
-                     legend.labs=c("Low 3d", "Med-Low 3d", "Med-High 3d", "High 3d"),
+                     legend.labs=c("Low 3d", "High 3d"),
            break.time.by = 1,
            ylab="Overall Survival",
            xlab = "Time in years",
@@ -1506,7 +1521,7 @@ surv_plot_3d_tcga$plot +
     size = 12, 
     color = "black"
   )
-ggsave("tcga_3d.pdf", path=here("plots/fig8"),width = 11.5, height=8)
+ggsave("tcga_3d.pdf", path=here("plots/fig8"),width = 8, height=6)
 
 
 
@@ -1557,7 +1572,9 @@ sig_zscores_hyp_signature_tcga$patient <- gsub("-01$", "", sig_zscores_hyp_signa
 #Bind z score hypoxia signature with clin data
 
 
-all_data_hif_ye_tcga <- left_join(clin_small, sig_zscores_hyp_signature_tcga, by=c("PATIENT_ID"="patient"))
+all_data_hif_ye_tcga <- left_join(clin_small, sig_zscores_hyp_signature_tcga, by=c("PATIENT_ID"="patient")) %>% 
+      filter(quantile==1 | quantile==4)
+
 
 
 #plot
@@ -1572,7 +1589,7 @@ summary_coxfit_ye <- summary(coxfit)
 hr <- round(summary_coxfit_ye$coefficients[1, "exp(coef)"], 2)
 pval <- format.pval(summary_coxfit_ye$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
 
-colors <- grDevices::colorRampPalette(c("grey", "red"))(4)
+colors <- grDevices::colorRampPalette(c("grey", "red"))(2)
 
 surv_plot_ye_hyp_tcga<-
 ggsurvplot(all_data_hif_ye_tcga_surv,
@@ -1580,7 +1597,7 @@ ggsurvplot(all_data_hif_ye_tcga_surv,
            size = 1,
            palette = colors, 
            break.time.by = 1,
-          legend.labs=c("Low Hypoxia", "Med-Low Hypoxia", "Med-High Hypoxia", "High Hypoxia"),
+          legend.labs=c("Low Hypoxia", "High Hypoxia"),
            ylab="Overall Survival",
            xlab = "Time in years",
            xlim = c(0,10),
@@ -1603,7 +1620,7 @@ surv_plot_ye_hyp_tcga$plot +
     size = 12, 
     color = "black"
   )
-ggsave("surv_plot_ye_hyp_tcga.pdf", path=here("plots/fig8"),width = 11.5, height=8)
+ggsave("surv_plot_ye_hyp_tcga.pdf", path=here("plots/fig8"),width = 8, height=6)
 
 
 #boxplot of quartile expression
@@ -1777,15 +1794,16 @@ Keeping this commented out because it takes forever @Kate fix-- and decide if we
 ```
 
 
-## Looking at copy number alterations in data - @Kate probably delete for manuscript, everything below
+## Looking at copy number alterations in data
 
 ```{r}
-cna <- read_excel(here("cbioportal_data/cna_metabric_matrix.xlsx"))
+cna <- read.table(here("cbioportal_data/data_cna.txt"), fill=TRUE, header=TRUE) %>% 
+  dplyr::select(-Entrez_Gene_Id)
 
 eIF3e_cna <- cna %>% 
   filter(Hugo_Symbol=="EIF3E") 
 
-eIF3e_cna[ , 2:2174] <- lapply(eIF3e_cna[ , 2:2174], as.character)
+# eIF3e_cna[ , 2:2174] <- lapply(eIF3e_cna[ , 2:2174], as.character)
 
 
 eIF3e_cna<- eIF3e_cna%>%
@@ -1794,53 +1812,290 @@ eIF3e_cna<- eIF3e_cna%>%
 
 #take just MB
 
+eIF3e_cna$patient <- gsub("^MB.", "MB-", eIF3e_cna$patient)
+
 eIF3e_cna_cancer <- eIF3e_cna %>% 
-  filter(str_detect(patient, "MB-"))
+  filter(str_detect(patient, "MB-")) %>% 
+  dplyr::select(-Hugo_Symbol)
 
 eIF3e_cna_cancer$cna <- as.numeric(eIF3e_cna_cancer$cna)
 
 
-ggplot(eIF3e_cna_cancer, aes(x=cna))+
-  geom_histogram()+
-  theme_cowplot()
+#bind with patient data
+
+# ggplot(eIF3e_cna_cancer, aes(x=cna))+
+#   geom_histogram()+
+#   theme_cowplot()
+ 
+eIF3e_cna_cancer_clin <- left_join(clin, eIF3e_cna_cancer, by=c("PATIENT_ID"="patient"))
+
+eIF3e_cna_cancer_clin <- eIF3e_cna_cancer_clin %>% 
+  mutate(copy_number_alt = case_when(
+    cna >0 ~ "gain",
+    cna == 0 ~ "no_change",
+    cna < 0 ~ "loss",
+    .default="other"
+  ))
+
+
+eIF3e_cna_cancer_clin %>% 
+  filter(cna !="NA") %>% 
+  group_by(cna) %>% 
+  summarise(count = n()) %>%
+  mutate(percentage = count / sum(count) * 100)
+
+#get rid of -1
+
+eIF3e_cna_cancer_clin <- eIF3e_cna_cancer_clin %>% 
+  filter(cna > -1)
+
+
+cna_3e_fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ cna, data = eIF3e_cna_cancer_clin)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ cna, eIF3e_cna_cancer_clin)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+colors <- grDevices::colorRampPalette(c("grey", si3e_col))(3)
+
+surv_plot_cna<-
+ggsurvplot(cna_3e_fit,
+           data = eIF3e_cna_cancer_clin,
+           size = 1,
+           palette = c("grey", si3e_col, "#0b6ca3"), 
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_cna$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+
+ggsave("cna_3e.pdf", path=here("plots/fig8"),width = 8, height=6)
+
+ #percentage of copy number gains for each
+
 
 
 ```
 
-3e or 3d
-
+## copy numbers of eIF3d
 ```{r}
-eIF3_cna <- cna %>% 
-  filter(Hugo_Symbol=="EIF3E" | Hugo_Symbol=="EIF3D") 
+eIF3d_cna <- cna %>% 
+  filter(Hugo_Symbol=="EIF3D") 
 
-eIF3_cna[ , 2:2174] <- lapply(eIF3_cna[ , 2:2174], as.character)
+# eIF3d_cna[ , 2:2174] <- lapply(eIF3d_cna[ , 2:2174], as.character)
 
 
-eIF3_cna<- eIF3_cna%>%
+eIF3d_cna<- eIF3d_cna%>%
   pivot_longer(cols= 2:2174, names_to = "patient", values_to = "cna")
 
 
 #take just MB
 
-eIF3_cna_cancer <- eIF3_cna %>% 
-  filter(str_detect(patient, "MB-"))
+eIF3d_cna$patient <- gsub("^MB.", "MB-", eIF3d_cna$patient)
 
-eIF3_cna_cancer$cna <- as.numeric(eIF3_cna_cancer$cna)
+eIF3d_cna_cancer <- eIF3d_cna %>% 
+  filter(str_detect(patient, "MB-")) %>% 
+  dplyr::select(-Hugo_Symbol)
+
+eIF3d_cna_cancer$cna <- as.numeric(eIF3d_cna_cancer$cna)
 
 
-ggplot(eIF3_cna_cancer, aes(x=cna))+
-  geom_histogram()+
-  theme_cowplot()+
-  facet_wrap(~Hugo_Symbol)
+#bind with patient data
 
-library(scales)
+# ggplot(eIF3d_cna_cancer, aes(x=cna))+
+#   geom_histogram()+
+#   theme_cowplot()
+ 
+eIF3d_cna_cancer_clin <- left_join(clin, eIF3d_cna_cancer, by=c("PATIENT_ID"="patient"))
 
-ggplot(eIF3_cna_cancer, aes(x = cna)) +
-  geom_bar()+
-  theme_cowplot() +
-  facet_wrap(~Hugo_Symbol)+
-  scale_y_continuous(breaks=seq(0, 2000, by=200),
-                       labels=seq(0, 2000, by =200))
+eIF3d_cna_cancer_clin <- eIF3d_cna_cancer_clin %>% 
+  mutate(copy_number_alt = case_when(
+    cna >0 ~ "gain",
+    cna == 0 ~ "no_change",
+    cna < 0 ~ "loss",
+    .default="other"
+  ))
+
+
+eIF3d_cna_cancer_clin %>% 
+  filter(cna !="NA") %>% 
+  group_by(cna) %>% 
+  summarise(count = n()) %>%
+  mutate(percentage = count / sum(count) * 100)
+
+#get rid of -1
+
+eIF3d_cna_cancer_clin <- eIF3d_cna_cancer_clin %>% 
+  filter(cna > -2 & cna < 2)
+
+
+cna_3d_fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ cna, data = eIF3d_cna_cancer_clin)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ cna, eIF3d_cna_cancer_clin)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+
+colors <- grDevices::colorRampPalette(c("grey", si3d_col))(3)
+
+
+surv_plot_cna<-
+ggsurvplot(cna_3d_fit,
+           data = eIF3d_cna_cancer_clin,
+           size = 1,
+           palette = c("#8a8884", "grey", si3d_col), 
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_cna$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+
+ggsave("cna_3d.pdf", path=here("plots/fig8"),width = 8, height=6)
+
+#percentage of copy number gains for each
+
+
+```
+
+myc
+```{r}
+myc_cna <- cna %>% 
+  filter(Hugo_Symbol=="MYC") 
+
+# myc_cna[ , 2:2174] <- lapply(myc_cna[ , 2:2174], as.character)
+
+
+myc_cna<- myc_cna%>%
+  pivot_longer(cols= 2:2174, names_to = "patient", values_to = "cna")
+
+
+#take just MB
+
+myc_cna$patient <- gsub("^MB.", "MB-", myc_cna$patient)
+
+myc_cna_cancer <- myc_cna %>% 
+  filter(str_detect(patient, "MB-")) %>% 
+  dplyr::select(-Hugo_Symbol)
+
+myc_cna_cancer$cna <- as.numeric(myc_cna_cancer$cna)
+
+
+#bind with patient data
+
+# ggplot(myc_cna_cancer, aes(x=cna))+
+#   geom_histogram()+
+#   theme_cowplot()
+ 
+myc_cna_cancer_clin <- left_join(clin, myc_cna_cancer, by=c("PATIENT_ID"="patient"))
+
+myc_cna_cancer_clin <- myc_cna_cancer_clin %>% 
+  mutate(copy_number_alt = case_when(
+    cna >0 ~ "gain",
+    cna == 0 ~ "no_change",
+    cna < 0 ~ "loss",
+    .default="other"
+  ))
+
+
+myc_cna_cancer_clin %>% 
+  filter(cna !="NA") %>% 
+  group_by(cna) %>% 
+  summarise(count = n()) %>%
+  mutate(percentage = count / sum(count) * 100)
+
+#get rid of -1
+
+myc_cna_cancer_clin <- myc_cna_cancer_clin %>% 
+  filter(cna > -1 & cna < 3)
+
+
+cna_myc_fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ cna, data = myc_cna_cancer_clin)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ cna, myc_cna_cancer_clin)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+
+surv_plot_cna<-
+ggsurvplot(cna_myc_fit,
+           data = myc_cna_cancer_clin,
+           size = 1,
+           palette = c("#E7B800", "pink", "purple", "#2E9FDF"), 
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_cna$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+
+ggsave("cna_myc.pdf", path=here("plots/fig8"),width = 11.5, height=8)
+
+#percentage of copy number gains for each
 
 
 ```

@@ -805,6 +805,30 @@ ctrl_acute
 sig_sictrl <- all_changes %>% 
   filter(padj_te_sictrl <0.05)
 
+
+#counts sig_sictrl
+sig_sictrl %>% 
+  filter(LFC_te_sictrl < 0) %>% 
+  filter(padj_te_sictrl < 0.05) %>% 
+  nrow()
+
+sig_sictrl %>% 
+  filter(LFC_te_sictrl > 0) %>% 
+  filter(padj_te_sictrl < 0.05) %>% 
+  nrow()
+
+#counts si3e
+sig_sictrl %>% 
+  filter(LFC_te_si3e < 0) %>% 
+  filter(padj_te_3e < 0.05) %>% 
+  nrow()
+
+sig_sictrl %>% 
+  filter(LFC_te_si3e > 0) %>% 
+  filter(padj_te_3e < 0.05) %>% 
+  nrow()
+
+
 scatter_3e_acute <- ggplot(data = sig_sictrl, aes(x = LFC_te_sictrl, y = LFC_te_si3e)) + 
   ylim(-2,2) + 
   xlim(-2,2) +
@@ -830,6 +854,19 @@ ggsave(filename= here("plots/fig3/acute_3e.pdf"), scatter_3e_acute, height=4, wi
 ## TE changes - 3d KD
 
 ```{r}
+
+
+#counts si3d
+sig_sictrl %>% 
+  filter(LFC_te_si3d < 0) %>% 
+  filter(padj_te_si3d < 0.05) %>% 
+  nrow()
+
+sig_sictrl %>% 
+  filter(LFC_te_si3d > 0) %>% 
+  filter(padj_te_si3d < 0.05) %>% 
+  nrow()
+
 
 scatter_3d_acute <- ggplot(data = sig_sictrl, aes(x = LFC_te_sictrl, y = LFC_te_si3d)) + 
   ylim(-2,2) + 
