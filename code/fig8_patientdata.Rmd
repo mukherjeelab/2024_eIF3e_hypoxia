@@ -871,6 +871,7 @@ fit_all_data_hif_ye <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_
 coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_data_hif_ye)
 summary_coxfit_ye <- summary(coxfit)
 
+exp(summary_coxfit_ye$coefficients[1])
 
 hr <- round(summary_coxfit_ye$coefficients[1, "exp(coef)"], 2)
 pval <- format.pval(summary_coxfit_ye$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
@@ -940,6 +941,11 @@ patient_ye_and_3e <- patient_ye_and_3e %>%
                            ifelse(hypoxia_z_score > 0 & eIF3e_z_score < 0, "high hypoxia and low 3e",
                                   ifelse(hypoxia_z_score > 0 & eIF3e_z_score > 0, "high hypoxia and high 3e",
                                          ifelse(hypoxia_z_score < 0 & eIF3e_z_score > 0, "low hypoxia and high 3e", "other")))))
+
+
+patient_ye_and_3e$quadrant <- factor(patient_ye_and_3e$quadrant, levels=c("low hypoxia and low 3e","high hypoxia and low 3e","low hypoxia and high 3e", "high hypoxia and high 3e"))
+
+
 ```
 
 Determine correlation and color by group
@@ -984,15 +990,14 @@ summary_coxfit <- summary(coxfit)
 hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
 pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
 
-patient_ye_and_3e_hyp_clin$quadrant <- factor(patient_ye_and_3e_hyp_clin$quadrant, levels=c("low hypoxia and low eIF3e (hypoxia)", "high hypoxia and low eIF3e (hypoxia)", "low hypoxia sig and high eIF3e (hypoxia)", "high hypoxia and high eIF3e (hypoxia)"))
 
-quadrant_levels <- levels(patient_ye_and_3e_hyp_clin$quadrant)
+levels(patient_ye_and_3e_hyp_clin$quadrant)
 
 surv_plot_3e_and_hypoxia_sig<-
 ggsurvplot(fit_all_hypoxia_3e,
            data = patient_ye_and_3e_hyp_clin,
            size = 1,
-           palette = c("#9B4D96", "red", "grey", si3e_col), 
+           palette = c("grey", "red", si3e_col, "#9B4D96"), 
            break.time.by = 1,
            ylab="Overall Survival",
            xlab = "Time in years",
@@ -1849,7 +1854,7 @@ eIF3e_cna_cancer_clin %>%
 eIF3e_cna_cancer_clin <- eIF3e_cna_cancer_clin %>% 
   filter(cna > -1)
 
-
+eIF3e_cna_cancer_clin$cna <- as.factor(eIF3e_cna_cancer_clin$cna)
 cna_3e_fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ cna, data = eIF3e_cna_cancer_clin)
 
 
@@ -1953,6 +1958,7 @@ eIF3d_cna_cancer_clin <- eIF3d_cna_cancer_clin %>%
 
 cna_3d_fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ cna, data = eIF3d_cna_cancer_clin)
 
+eIF3d_cna_cancer_clin$cna <- relevel(as.factor(eIF3d_cna_cancer_clin$cna), ref = "0")
 
 coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ cna, eIF3d_cna_cancer_clin)
 summary_coxfit <- summary(coxfit)
