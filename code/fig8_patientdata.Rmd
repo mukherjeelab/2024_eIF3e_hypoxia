@@ -9,8 +9,6 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
-
 ```
 
 ```{r}
@@ -514,12 +512,7 @@ sig_zscores_3d_norm$patient <- gsub("\\.", "-", sig_zscores_3d_norm$patient)
 ```
 
 
-
-
-
-
-
-# import clinical data
+# Import clinical data
 ```{r}
 clin <- read_excel(here("cbioportal_data/brca_metabric/data_clinical_patient_edit.xlsx"))
 clin$OS_MONTHS <- as.numeric(clin$OS_MONTHS)
@@ -531,7 +524,7 @@ clin$OS_YEARS[which(clin$OS_YEARS >= 10)] <- 10
 ```
 
 ### visualizing high and low quartile in each survival plot for the paper.
-
+@Kate delete violin plots below. 
 ## 3e survival
 ```{r}
 #bind clin data with z score data
@@ -616,6 +609,7 @@ ggviolin(data = all_data_3e_hyp , y = "total_z_score", x = "CLAUDIN_SUBTYPE", fi
 ```
 
 ## 3d survival
+@Kate delete violin plots below
 ```{r}
 #bind clin data with z score data
 
@@ -969,10 +963,6 @@ ggsave("3e_hyp_and_ye.pdf", path=here("plots/fig8"),width = 5.5, height=3)
 cor.test(patient_ye_and_3e$hypoxia_z_score, patient_ye_and_3e$eIF3e_z_score, method="pearson")
 ```
 
-
-
-
-
 Plot survival curve
 ```{r}
 #bind with clin data
@@ -1142,7 +1132,7 @@ ggsurvplot(fit_pos, data = all_data_3e_hyp, size = 1, palette = c("#E7B800", "#2
 
 Now neg control -- random genes comprising signatures-- same number of genes just random
 
-In my 3e hyp signature, there eare:
+In my 3e hyp signature, there are:
 78 up genes
 77 down genes
 
@@ -1238,6 +1228,7 @@ ggplot(all_data_neg_ctrl, aes(x=quantile,y=total_z_score, group=quantile)) +
 
 Repeat this 1000 times and determine how many times after 1000 we get a significant p value at random
 Keeping this commented out because it takes forever @Kate probably remove, or if needed do this faster
+
 ```{r}
 # Vector to store p-values
 # pval_results <- numeric(1000)
@@ -1246,26 +1237,26 @@ Keeping this commented out because it takes forever @Kate probably remove, or if
 #   # Select random samples for positive and negative gene lists
 #   fake_pos_list <- all_genes[sample(1:length(all_genes), 78)]
 #   fake_neg_list <- all_genes[sample(1:length(all_genes), 77)]
-#   
+# 
 #   # Reset neg_ctrl_zscores each iteration
 #   neg_ctrl_zscores <- data.frame(patient = colnames(exp_3e),
 #                                  up_z_score = NA,
 #                                  down_z_score = NA)
-#   
+# 
 #   # Calculate z-scores
 #   for (j in 1:nrow(neg_ctrl_zscores)) {
 #     neg_ctrl_zscores[j, 2] <- mean(exp_3e[fake_pos_list, j], na.rm = TRUE)
 #     neg_ctrl_zscores[j, 3] <- mean(exp_3e[fake_neg_list, j], na.rm = TRUE)
 #   }
-#   
+# 
 #   neg_ctrl_zscores <- neg_ctrl_zscores %>%
 #     mutate(total_z_score = up_z_score - down_z_score)
 # 
 #   # Determine quantiles and add to dataframe
 #   quantile_groups <- quantile(neg_ctrl_zscores$total_z_score, probs = seq(0, 1, 0.25), na.rm = TRUE)
-#   neg_ctrl_zscores$quantile <- cut(neg_ctrl_zscores$total_z_score, 
-#                                    breaks = quantile_groups, 
-#                                    include.lowest = TRUE, 
+#   neg_ctrl_zscores$quantile <- cut(neg_ctrl_zscores$total_z_score,
+#                                    breaks = quantile_groups,
+#                                    include.lowest = TRUE,
 #                                    labels = FALSE)
 # 
 #   neg_ctrl_zscores$patient <- gsub("\\.", "-", neg_ctrl_zscores$patient)
@@ -1292,7 +1283,7 @@ Keeping this commented out because it takes forever @Kate probably remove, or if
 ```
 
 
-# Repeat analysis using TCGA dataset
+# Repeat analysis using TCGA dataset --- REMOVE for this publication
 TCGA Firehouse legacy
 Downloaded from cbioportal
 

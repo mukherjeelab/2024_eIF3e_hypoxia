@@ -7,8 +7,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-Quality Control
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -130,7 +128,6 @@ qc_input_hypoxia <- qcinput[, grep("hypoxia", colnames(qcinput))]
 
 # Figure 1: Normoxia, knockdowns
 
-Heatmap of ribo and RNA in normoxia @kate remove separate ribo and rna heatmaps
 ```{r}
 #KDs
 qc_input_normoxia_kds <- qc_input_normoxia[, grep("si", colnames(qc_input_normoxia))]
@@ -193,34 +190,7 @@ average_correlation
 ```
 
 
-PCAs for figure 1 -- @Kate - delete once we decide this is done for usre
-```{r}
-#kds only pca
-pca_qc_input_normoxia_kds <- prcomp(scale(x = qc_input_normoxia_kds,center = T, scale = T))
-
-pca_qc_input_normoxia_kds <- 
-  pca_qc_input_normoxia_kds$rotation %>%
-  as.data.frame() 
-
-pca_qc_input_normoxia_kds <- pca_qc_input_normoxia_kds %>% 
-  rownames_to_column("sample") %>%
-  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
-
-pca <- ggplot(data = pca_qc_input_normoxia_kds, aes(x=PC1, y = PC2, color = treatment, shape = type))+ 
-  geom_point(size=3) +
-  theme_few()
-
-ggplotly(pca)
-
-ggsave(pca, filename=here("plots/qc/pca_with_outlier_normoxia_kds_only.pdf"), width= 4, height=3)
-
-```
-
 # Figure 2: Hypoxia, knockdowns
-
-PCA plot with and without outlier
-
-Heatmap without outlier
 
 ```{r}
 
@@ -230,49 +200,7 @@ qc_input_hypoxia_kds_no_outlier <- qc_input_hypoxia_kds[,colnames(qc_input_hypox
 
 ```
 
-PCA with outlier
-```{r}
-pca_qc_input_hypoxia_kds <- prcomp(scale(x = qc_input_hypoxia_kds,center = T, scale = T))
-
-pca_qc_input_hypoxia_kds <- 
-  pca_qc_input_hypoxia_kds$rotation %>%
-  as.data.frame() %>% 
-  rownames_to_column("sample") %>%
-  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
-
-pca_qc_input_hypoxia_kds_plot <- ggplot(data = pca_qc_input_hypoxia_kds, aes(x=PC1, y = PC2, color = treatment, shape = type))+ 
-  geom_point(size=3) +
-  scale_color_manual(values=c(si3d_col, si3e_col, "grey"))+
-  theme_few()
-
-ggplotly(pca_qc_input_hypoxia_kds_plot)
-
-ggsave(pca_qc_input_hypoxia_kds_plot, filename=here("plots/qc/pca_hypoxia_kds.pdf"), width= 4, height=3)
-```
-
-PCA without outlier
-```{r}
-pca_qc_input_hypoxia_kds_no_out <- prcomp(scale(x = qc_input_hypoxia_kds_no_outlier,center = T, scale = T))
-
-pca_qc_input_hypoxia_kds_no_out <- 
-  pca_qc_input_hypoxia_kds_no_out$rotation %>%
-  as.data.frame() %>% 
-  rownames_to_column("sample") %>%
-  separate(col = sample, into = c("hypoxia","treatment","rep","type"), sep = "_", remove = T)
-
-pca_qc_input_hypoxia_kds_plot_no_out <- ggplot(data = pca_qc_input_hypoxia_kds_no_out, aes(x=PC1, y = PC2, color = treatment, shape = type))+ 
-  geom_point(size=3) +
-    scale_color_manual(values=c(si3d_col, si3e_col, "grey"))+
-  theme_few()
-
-ggplotly(pca_qc_input_hypoxia_kds_plot_no_out)
-
-ggsave(pca_qc_input_hypoxia_kds_plot_no_out, filename=here("plots/qc/pca_hypoxia_kds_no_out.pdf"), width= 4, height=3)
-```
-
 Heatmap
-
-with outlier- @Kate-- make main heatmap for fig 3?
 
 ```{r}
 mycor_hyp_kds <- cor(qc_input_hypoxia_kds, method = "pearson")
@@ -304,15 +232,11 @@ ggsave(heatmap_hypoxia, filename=here("plots/qc/heatmap_hyp_kds_w_outlier.pdf"),
 
 ```
 
-heatmap without outlier - @Kate delete
+
+Correlation coefficients after outlier is removed
+
+ @Kate delete if not used in text
 ```{r}
-mycor_hyp_kds <- cor(qc_input_hypoxia_kds_no_outlier, method = "pearson")
-heatmap_hypoxia <- pheatmap::pheatmap(mat = mycor_hyp_kds)
-heatmap_hypoxia
-ggsave(heatmap_hypoxia, filename=here("plots/qc/heatmap_hyp_kds_no_outlier.pdf"), width=11.5, height=11)
-
-
-
 
 # RIBO average correlation coefficient
 

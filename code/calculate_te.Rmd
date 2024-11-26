@@ -286,9 +286,7 @@ ggplot(atf4_data, aes(x=treatment, y=value))+
   facet_wrap(~type)
 ```
 
-all looks good
-
-Making slight name changes and releveling factors in metadata before analysis
+Edit metadata names relevel factors in before exporting for analysis
 
 ```{r}
 
@@ -308,4 +306,4 @@ write_csv(metadata, here("counts/calculate_te/metadata.csv"))
 
 ```
 
-In the following analyses, pull TE and metadata from here.
+In the following analyses, pull TE and metadata from this file

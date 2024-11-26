@@ -71,7 +71,7 @@ cpd8430_volcano <- EnhancedVolcano(stats_df,
 
 p_8430 <- cpd8430_volcano + theme_prism()
 
-ggsave(filename = here("plots/8430_CETSA.pdf"), plot = p_8430, width = 6, height = 4)
+ggsave(filename = here("plots/fig5/8430_CETSA.pdf"), plot = p_8430, width = 6, height = 4)
 
 ```
 

@@ -208,24 +208,6 @@ res_acute_sictrl <- lfcShrink(dds = ddsMat_acute_sictrl, coef = resultsNames(dds
   inner_join(gene_symbol, .)
 
 
-# visualization -----------------------------------------------------------------
-#  @Kate delete if unwanted for paper
-#   volcano <- EnhancedVolcano(toptable = res_acute_sictrl,
-#                 x = "log2FoldChange",
-#                 y = "padj",
-#                 lab = res_acute_sictrl$symbol,
-#                 pCutoff = 0.05,
-#                 xlim = c(-5,5),
-#                 title = "Acute Hypoxic Response - sictrl",
-#                 subtitle = "",
-#                 legendPosition = "right",
-#                 col = c('grey', 'black', 'blue', 'red3'),
-#                 legendLabels=c('Not sig.','Log (base 2) FC','p-value',
-#       'p-value & Log (base 2) FC'))
-# 
-# volcano
-#might not want this for the paper
-
 # count table -------------------------------------------------------------------
 
 upreg <- res_acute_sictrl %>%
@@ -404,24 +386,6 @@ res_acute_si3d <- lfcShrink(dds = ddsMat_acute_si3d, coef = resultsNames(ddsMat_
   inner_join(gene_symbol, .)
 
 
-# visualization -----------------------------------------------------------------
-#   #@Kate remove
-#   volcano <- EnhancedVolcano(toptable = res_acute_si3d,
-#                 x = "log2FoldChange",
-#                 y = "padj",
-#                 lab = res_acute_si3d$symbol,
-#                 pCutoff = 0.05,
-#                 xlim = c(-5,5),
-#                 title = "Acute Hypoxic Response - si3d",
-#                 subtitle = "",
-#                 legendPosition = "right",
-#                 col = c('grey', 'black', 'blue', 'red3'),
-#                 legendLabels=c('Not sig.','Log (base 2) FC','p-value',
-#       'p-value & Log (base 2) FC'))
-# 
-# volcano
-# #might not want this for the paper
-
 # count table -------------------------------------------------------------------
 
 upreg <- res_acute_si3d %>%
@@ -581,23 +545,6 @@ res_acute_si3e <- lfcShrink(dds = ddsMat_acute_si3e, coef = resultsNames(ddsMat_
   inner_join(gene_symbol, .)
 
 
-# visualization -----------------------------------------------------------------
-  #@Kate remove
-#   volcano <- EnhancedVolcano(toptable = res_acute_si3e,
-#                 x = "log2FoldChange",
-#                 y = "padj",
-#                 lab = res_acute_si3e$symbol,
-#                 pCutoff = 0.05,
-#                 xlim = c(-5,5),
-#                 title = "Acute Hypoxic Response - si3e",
-#                 subtitle = "",
-#                 legendPosition = "right",
-#                 col = c('grey', 'black', 'blue', 'red3'),
-#                 legendLabels=c('Not sig.','Log (base 2) FC','p-value',
-#       'p-value & Log (base 2) FC'))
-# 
-# volcano
-#might not want this for the paper
 
 # count table -------------------------------------------------------------------
 
@@ -931,23 +878,6 @@ res_hypox_si3e <- lfcShrink(dds = ddsMat_hypox_si3e, coef = resultsNames(ddsMat_
   inner_join(gene_symbol, .)
 
 
-# visualization -----------------------------------------------------------------
-  #@Kate remove
-#   volcano <- EnhancedVolcano(toptable = res_hypox_si3e,
-#                 x = "log2FoldChange",
-#                 y = "padj",
-#                 lab = res_hypox_si3e$symbol,
-#                 pCutoff = 0.05,
-#                 xlim = c(-5,5),
-#                 title = "hypox Hypoxic Response - si3e",
-#                 subtitle = "",
-#                 legendPosition = "right",
-#                 col = c('grey', 'black', 'blue', 'red3'),
-#                 legendLabels=c('Not sig.','Log (base 2) FC','p-value',
-#       'p-value & Log (base 2) FC'))
-# 
-# volcano
-#might not want this for the paper
 
 # count table -------------------------------------------------------------------
 
@@ -1010,23 +940,6 @@ res_hypox_si3d <- lfcShrink(dds = ddsMat_hypox_si3d, coef = resultsNames(ddsMat_
 write_csv(res_hypox_si3d, here("counts/fig3/hypoxia_si_ctrl_3d.csv"))
 
 
-# visualization -----------------------------------------------------------------
-  #@Kate remove
-  # volcano <- EnhancedVolcano(toptable = res_hypox_si3d,
-  #               x = "log2FoldChange",
-  #               y = "padj",
-  #               lab = res_hypox_si3d$symbol,
-  #               pCutoff = 0.05,
-  #               xlim = c(-5,5),
-  #               title = "hypox Hypoxic Response - si3d",
-  #               subtitle = "",
-  #               legendPosition = "right",
-  #               col = c('grey', 'black', 'blue', 'red3'),
-  #               legendLabels=c('Not sig.','Log (base 2) FC','p-value',
-  #     'p-value & Log (base 2) FC'))
-
-volcano
-#might not want this for the paper
 
 # count table -------------------------------------------------------------------
 
@@ -1135,7 +1048,7 @@ ggsave(here("plots/fig3/eIF3dbars.pdf"), eif3d_bar, width = 4, height = 4)
 ```
 
 
-## Lists for pathway analysis
+## Lists for pathway analysis - delete
 Separate lists by direction of change -- delete? -- add back depending on whether we want that scatter plot in the supplement
 ```{r}
 
@@ -1151,30 +1064,11 @@ hyp_3e_up <- res_hypox_si3e %>%
 hyp_3e_down <- res_hypox_si3e %>%
   filter(padj < 0.05 & log2FoldChange < 0) %>% pull(gene_id)
 
-# @Kate delete
-# 
-# hyp_te_up <- list(
-#   hyp_3d_up = hyp_3d_up,
-#   hyp_3e_up = hyp_3e_up
-# )
-# 
-# hyp_te_down <- list(
-#   hyp_3d_down = hyp_3d_down,
-#   hyp_3e_down = hyp_3e_down
-# )
+
 ```
 
+# delete
 ```{r}
-#@Kate delete if we do no t need
-# ggvenn(hyp_te_up, auto_scale = T, fill_color = c("#E69F00","#56B4E9"))
-# 
-# ggsave(here("plots/hypteup_venn.pdf"), width = 3, height=2.5)
-# 
-# 
-# ggvenn(hyp_te_down, auto_scale = T, fill_color = c("#E69F00","#56B4E9"))
-# 
-# ggsave(here("plots/hyptedown_venn.pdf"), width = 3, height=2.5)
-
 
 hyp_sig_te <- data.frame(
   gene_id = res_hypox_si3d$gene_id,
@@ -1230,6 +1124,9 @@ ggsave(here("plots/fig3/hyp_e_d.pdf"), scatter_hypoxia, width=4, height=4)
 
 
 ```
+
+
+
 @Kate delete everything below if we do not want pathway analysis in the paper for this figure
 
 ## Pathway analysis gene list setup
