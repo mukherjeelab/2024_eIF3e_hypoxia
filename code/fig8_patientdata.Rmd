@@ -1013,6 +1013,20 @@ surv_plot_3e_and_hypoxia_sig$plot +
   )
 ggsave("surv_plot_3e_and_hypoxia_sig.pdf", path=here("plots/fig8"),width = 11.5, height=8)
 
+#compare middle two quadrants
+
+levels(patient_ye_and_3e_hyp_clin$quadrant)
+
+# Relevel the 'quadrant' factor to set the desired reference group
+patient_ye_and_3e_hyp_clin$quadrant <- relevel(patient_ye_and_3e_hyp_clin$quadrant, ref = "high hypoxia and low 3e")
+
+# Fit the Cox model
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = patient_ye_and_3e_hyp_clin)
+summary_coxfit <- summary(coxfit)
+print(summary_coxfit)
+
+
+
 ```
 
 ## Metabric data controls:
@@ -2031,6 +2045,7 @@ ggplot(cna_percent, aes(x=cna, y=percentage, fill=Hugo_Symbol))+
   geom_bar(stat="identity")+
   facet_wrap(~Hugo_Symbol)+
   scale_fill_manual(values = c(si3d_col, si3e_col))+
+  geom_text(aes(label = round(percentage)), vjust = -0.5, size = 3)+
   theme_prism()
 
 

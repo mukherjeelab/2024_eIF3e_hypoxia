@@ -40,6 +40,7 @@ library(ggExtra)
 library(reshape2)
 library(pheatmap)
 library(enrichplot)
+library(GeneOverlap)
 
 ```
 
@@ -394,6 +395,59 @@ ggsave(width = 2, height = 2, filename = here("plots/fig1/venndown.pdf"))
 
 
 ```
+
+### Test significance of overlap
+Create a matrix that compares each condition for gene overlap analysis.
+
+#universe number calculation
+
+```{r}
+all_normox_expressed <- rbind(
+res_te_3e,
+res_te_3d)
+
+universe <- unique(all_normox_expressed$gene_id)
+
+
+```
+
+
+# down genes overlap
+```{r}
+
+norm_te_down_df <- norm_te_down %>% 
+  purrr::imap_dfr(~ tibble(list_name = .y, gene_name = .x))
+
+gom.allsamples_down <- split(norm_te_down_df$gene_name, norm_te_down_df$list_name)
+
+#double check genome size here
+
+gom.all_down <- newGOM(gom.allsamples_down, gom.allsamples_down, genome.size = 11635)
+
+norm_all.odds.matrix_down <- getMatrix(gom.all_down, "odds")
+norm_all.pval.matrix_down <- getMatrix(gom.all_down, "pval")
+
+norm_all.pval.matrix_down
+```
+
+# up genes overlap
+```{r}
+
+norm_te_up_df <- norm_te_up %>% 
+  purrr::imap_dfr(~ tibble(list_name = .y, gene_name = .x))
+
+gom.allsamples_up <- split(norm_te_up_df$gene_name, norm_te_up_df$list_name)
+
+#double check genome size here
+
+gom.all_up <- newGOM(gom.allsamples_up, gom.allsamples_up, genome.size = 11635)
+
+norm_all.odds.matrix_up <- getMatrix(gom.all_up, "odds")
+norm_all.pval.matrix_up <- getMatrix(gom.all_up, "pval")
+
+norm_all.pval.matrix_up
+```
+
 
 ### Density scatter plot
 
