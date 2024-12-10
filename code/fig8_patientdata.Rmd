@@ -672,6 +672,8 @@ ggplot(all_data_3d_hyp, aes(x=quantile,y=total_z_score, group=quantile)) +
   theme_cowplot()+
   ggtitle("Patient scores for eIF3d hypoxia signature")
 
+count(all_data_3d_hyp$quantile==1)
+
 #@Kate decide if this is wanted-- probably is not
 # maybe something like this could be relevant
 ggviolin(data = all_data_3d_hyp %>% filter(ER_IHC != ""), y = "total_z_score", x = "ER_IHC", fill = "ER_IHC", palette = ggokabeito::palette_okabe_ito(), add = "median_iqr" ) +
