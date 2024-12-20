@@ -77,7 +77,7 @@ gene_symbol <- geneInfo %>% dplyr::select(gene_id, symbol) %>% unique()
 ```
 
 
-@Neel, here, I am not filtering for protein coding only as I do in calculate_te.Rmd.  Should I use that filter here?
+@Neel, here, I am not filtering for protein coding only as I do in calculate_te.Rmd.  Is that okay for these qc steps?
 
 ```{r txi import, include=FALSE}
 #name files to import
@@ -232,10 +232,6 @@ ggsave(heatmap_hypoxia, filename=here("plots/qc/heatmap_hyp_kds_w_outlier.pdf"),
 
 ```
 
-
-Correlation coefficients after outlier is removed
-
- @Kate delete if not used in text
 ```{r}
 
 # RIBO average correlation coefficient
