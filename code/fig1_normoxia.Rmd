@@ -41,6 +41,8 @@ library(reshape2)
 library(pheatmap)
 library(enrichplot)
 library(GeneOverlap)
+library(viridis)
+
 
 ```
 
@@ -498,7 +500,9 @@ ggsave(width = 5, height = 5, filename = here("plots/fig1/normoxia_quadrants.pdf
 
 
 ## Pathway analysis setup
-@Kate if we do not want the other pathways to use in the supplement, delete them here.
+used in thesis
+
+
 ```{r prep GSEA analysis}
 
 eif3d_te <- res_te_3d$log2FoldChange
@@ -525,6 +529,140 @@ m_df_c2 <- msigdbr(species = "Homo sapiens") %>%
   dplyr::select(gs_name, gene_symbol)
 
 ```
+# start connors thesis
+```{r}
+
+eif3d_te_h <- GSEA(
+  geneList = eif3d_te,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+eif3e_te_h <- GSEA(
+  geneList = eif3e_te,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+
+
+norm_te_h_3d <-
+  eif3d_te_h@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+norm_te_h_3e <- 
+  eif3e_te_h@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+
+
+```
+
+```{r GSEA KEGG}
+eif3d_te_kegg <- GSEA(
+  geneList = eif3d_te,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))
+  )
+
+eif3e_te_kegg <- GSEA(
+  geneList = eif3e_te,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))
+  )
+
+norm_te_kegg_3d <-
+  eif3d_te_kegg@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+norm_te_kegg_3e <- 
+  eif3e_te_kegg@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+
+
+norm_pathways <- list("normoxia_hallmark_3d"=norm_te_h_3d,
+            "normoxia_hallmark_3e"=norm_te_h_3e,
+            "normoxia_kegg_3d"=norm_te_kegg_3d,
+            "normoxia_kegg_3e"=norm_te_kegg_3e)
+
+writexl::write_xlsx(norm_pathways, here("pathway_tables/normoxia_3e_3d.xlsx"))
+
+
+```
+
+
+
+
+
+
+
+# end connors thesis
+```{r}
+
+
+norm_te_h_3e %>% 
+  filter(p.adjust < 0.05) %>% 
+ggplot(aes(y = reorder(ID, NES), x = NES, fill = p.adjust, size = setSize)) +
+    geom_point(alpha = 0.7, shape = 21, color = "black") +
+    scale_size(range = c(1, 12), name = "# genes in pathway") +
+     scale_color_viridis(option="mako",discrete = FALSE, aesthetics = "fill") +
+    ylab("") +
+    xlab("NES") +
+  geom_vline(xintercept=0,colour = "grey")+
+  theme_minimal()+
+  ggtitle("Normoxia eIF3e KD")+
+  theme(plot.title = element_text(hjust = 0.5))
+   # theme_ipsum()
+
+library(viridis)
+library(RColorBrewer)
+    
+    
+
+ 
+
+
+# Save plot ensuring enough space for legend
+ggsave(here("plots/pathways/normoxia_hallmark_3e.png"))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ### Hallmark pathways
 @Kate delete if we are just using bars instead

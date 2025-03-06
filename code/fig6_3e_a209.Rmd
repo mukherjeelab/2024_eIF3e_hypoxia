@@ -1030,3 +1030,133 @@ ggsave(filename=here("plots/fig6/hypoverlap.pdf"), width=4, height=4)
 
 
 ```
+
+
+
+
+
+
+
+Pathway analysis
+For Connor's thesis
+
+
+a209 TE
+
+make lists of genes
+
+
+## Pathway analysis gene list setup
+```{r prep GSEA analysis}
+
+#norm lists
+
+a209_norm <- res_normox_a209$log2FoldChange
+names(a209_norm) <- res_normox_a209$symbol
+
+a209_norm <- sort(a209_norm, decreasing = TRUE)
+
+a209_norm <- a209_norm[!duplicated(names(a209_norm))]
+
+#hyp lists
+
+a209_hyp <- res_hypox_a209$log2FoldChange
+names(a209_hyp) <- res_hypox_a209$symbol
+
+a209_hyp <- sort(a209_hyp, decreasing = TRUE)
+
+a209_hyp <- a209_hyp[!duplicated(names(a209_hyp))]
+
+```
+
+
+
+```{r}
+m_df_h <- msigdbr(species = "Homo sapiens") %>%
+  filter(gs_cat == "H") %>% 
+  dplyr::select(gs_name, gene_symbol)
+
+m_df_c2 <- msigdbr(species = "Homo sapiens") %>%
+  filter(gs_cat == "C2" & gs_subcat != "CGP") %>% 
+  dplyr::select(gs_name, gene_symbol)
+```
+
+
+```{r}
+a209_norm_h <- GSEA(
+  geneList = a209_norm,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+a209_hyp_h <- GSEA(
+  geneList = a209_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+
+
+a209_norm_h <-
+  a209_norm_h@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+a209_hyp_h <- 
+  a209_hyp_h@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+
+```
+
+```{r GSEA KEGG}
+a209_norm_kegg <- GSEA(
+  geneList = a209_norm,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))
+  )
+
+a209_hyp_kegg <- GSEA(
+  geneList = a209_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))
+  )
+
+a209_norm_kegg <-
+  a209_norm_kegg@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+a209_hyp_kegg <- 
+  a209_hyp_kegg@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+
+
+a209_pathways <- list("normoxia_hallmark_a209"=a209_norm_h,
+            "hypoxia_hallmark_a209"=a209_hyp_h,
+            "normoxia_kegg_a209"=a209_norm_kegg,
+            "hypoxia_kegg_a209"=a209_hyp_kegg)
+
+writexl::write_xlsx(a209_pathways, here("pathway_tables/a209_normoxia_and_hypoxia.xlsx"))
+
+```
+
+
+

@@ -1164,6 +1164,95 @@ m_df_c2 <- msigdbr(species = "Homo sapiens") %>%
   dplyr::select(gs_name, gene_symbol)
 ```
 
+For Connor's thesis:
+
+```{r}
+eif3d_te_h <- GSEA(
+  geneList = eif3d_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+eif3e_te_h <- GSEA(
+  geneList = eif3e_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+
+
+hyp_te_h_3d <-
+  eif3d_te_h@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+hyp_te_h_3e <- 
+  eif3e_te_h@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+
+```
+
+```{r GSEA KEGG}
+eif3d_te_kegg <- GSEA(
+  geneList = eif3d_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))
+  )
+
+eif3e_te_kegg <- GSEA(
+  geneList = eif3e_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))
+  )
+
+hyp_te_kegg_3d <-
+  eif3d_te_kegg@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+hyp_te_kegg_3e <- 
+  eif3e_te_kegg@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+
+
+hyp_pathways <- list("hypoxia_hallmark_3d"=hyp_te_h_3d,
+            "hypoxia_hallmark_3e"=hyp_te_h_3e,
+            "hypoxia_kegg_3d"=hyp_te_kegg_3d,
+            "hypoxia_kegg_3e"=hyp_te_kegg_3e)
+
+writexl::write_xlsx(hyp_pathways, here("pathway_tables/hypoxia_3e_3d.xlsx"))
+
+```
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
 
 ### Hallmark pathway enrichment analysis
 
