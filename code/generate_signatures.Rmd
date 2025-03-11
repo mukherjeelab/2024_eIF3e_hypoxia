@@ -320,6 +320,28 @@ sample_info <- metadata_loop %>%
   as.data.frame() %>% 
   rownames_to_column(var = "gene_id") %>%
   inner_join(gene_symbol, .)
+  
+  
+  # temp: volcano plot ----------------------------------------------------------
+  
+  EnhancedVolcano(toptable = res_norm_3e,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_norm_3e$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5), #when set to really low values, can see most are very small changes
+                title = "RNA changes",
+                subtitle = "",
+                legendPosition = "right",
+                labCol ="white",
+                labSize = 0,
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
+
+  
+  
+  
 
 # export to excel ---------------------------------------------------------------
   res_norm_3e <- res_norm_3e %>% 
@@ -448,6 +470,23 @@ sample_info <- metadata_loop %>%
   as.data.frame() %>% 
   rownames_to_column(var = "gene_id") %>%
   inner_join(gene_symbol, .)
+  
+   # temp: volcano plot ----------------------------------------------------------
+  
+  EnhancedVolcano(toptable = res_hyp_3e,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_norm_3e$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5), #when set to really low values, can see most are very small changes
+                title = "RNA changes: 3e hypoxia",
+                subtitle = "",
+                legendPosition = "right",
+                labCol ="white",
+                labSize = 0,
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
 
 # export to excel ---------------------------------------------------------------
   res_hyp_3e <- res_hyp_3e %>% 
@@ -512,6 +551,23 @@ sample_info <- metadata_loop %>%
   as.data.frame() %>% 
   rownames_to_column(var = "gene_id") %>%
   inner_join(gene_symbol, .)
+  
+    # temp: volcano plot ----------------------------------------------------------
+  
+  EnhancedVolcano(toptable = res_hyp_3d,
+                x = "log2FoldChange",
+                y = "padj",
+                lab = res_norm_3e$symbol,
+                pCutoff = 0.05,
+                xlim = c(-5,5), #when set to really low values, can see most are very small changes
+                title = "RNA changes: 3d hypoxia",
+                subtitle = "",
+                legendPosition = "right",
+                labCol ="white",
+                labSize = 0,
+                col = c('grey', 'black', 'blue', 'red3'),
+                legendLabels=c('Not sig.','Log (base 2) FC','p-value',
+      'p-value & Log (base 2) FC'))
 
 # export to excel ---------------------------------------------------------------
   res_hyp_3d <- res_hyp_3d %>% 
