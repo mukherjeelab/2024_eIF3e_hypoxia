@@ -1002,9 +1002,18 @@ all_counts_normox_si3e
 
 ### Visualize normoxic vs hyoxic response
 ```{r}
-hyp_vs_norm_kds <- rbind(all_counts_normox_si3e, all_counts_normox_si3d, all_counts_hypox_si3e, all_counts_hypox_si3d) %>% 
-  melt() %>% 
-  separate(dataset, into=c("condition", "sample"))
+# hyp_vs_norm_kds <- rbind(all_counts_normox_si3e, all_counts_normox_si3d, all_counts_hypox_si3e, all_counts_hypox_si3d) %>% 
+#   melt() %>% 
+#   separate(dataset, into=c("condition", "sample"))
+
+hyp_vs_norm_kds <- rbind(all_counts_normox_si3e, all_counts_normox_si3d,
+                         all_counts_hypox_si3e, all_counts_hypox_si3d) %>%
+  melt() %>%
+  mutate(
+    condition = str_extract(dataset, "^(normox|hypox)"),
+    sample = str_extract(dataset, "3[ed]")
+  )
+  
 ```
 
 # effect of si3e KD norm and hypoxia
@@ -1522,3 +1531,167 @@ hyp_react_table <- hyp_te_react %>%
 
 write_csv(hyp_react_table, here("counts/fig3/hyp_react_table.csv"))
 ```
+
+
+
+
+# Other hallmark genes in addition to HIF
+
+```{r}
+hypoxia_hallmark <- m_df_h %>% 
+  filter(gs_name=="HALLMARK_HYPOXIA")
+```
+
+```{r}
+norm_hyp_te <-
+rbind(
+res_normox_si3d %>%
+  mutate(name = "normox_si3d"),
+
+res_normox_si3e %>%
+  mutate(name = "normox_si3e"),
+
+res_hypox_si3d %>%
+  mutate(name = "hypox_si3d"),
+
+res_hypox_si3e %>%
+  mutate(name = "hypox_si3e")
+)
+
+te_hallmark_hyp <- norm_hyp_te %>% 
+  filter(symbol %in% hypoxia_hallmark$gene_symbol) %>% 
+  select(symbol, log2FoldChange, padj, name)
+
+#interested in genes down with kd
+
+#pivot wider
+
+wide_te_hallmark <- te_hallmark_hyp %>% 
+  pivot_wider(names_from="name", values_from=c("log2FoldChange", "padj"))
+```
+
+	
+IER3 up in hypoxia, up with KD in normoxia, less so in hypoxia?
+PIM1m upregulated in hypxoxia up with KD
+
+
+
+For looking into:
+down with KD:
+KLF6 -- insig, up in hypoxia
+BTG1 -- insig, up in hypoxia
+TGFB3 -- insig, down in hypoxia
+UGP2 -- insit, down in hypoxia
+
+up with KD:
+FOS -- insig, up in hypxoia
+PKP1 -- sig, down in hypxoia -- this could look good
+
+add in a209 changes and make sure they are consistent
+```{r}
+
+
+hyp_209 <- read_csv(here("counts/fig6/hypoxia_dmso_a209.csv")) %>% 
+  dplyr::select(symbol, log2FoldChange, padj) %>% 
+  rename("log2FoldChange_hyp_209" = "log2FoldChange", "padj_hyp_209"="padj")
+
+wide_te_hallmark_all <- left_join(wide_te_hallmark, hyp_209)
+
+write_csv(wide_te_hallmark_all, "hallmark_gene_te_changes.csv")
+
+```
+
+
+Ask: what happened with these genes in acute hypoxia?
+```{r}
+
+acute_all_changes <- all_changes %>% 
+  dplyr::select(symbol, LFC_te_sictrl, padj_te_sictrl)
+
+
+all_changes_hypoxic_hallmark <- all_changes %>% 
+    dplyr::select(symbol, LFC_te_sictrl, padj_te_sictrl, LFC_te_si3e, padj_te_3e) %>% 
+  filter(symbol %in% hypoxia_hallmark$gene_symbol)
+
+```
+
+Mainly ribo driven?
+```{r}
+
+sig_rna_3d_hyp
+sig_rna_3e_hyp
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+Number of genes changed with 3d and 3e KD in the hypoxia pathway
+
+```{r}
+
+normoxia_hallmark_hypoxia_te <-
+rbind(
+res_normox_si3d %>%
+  mutate(name = "normox_si3d"),
+
+res_normox_si3e %>%
+  mutate(name = "normox_si3e")
+)
+
+
+normoxia_hallmark_hypoxia_te <- normoxia_hallmark_hypoxia_te %>% 
+  filter(symbol %in% hypoxia_hallmark$gene_symbol) %>% 
+  select(symbol, log2FoldChange, padj, name)
+
+
+```
+
+
+```{r}
+number_changed_3d <- normoxia_hallmark_hypoxia_te %>% 
+  filter(name=="normox_si3d") %>% 
+  filter(padj < 0.05) %>% 
+  dplyr::select(symbol, log2FoldChange)
+
+number_changed_3d$symbol
+
+
+```
+
+```{r}
+number_changed_3e <- normoxia_hallmark_hypoxia_te %>% 
+  filter(name=="normox_si3e") %>% 
+  filter(padj < 0.05) %>% 
+  dplyr::select(symbol, log2FoldChange)
+
+number_changed_3e$symbol
+
+
+```
+
+
+
+Verify targets
+
+```{r}
+acute_test <- res_acute_sictrl %>% 
+  filter(padj < 0.05)
+
+biggest_up <- acute_test %>% 
+  filter(log2FoldChange > 1)
+
+biggest_down <- acute_test %>% 
+  filter(log2FoldChange < -1)
+```
+
