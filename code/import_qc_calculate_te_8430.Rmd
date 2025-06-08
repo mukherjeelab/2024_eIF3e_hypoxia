@@ -1350,402 +1350,198 @@ a209_hypoxia_down$gs_name <- rep("a209_hypoxia_down")
 ```
 
 
+#### New type of analysis:
+
+Overlap of mRNAs that are signficantly changed by a 209 and 8430 as part of the ACUTE hypoxic response.
+
+Histogram changes with number of RNA and ribo changes with DMSO, a209 and 8430.
+
+Barplot next to that in the chart
 
 
-# Odds ratios for a209 3e and 3d overlap in normoxia
+Import genes from a209 analysis
 
-The following analysis determines the number of genes that overlap in each condition and the statistical significance (p-value) of their overlap (odds ratio).
-
-
-Create a matrix that compares each condition for gene overlap analysis.
 ```{r}
-all_lists <- bind_rows(si3e_normoxia_up, si3d_normoxia_up, a209_normoxia_up, si3e_normoxia_down, si3d_normoxia_down, a209_normoxia_down, 
-                       si3e_hypoxia_up, si3d_hypoxia_up, a209_hypoxia_up, si3e_hypoxia_down, si3d_hypoxia_down, a209_hypoxia_down) %>% 
-extract(gs_name,
-        into = c("sample", "condition", "direction"),
-        regex = "([^_]+)_([^_]+)_([^_]+)")
+a209_acute <- read_csv(here("counts/fig6/all_norm_to_hyp_changes_compound.csv"))
+
+a209_acute_dmso_sig <- a209_acute %>% 
+  dplyr::filter(padj_te_DMSO < 0.05) # 131 genes sig changed.
+
+acute_a209_inhib <- a209_acute_dmso_sig %>% 
+  filter(padj_te_a209 > 0.05) %>%  #128 genes sig inhibited
+pull(symbol)
 ```
 
 
-### get number of expressed genes for universe value
-```{r}
-all_209_symbols_expressed <- rbind(
-res_normox_a209,
-res_hypox_a209)
 
-universe <- unique(all_209_symbols_expressed$symbol)
-
-```
-
-
-### Normoxia analysis
-```{r}
-
-norm_matrix <- all_lists %>%
-  filter(condition=="normoxia") %>% 
-  dplyr::select(-condition)
-
-
-norm_matrix_comb <- norm_matrix %>% 
-  tidyr::unite("description", 2:3, sep=', ')
-
-gom.allsamples <- split(norm_matrix_comb$symbol, norm_matrix_comb$description)
-
-#double check genome size here
-
-gom.all <- newGOM(gom.allsamples, gom.allsamples, genome.size = 11629)
-
-norm_all.odds.matrix <- getMatrix(gom.all, "odds")
-norm_all.pval.matrix <- getMatrix(gom.all, "pval")
-
-
-```
-
-# plot odds ratios as bars with p values
-```{r}
-
-#merge odds and pval matricies
-
-odds <- norm_all.odds.matrix %>% 
-  as.data.frame() %>% 
-  rownames_to_column("sample") %>% 
-  pivot_longer(2:7, names_to = "comparison", values_to="odds_value")
-
-pval <- norm_all.pval.matrix %>% 
-  as.data.frame() %>% 
-  rownames_to_column("sample") %>% 
-  pivot_longer(2:7, names_to = "comparison", values_to="pval_value")
-
-
-odds_pval <- left_join(odds, pval, by=c("sample", "comparison")) %>% 
-  tidyr::unite("comparison", 1:2, sep="-") %>% 
-  filter(comparison == "a209, up-si3e, up"| 
-         comparison =="a209, down-si3e, down"|
-           comparison == "a209, up-si3d, up"|
-           comparison == "a209, down-si3d, down") %>% 
-  mutate(comparison_with_a209 = sub(".*-", "", comparison)) %>% 
-  mutate(pvalue_plot = signif(pval_value, digits=3)) %>% 
-  mutate(label = paste0("p = ", pvalue_plot, sep=" "))
-
-odds_pval$comparison_with_a209 <- factor(odds_pval$comparison_with_a209, levels = c("si3e, up", "si3e, down", "si3d, up", "si3d, down"))
-
-odds_pval <- odds_pval %>% 
-  mutate(group = ifelse(comparison== "a209, down-si3d, down" | comparison== "a209, up-si3d, up", "si3d", "si3e"))
-
-
-ggpubr::ggbarplot(odds_pval, x="comparison_with_a209", y="odds_value", fill="group", label = odds_pval$label, title="a209 overlaps in normoxia", palette = c(si3d_col, si3e_col), ylim=(c(0,7)))+
-  geom_hline(aes(yintercept=1))
-
-
-ggsave(here("plots/fig6/normoverlap.pdf"), width=4, height=4)
-
-```
-
-### Hypoxia - double check genome size
-```{r}
-
-hyp_matrix <- all_lists %>%
-  filter(condition=="hypoxia") %>% 
-  dplyr::select(-condition)
-
-
-hyp_matrix_comb <- hyp_matrix %>% 
-  tidyr::unite("description", 2:3, sep=', ')
-
-gom.allsamples <- split(hyp_matrix_comb$symbol, hyp_matrix_comb$description)
-
-gom.all <- newGOM(gom.allsamples, gom.allsamples, genome.size = 11629)
-
-hyp_all.odds.matrix <- getMatrix(gom.all, "odds")
-hyp_all.pval.matrix <- getMatrix(gom.all, "pval")
-
-
-```
-
-# plot odds ratios as bars with p values
+now lets do the same for 8430
 
 ```{r}
+acute_response_dmso2 <- res_acute_DMSO %>% 
+  filter(padj < 0.05) %>% # 351 genes sig changed
+  pull(symbol)
 
-#merge odds and pval matricies
+acute_response_dmso2_up <- res_acute_DMSO %>% 
+  filter(padj < 0.05) %>% # 351 genes sig changed
+  filter(log2FoldChange > 0) %>% 
+  pull(symbol)
 
-odds <- hyp_all.odds.matrix %>% 
-  as.data.frame() %>% 
-  rownames_to_column("sample") %>% 
-  pivot_longer(2:7, names_to = "comparison", values_to="odds_value")
-
-pval <- hyp_all.pval.matrix %>% 
-  as.data.frame() %>% 
-  rownames_to_column("sample") %>% 
-  pivot_longer(2:7, names_to = "comparison", values_to="pval_value")
-
-
-odds_pval <- left_join(odds, pval, by=c("sample", "comparison")) %>% 
-  tidyr::unite("comparison", 1:2, sep="-") %>% 
-  filter(comparison == "a209, up-si3e, up"| 
-         comparison =="a209, down-si3e, down"|
-           comparison == "a209, up-si3d, up"|
-           comparison == "a209, down-si3d, down") %>% 
-  mutate(comparison_with_a209 = sub(".*-", "", comparison)) %>% 
-  mutate(pvalue_plot = signif(pval_value, digits=3)) %>% 
-  mutate(label = paste0("p = ", pvalue_plot, sep=" "))
-
-odds_pval$comparison_with_a209 <- factor(odds_pval$comparison_with_a209, levels = c("si3e, up", "si3e, down", "si3d, up", "si3d, down"))
-
-odds_pval <- odds_pval %>% 
-  mutate(group = ifelse(comparison== "a209, down-si3d, down" | comparison== "a209, up-si3d, up", "si3d", "si3e"))
-
-ggpubr::ggbarplot(odds_pval, x="comparison_with_a209", y="odds_value", fill="group", label = odds_pval$label, title="a209 overlaps in hypoxia", palette = c(si3d_col, si3e_col), ylim=(c(0,7)))+
-  geom_hline(aes(yintercept=1))
+acute_response_dmso2_down <- res_acute_DMSO %>% 
+  filter(padj < 0.05) %>% # 351 genes sig changed
+  filter(log2FoldChange < 0) %>% 
+  pull(symbol)
 
 
-ggsave(filename=here("plots/fig6/hypoverlap.pdf"), width=4, height=4)
+
+acute_8430_inhib <- res_acute_8430 %>% 
+  filter(symbol %in% acute_response_dmso2) %>% 
+  filter(padj > 0.05) %>% #252 of those genes are inhibited with 8430
+  pull(symbol)
+
+
+#are those the same genes??????
+
+
+
+
 
 
 
 ```
 
 
+Overlap of acute hypoxci gene response genes inhibited by a209 and 8430
+
+```{r}
+
+acute_genes <- list(
+"acute_a209_inhib" = acute_a209_inhib,
+"acute_8430_inhib" = acute_8430_inhib)
+
+ggvenn(acute_genes)
+
+intersect(acute_a209_inhib, acute_8430_inhib)
+```
+
+
+Do it by direction now:
+```{r}
+acute_a209_inhib_up <- a209_acute_dmso_sig %>% 
+  filter(padj_te_a209 > 0.05) %>%  #128 genes sig inhibited
+  filter(LFC_te_DMSO >0) %>% 
+pull(symbol)
+
+
+acute_8430_inhib_up <- res_acute_8430 %>% 
+  filter(symbol %in% acute_response_dmso2_up) %>% 
+  filter(padj > 0.05) %>% #252 of those genes are inhibited with 8430
+  pull(symbol)
 
 
 
+acute_genes_up <- list(
+"a209" = acute_a209_inhib_up,
+"8430" = acute_8430_inhib_up)
+
+ggvenn(acute_genes_up)
+
+intersect(acute_a209_inhib_up, acute_8430_inhib_up)
+
+ggsave(here("plots/plots_8430/up.pdf"))
+
+```
+
+```{r}
+acute_a209_inhib_down <- a209_acute_dmso_sig %>% 
+  filter(padj_te_a209 > 0.05) %>%  #128 genes sig inhibited
+  filter(LFC_te_DMSO <0) %>% 
+pull(symbol)
 
 
-Pathway analysis
-For Connor's thesis
+acute_8430_inhib_down <- res_acute_8430 %>% 
+  filter(symbol %in% acute_response_dmso2_down) %>% 
+  filter(padj > 0.05) %>% #252 of those genes are inhibited with 8430
+  pull(symbol)
 
 
-a209 TE
 
-make lists of genes
+acute_genes_down <- list(
+"a209" = acute_a209_inhib_down,
+"8430" = acute_8430_inhib_down)
 
+ggvenn(acute_genes_down)
 
-## Pathway analysis gene list setup
-```{r prep GSEA analysis}
+intersect(acute_a209_inhib_down, acute_8430_inhib_down)
 
-#norm lists
-
-a209_norm <- res_normox_a209$log2FoldChange
-names(a209_norm) <- res_normox_a209$symbol
-
-a209_norm <- sort(a209_norm, decreasing = TRUE)
-
-a209_norm <- a209_norm[!duplicated(names(a209_norm))]
-
-#hyp lists
-
-a209_hyp <- res_hypox_a209$log2FoldChange
-names(a209_hyp) <- res_hypox_a209$symbol
-
-a209_hyp <- sort(a209_hyp, decreasing = TRUE)
-
-a209_hyp <- a209_hyp[!duplicated(names(a209_hyp))]
+ggsave(here("plots/plots_8430/down.pdf"))
 
 ```
 
 
+Is the acute hypoxic response the same?
 
 ```{r}
-m_df_h <- msigdbr(species = "Homo sapiens") %>%
-  filter(gs_cat == "H") %>% 
-  dplyr::select(gs_name, gene_symbol)
 
-m_df_c2 <- msigdbr(species = "Homo sapiens") %>%
-  filter(gs_cat == "C2" & gs_subcat != "CGP") %>% 
-  dplyr::select(gs_name, gene_symbol)
+dmso1_sig_up <- a209_acute_dmso_sig %>% 
+  filter(LFC_te_DMSO > 0) %>% 
+  pull(symbol)
+
+dmso1_sig_down <- a209_acute_dmso_sig %>% 
+  filter(LFC_te_DMSO < 0) %>% 
+  pull(symbol)
+
+
+acute_response_dmso2_up
+
+
+acute_response_dmso2_down
+
+
+acute_up <- list(
+  "dmso1" = dmso1_sig_up,
+  "dmso2" = acute_response_dmso2_up
+)
+
+
+ggvenn(acute_up)
+
+intersect(dmso1_sig_up, acute_response_dmso2_up)
+
+ggsave(here("plots/plots_8430/dmso_acute_up.pdf"))
+
+
 ```
 
 
 ```{r}
-a209_norm_h <- GSEA(
-  geneList = a209_norm,
-  eps = 0,
-  pAdjustMethod = "fdr",
-  pvalueCutoff = 1,
-  minGSSize = 20,
-  maxGSSize = 1000,
-  TERM2GENE = m_df_h
-  )
 
-a209_hyp_h <- GSEA(
-  geneList = a209_hyp,
-  eps = 0,
-  pAdjustMethod = "fdr",
-  pvalueCutoff = 1,
-  minGSSize = 20,
-  maxGSSize = 1000,
-  TERM2GENE = m_df_h
-  )
+dmso1_sig_down <- a209_acute_dmso_sig %>% 
+  filter(LFC_te_DMSO > 0) %>% 
+  pull(symbol)
+
+dmso1_sig_down <- a209_acute_dmso_sig %>% 
+  filter(LFC_te_DMSO < 0) %>% 
+  pull(symbol)
 
 
+acute_response_dmso2_down
 
-a209_norm_h <-
-  a209_norm_h@result %>%
-  dplyr::select(ID,NES,p.adjust,core_enrichment) 
 
-a209_hyp_h <- 
-  a209_hyp_h@result %>%
-  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+acute_response_dmso2_down
+
+
+acute_down <- list(
+  "dmso1" = dmso1_sig_down,
+  "dmso2" = acute_response_dmso2_down
+)
+
+
+ggvenn(acute_down)
+
+intersect(dmso1_sig_down, acute_response_dmso2_down)
+
+ggsave(here("plots/plots_8430/dmso_acute_down.pdf"))
 
 
 ```
-
-```{r GSEA KEGG}
-a209_norm_kegg <- GSEA(
-  geneList = a209_norm,
-  eps = 0,
-  pAdjustMethod = "fdr",
-  pvalueCutoff = 1,
-  minGSSize = 20,
-  maxGSSize = 1000,
-  TERM2GENE = m_df_c2 %>%
-  filter(grepl('^KEGG', gs_name))
-  )
-
-a209_hyp_kegg <- GSEA(
-  geneList = a209_hyp,
-  eps = 0,
-  pAdjustMethod = "fdr",
-  pvalueCutoff = 1,
-  minGSSize = 20,
-  maxGSSize = 1000,
-  TERM2GENE = m_df_c2 %>%
-  filter(grepl('^KEGG', gs_name))
-  )
-
-a209_norm_kegg <-
-  a209_norm_kegg@result %>%
-  dplyr::select(ID,NES,p.adjust,core_enrichment) 
-
-a209_hyp_kegg <- 
-  a209_hyp_kegg@result %>%
-  dplyr::select(ID,NES,p.adjust,core_enrichment) 
-
-
-
-a209_pathways <- list("normoxia_hallmark_a209"=a209_norm_h,
-            "hypoxia_hallmark_a209"=a209_hyp_h,
-            "normoxia_kegg_a209"=a209_norm_kegg,
-            "hypoxia_kegg_a209"=a209_hyp_kegg)
-
-writexl::write_xlsx(a209_pathways, here("pathway_tables/a209_normoxia_and_hypoxia.xlsx"))
-
-```
-
-# Invasion
-```{r}
-go_bp <- msigdbr(species = "Homo sapiens", category = "C5")
-
-m_df_c2 <- msigdbr(species = "Homo sapiens") %>%
-  filter(gs_cat == "C2" & gs_subcat != "CGP") %>% 
-  dplyr::select(gs_name, gene_symbol)
-
-
-go_invasion <- go_bp %>% 
-  filter(gs_name== "GO_CELL_INVASION")
-
-go_invasion <- go_bp %>%
-  filter(grepl("invasion", gs_name, ignore.case = TRUE) |
-         grepl("invasion", gs_description, ignore.case = TRUE))
-```
-
-GO_CELL_INVASION
-
-GO_POSITIVE_REGULATION_OF_CELL_INVASION
-
-GO_NEGATIVE_REGULATION_OF_CELL_INVASION
-
-GO_INVASION_OF_TUMOR_CELLS_INTO_EXTRACELLULAR_MATRIX
-
-
-import invasion pathway
-```{r}
-invasion_genes <- read_csv(here("other_data/melanoma_invasion.csv")) %>% 
-  rename("FC_invasion_score"="Fold Change") %>% 
-  rename("symbol"="Symbol")
-```
-
-cytoskelatal adhesion emt
-merge invasion genes
-```{r}
-
-res_3d_invasion <-
-res_hypox_si3d %>% 
-  left_join(invasion_genes) %>% 
-  filter(padj < 0.05)
-```
-
-down with 3dKD = 3d upregulates
-
-Look at stuff down with 3d KD and up with invasion
-
-```{r}
-invasion_interest_3d_hypox <- 
-res_3d_invasion %>% 
-  filter(log2FoldChange < 0 & FC_invasion_score > 0)
-
-print(invasion_interest_3d_hypox)
-```
-
-
-
-hypox 3e
-
-```{r}
-
-res_3e_invasion <-
-res_hypox_si3e %>% 
-  left_join(invasion_genes) %>% 
-  filter(padj < 0.05)
-
-invasion_interest_3e_hypox <- 
-res_3e_invasion %>% 
-  filter(log2FoldChange < 0 & FC_invasion_score > 0)
-
-print(invasion_interest_3e_hypox)
-
-```
-
-Same two genes come up.
-
-Now try normoxia
-
-
-```{r}
-
-res_3d_invasion <-
-res_normox_si3d %>% 
-  left_join(invasion_genes) %>% 
-  filter(padj < 0.05)
-
-invasion_interest_3d_normox <- 
-res_3d_invasion %>% 
-  filter(log2FoldChange < 0 & FC_invasion_score > 0)
-
-print(invasion_interest_3d_normox)
-
-res_3e_invasion <-
-res_normox_si3e %>% 
-  left_join(invasion_genes) %>% 
-  filter(padj < 0.05)
-
-invasion_interest_3e_normox <- 
-res_3e_invasion %>% 
-  filter(log2FoldChange < 0 & FC_invasion_score > 0)
-
-print(invasion_interest_3e_normox)
-
-```
-
-Also the same!!!!!
-
-Two invasion genes are signficantly upregualted by 3d (down with 3d KD). These genes promote invasion
-
-Ectopic overexpression of UQCRH in KMRC2 restored mitochondrial membrane potential, increased oxygen consumption, and attenuated the Warburg effect at the cellular level.
-
-what is the ribo and rna counts for these?
-```{r}
-
-```
-
-
 
