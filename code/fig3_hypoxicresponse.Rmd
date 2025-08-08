@@ -170,6 +170,109 @@ ggsave(here("plots/fig3/hif_hypoxia.pdf"), width = 4, height = 3)
 ```
 
 
+###### Look at IL6st here
+```{r}
+
+# rna and ribo
+all_gene_te_long_both <- all_gene_te %>% 
+  melt() %>% 
+  separate(variable, into = c("condition", "treatment", "rep", "type")) %>% 
+  filter(treatment != "a209") %>% 
+  filter(treatment != "DMSO")
+
+all_gene_te_long_both$treatment <- relevel(factor(all_gene_te_long_both$treatment), ref = "sictrl")
+all_gene_te_long_both$condition <- relevel(factor(all_gene_te_long_both$condition), ref = "normoxia")
+
+il6st <-all_gene_te_long_both %>% 
+  filter(symbol=="IL6ST")
+
+bars_il6st <- il6st %>% 
+  filter(type != "TE")
+
+bars__summary <- bars_il6st %>%
+  group_by(type, treatment, condition) %>%
+  summarise(
+    mean_value = mean(value),
+    sd = sd(value)  # Standard deviation
+  )
+
+bars__summary$type <- factor(bars__summary$type, levels=c("rna","ribo"))
+
+ggplot(bars__summary, aes(x = type, y = mean_value, fill = treatment)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin = mean_value - sd, ymax = mean_value + sd), 
+                width = 0.2, position = position_dodge(0.9)) +
+  facet_wrap(~condition+treatment) +
+  scale_fill_manual(values = c("grey",si3d_col,si3e_col)) +
+  # theme_cowplot()+
+    theme(legend.position = "none")+
+  labs(y="Mean TE", x="")
+
+ggsave(here("plots/il6st/il6st_rna_ribo_bars.pdf"), width = 4, height = 4.5)
+
+bars_il6st$type <- factor(bars_il6st$type, levels=c("rna","ribo"))
+
+#dots
+ggplot(bars_il6st, aes(x = type, y = value, color = treatment)) +
+  geom_point(stat = "identity", position = position_dodge()) +
+  facet_wrap(~condition+treatment) +
+  scale_color_manual(values = c("grey",si3d_col,si3e_col)) +
+  # theme_cowplot()+
+    theme(legend.position = "none")+
+    labs(y= "TE", x="")
+
+
+ggsave(here("plots/il6st/il6st_rna_ribo_dots.pdf"), width = 4, height = 4.5)
+
+
+
+
+#TE 
+il6st_te <- il6st %>% 
+  filter(type == "TE")
+
+te_summary <- il6st_te %>%
+  group_by(type, treatment, condition) %>%
+  summarise(
+    mean_value = mean(value),
+    sd = sd(value)  # Standard deviation
+  )
+
+te_summary$condition <- factor(te_summary$condition, levels=c("normoxia","hypoxia"))
+
+ggplot(te_summary, aes(x = treatment, y = mean_value, fill = treatment)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin = mean_value - sd, ymax = mean_value + sd), 
+                width = 0.2, position = position_dodge(0.9)) +
+  facet_wrap(~condition) +
+  scale_fill_manual(values = c("grey",si3d_col,si3e_col)) +
+  # theme_cowplot()+
+    theme(legend.position = "none")+
+  labs(y= "Mean TE", x="")
+
+ggsave(here("plots/il6st/il6st_TE_bars.pdf"), width = 4, height = 4.5)
+
+
+ggplot(il6st_te, aes(x = treatment, y = value, color = treatment)) +
+  geom_point(stat = "identity", position = position_dodge()) +
+  facet_wrap(~condition) +
+  scale_color_manual(values = c("grey",si3d_col,si3e_col)) +
+  # theme_cowplot()+
+    theme(legend.position = "none")+
+    labs(y= "TE", x="")
+
+
+ggsave(here("plots/il6st/il6st_TE_dots.pdf"), width = 4, height = 4.5)
+
+
+
+```
+
+
+
+#######
+
+
 ## Acute hypoxic response: Control normoxia to hypoxia.
 
 ### TE changes
@@ -1002,9 +1105,6 @@ all_counts_normox_si3e
 
 ### Visualize normoxic vs hyoxic response
 ```{r}
-# hyp_vs_norm_kds <- rbind(all_counts_normox_si3e, all_counts_normox_si3d, all_counts_hypox_si3e, all_counts_hypox_si3d) %>% 
-#   melt() %>% 
-#   separate(dataset, into=c("condition", "sample"))
 
 hyp_vs_norm_kds <- rbind(all_counts_normox_si3e, all_counts_normox_si3d,
                          all_counts_hypox_si3e, all_counts_hypox_si3d) %>%
@@ -1055,6 +1155,13 @@ eif3d_bar
 ggsave(here("plots/fig3/eIF3dbars.pdf"), eif3d_bar, width = 4, height = 4)
 
 ```
+
+## Visualize targets -- IL6st
+TE changes
+RNA/ribo changes
+
+
+
 
 
 ## Lists for pathway analysis - delete

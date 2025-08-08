@@ -174,7 +174,7 @@ heatmap <- pheatmap::pheatmap(
 
 heatmap
 
-ggsave(here("plots/plots_8430/qc.pdf"), heatmap)
+ggsave(here("plots/plots_8430/qc.pdf"), heatmap, width=4.5, height = 4)
 ```
 
 
@@ -215,7 +215,7 @@ heatmap_normoxia <- pheatmap::pheatmap(
 
 
 heatmap_normoxia
-ggsave(heatmap_normoxia, filename=here("plots/qc/heatmap_normoxia_kds.pdf"), width=4.5, height=4)
+ggsave(heatmap_normoxia, filename=here("plots/plots_8430/heatmap_normoxia.pdf"), width=4.5, height=4)
 
 # RIBO average correlation coefficient
 
@@ -283,7 +283,7 @@ heatmap_hypoxia <- pheatmap::pheatmap(
 
 
 heatmap_hypoxia
-ggsave(heatmap_hypoxia, filename=here("plots/qc/heatmap_hyp_kds_w_outlier.pdf"), width=4.5, height=4)
+ggsave(heatmap_hypoxia, filename=here("plots/plots_8430/heatmap_hyp.pdf"), width=4.5, height=4)
 
 ```
 
@@ -1037,6 +1037,9 @@ ggsave(filename= here("plots/plots_8430/acute_dmso_8430.pdf"), scatter_acute_dms
 ```
 
 
+
+
+
 # Differential gene expression for 8430 compared to DMSO in normoxia
 
 ```{r}
@@ -1308,43 +1311,43 @@ si3e_hypoxia_down$gs_name <- rep("si3e_hypoxia_down")
 
 #normoxia 
 
-#up
-a209_normoxia_up <- res_normox_a209 %>% 
-  as.data.frame() %>% 
-  filter(padj < .05 & log2FoldChange > 0) %>%
-dplyr::select(symbol)
-
-a209_normoxia_up$gs_name <- rep("a209_normoxia_up")
-
-#down
-
-a209_normoxia_down <- res_normox_a209 %>% 
-  as.data.frame() %>% 
-  filter(padj < .05 & log2FoldChange < 0) %>%
-dplyr::select(symbol)
-
-a209_normoxia_down$gs_name <- rep("a209_normoxia_down")
-
-
-#hypoxia
-
-#up
-
-a209_hypoxia_up <- res_hypox_a209 %>% 
-  as.data.frame() %>% 
-  filter(padj < .05 & log2FoldChange > 0) %>%
-dplyr::select(symbol)
-
-a209_hypoxia_up$gs_name <- rep("a209_hypoxia_up")
-
-#down
-
-a209_hypoxia_down <- res_hypox_a209 %>% 
-  as.data.frame() %>% 
-  filter(padj < .05 & log2FoldChange < 0) %>%
-dplyr::select(symbol)
-
-a209_hypoxia_down$gs_name <- rep("a209_hypoxia_down")
+# #up
+# a209_normoxia_up <- res_normox_a209 %>% 
+#   as.data.frame() %>% 
+#   filter(padj < .05 & log2FoldChange > 0) %>%
+# dplyr::select(symbol)
+# 
+# a209_normoxia_up$gs_name <- rep("a209_normoxia_up")
+# 
+# #down
+# 
+# a209_normoxia_down <- res_normox_a209 %>% 
+#   as.data.frame() %>% 
+#   filter(padj < .05 & log2FoldChange < 0) %>%
+# dplyr::select(symbol)
+# 
+# a209_normoxia_down$gs_name <- rep("a209_normoxia_down")
+# 
+# 
+# #hypoxia
+# 
+# #up
+# 
+# a209_hypoxia_up <- res_hypox_a209 %>% 
+#   as.data.frame() %>% 
+#   filter(padj < .05 & log2FoldChange > 0) %>%
+# dplyr::select(symbol)
+# 
+# a209_hypoxia_up$gs_name <- rep("a209_hypoxia_up")
+# 
+# #down
+# 
+# a209_hypoxia_down <- res_hypox_a209 %>% 
+#   as.data.frame() %>% 
+#   filter(padj < .05 & log2FoldChange < 0) %>%
+# dplyr::select(symbol)
+# 
+# a209_hypoxia_down$gs_name <- rep("a209_hypoxia_down")
 
 
 ```
@@ -1541,6 +1544,410 @@ ggvenn(acute_down)
 intersect(dmso1_sig_down, acute_response_dmso2_down)
 
 ggsave(here("plots/plots_8430/dmso_acute_down.pdf"))
+
+
+```
+
+
+### cdf
+Alright-- let's use a cdf plot to see how a209 and 8430 impact translation without using a p-value cutoff.
+
+
+Long list of each gene, its fold change with DMSO treatment 1, DMSO treatment 2, a209 treatmnet, 8430 treatment
+
+```{r}
+
+treat1 <- a209_acute %>% 
+  dplyr::select(symbol, LFC_te_DMSO, LFC_te_a209) %>% 
+  rename("DMSO_1" = "LFC_te_DMSO") %>% 
+  rename("a209" = "LFC_te_a209")
+
+
+
+dmso2 <- res_acute_DMSO %>% 
+  dplyr::select(symbol, log2FoldChange) %>% 
+  rename("DMSO_2" = "log2FoldChange")
+
+c8430 <- res_acute_8430 %>% 
+  dplyr::select(symbol, log2FoldChange) %>% 
+  rename("c_8430" = "log2FoldChange")
+
+treat1_dmso2 <- treat1 %>% 
+  left_join(dmso2) %>% 
+  left_join(c8430)
+
+
+
+all_lfc <- treat1_dmso2 %>% 
+  pivot_longer(cols= 2:5, names_to = "treatment", values_to = "acute_hypoxia_LFC")
+
+```
+
+```{r}
+
+ggplot(all_lfc, aes(x=acute_hypoxia_LFC, color=treatment))+
+stat_ecdf()+
+  theme_cowplot()+
+  xlim(-.75,.75)+
+  scale_color_manual(values = c(
+    "DMSO_1" = "black",
+    "DMSO_2" = "grey",
+    "a209" = "#CC79A7",
+    "c_8430" = "#009E73"
+  ))
+
+
+ggsave(here("plots/plots_8430/compound_ecdf.pdf"))
+```
+
+turns out that was a weird thing to do. Try something else:
+
+```{r}
+
+dmso_a209 <- a209_acute %>% 
+  dplyr::select(symbol, LFC_te_DMSO, padj_te_DMSO, LFC_te_a209) %>% 
+  rename("DMSO_1" = "LFC_te_DMSO") %>% 
+  rename("a209" = "LFC_te_a209") %>% 
+  mutate("DMSO_1_experiment" = case_when(
+    DMSO_1 > 0 & padj_te_DMSO < 0.05 ~ "up_acute",
+    DMSO_1 < 0 & padj_te_DMSO < 0.05 ~ "down_acute",
+    .default = "other"
+  ))
+
+
+
+dmso2 <- res_acute_DMSO %>% 
+  dplyr::select(symbol, log2FoldChange, padj) %>% 
+  rename("DMSO_2" = "log2FoldChange") %>% 
+  rename("DMSO_2_padj" = "padj")
+
+c8430 <- res_acute_8430 %>% 
+  dplyr::select(symbol, log2FoldChange) %>% 
+  rename("c_8430" = "log2FoldChange")
+
+four_exps <- dmso_a209 %>% 
+  left_join(dmso2) %>% 
+  left_join(c8430)
+
+
+
+
+```
+
+Plot
+```{r}
+ggplot(four_exps, aes(x=DMSO_2, color=DMSO_1_experiment))+
+  stat_ecdf()+
+  theme_cowplot()
+```
+
+
+```{r}
+ggplot(four_exps, aes(x=c_8430, color=DMSO_1_experiment))+
+  stat_ecdf()+
+  theme_cowplot()
+```
+
+
+Um!!!
+
+Do this with sictrl defined acute up and acute down groups.
+```{r}
+first_acute <- read_csv(here("counts/fig3/all_norm_to_hyp_changes.csv")) %>% 
+ mutate("sictrl_direction" = case_when(
+    LFC_te_sictrl > 0 & padj_te_sictrl < 0.05 ~ "up_acute",
+    LFC_te_sictrl < 0 & padj_te_sictrl < 0.05 ~ "down_acute",
+    .default = "other"
+  ))
+
+#sanity check
+ggplot(first_acute, aes(x=LFC_te_sictrl, color=sictrl_direction))+
+  stat_ecdf()+
+  theme_cowplot()
+
+ggsave(here("plots/plots_8430/sictrl_ecdf.pdf"))
+
+```
+
+then with a209 treatment
+```{r}
+
+#merge with a209
+
+first_acute_a209 <- first_acute %>% 
+  left_join(dmso_a209)
+
+ggplot(first_acute_a209, aes(x=a209, color=sictrl_direction))+
+  stat_ecdf()+
+  theme_cowplot()
+
+ggsave(here("plots/plots_8430/a209_ecdf.pdf"))
+
+```
+
+```{r}
+
+ggplot(first_acute_a209, aes(x=DMSO_1, color=sictrl_direction))+
+  stat_ecdf()+
+  theme_cowplot()+
+  xlim(-2,2)
+
+ggsave(here("plots/plots_8430/DMSO_1_ecdf.pdf"))
+```
+
+```{r}
+
+all_exps <- first_acute_a209 %>% 
+  left_join(dmso2) %>% 
+  left_join(c8430)
+
+
+ggplot(all_exps, aes(x=DMSO_2, color=sictrl_direction))+
+  stat_ecdf()+
+  theme_cowplot()+
+  xlim(-2,2)
+
+ggsave(here("plots/plots_8430/DMSO_2_ecdf.pdf"))
+
+```
+
+```{r}
+ggplot(all_exps, aes(x=c_8430, color=sictrl_direction))+
+  stat_ecdf()+
+  theme_cowplot()+
+  xlim(-2,2)
+
+ggsave(here("plots/plots_8430/8430_ecdf.pdf"))
+
+```
+
+```{r}
+dmso_2_colors <- all_exps %>% 
+ mutate("dmso2_direction" = case_when(
+    DMSO_2 > 0 & DMSO_2_padj < 0.05 ~ "up_acute",
+    DMSO_2 < 0 & DMSO_2_padj < 0.05 ~ "down_acute",
+    .default = "other"
+  ))
+
+ggplot(dmso_2_colors, aes(x=DMSO_2, color=dmso2_direction))+
+  stat_ecdf()+
+  theme_cowplot()+
+  xlim(-2,2)
+
+ggsave(here("plots/plots_8430/dmso2_ecdf.pdf"))
+
+ggplot(dmso_2_colors, aes(x=c_8430, color=dmso2_direction))+
+  stat_ecdf()+
+  theme_cowplot()+
+  xlim(-2,2)
+
+ggsave(here("plots/plots_8430/c8430_ecdf.pdf"))
+
+
+dmso_2_colors %>% 
+  ggplot(aes(x=dmso2_direction))+
+  geom_bar()+
+    geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.5) +
+  theme_cowplot()
+
+
+
+
+```
+
+After meeting with Heide and Neel:
+
+```{r}
+
+detailed <- dmso_2_colors %>% 
+  dplyr::select(symbol, DMSO_2, c_8430) %>% 
+  pivot_longer(2:3, names_to="treatment", values_to = "log2FoldChange") %>% 
+  mutate(direction= case_when(
+    log2FoldChange < 0 ~ "down",
+    log2FoldChange > 0 ~ "up",
+    .default="other"
+  )) %>% 
+ unite(col=treatment_direction, treatment, direction, sep=" ", remove=FALSE) %>% 
+  filter(treatment_direction != "c_8430 other") %>% 
+    filter(treatment_direction != "DMSO_2 other")
+
+detailed$treatment_direction <- factor(detailed$treatment_direction, levels=c("DMSO_2 up", "DMSO_2 down", "c_8430 up","c_8430 down"))
+
+```
+
+```{r}
+ggplot(detailed, aes(x= treatment_direction, y=log2FoldChange, color=treatment))+
+  geom_violin()+
+  scale_color_manual(values=c("#009E73", "grey"))+
+  geom_point(position = position_jitter(seed = 1, width = 0.2), alpha=.1) +
+  theme_cowplot()+
+  ylim(-1.5,1.5)
+
+ggsave(here("plots/plots_8430/violin.pdf"))
+
+
+
+ 
+```
+#with DMSO p. value cutoff
+
+```{r}
+
+detailed_pcut <- dmso_2_colors %>% 
+  filter(DMSO_2_padj<0.05) %>% 
+  dplyr::select(symbol, DMSO_2, c_8430) %>% 
+  pivot_longer(2:3, names_to="treatment", values_to = "log2FoldChange") %>% 
+  mutate(direction= case_when(
+    log2FoldChange < 0 ~ "down",
+    log2FoldChange > 0 ~ "up",
+    .default="other"
+  )) %>% 
+ unite(col=treatment_direction, treatment, direction, sep=" ", remove=FALSE) %>% 
+  filter(treatment_direction != "c_8430 other") %>% 
+    filter(treatment_direction != "DMSO_2 other")
+
+detailed_pcut$treatment_direction <- factor(detailed_pcut$treatment_direction, levels=c("DMSO_2 up", "c_8430 up","DMSO_2 down","c_8430 down"))
+
+ggplot(detailed_pcut, aes(x= treatment_direction, y=log2FoldChange, color=treatment))+
+  geom_violin()+
+  scale_color_manual(values=c("#009E73", "grey"))+
+  geom_point(position = position_jitter(seed = 1, width = 0.2), alpha=.4) +
+  theme_cowplot()+
+  ylim(-1.5,1.5)
+
+ggsave(here("plots/plots_8430/violin_8430_p_cutoff.pdf"))
+
+
+ggplot(detailed_pcut, aes(y=log2FoldChange, x=treatment_direction, color=treatment))+
+  geom_boxplot()+
+  scale_color_manual(values=c("#009E73", "grey"))+
+  theme_cowplot()+
+  ylim(-1.5,1.5)
+
+ggsave(here("plots/plots_8430/boxplot_8430_p_cutoff.pdf"))
+
+
+
+ggplot(detailed_pcut, aes(y=log2FoldChange, x=treatment_direction, color=treatment))+
+  geom_boxplot()+
+  scale_color_manual(values=c("#009E73", "grey"))+
+  theme_cowplot()+
+  ylim(-1.5,1.5)+
+  geom_hline(yintercept = 0)
+
+ggsave(here("plots/plots_8430/boxplot_8430_p_cutoff_line.pdf"))
+
+
+```
+
+same for a209
+```{r}
+detailed_pcut_a209 <- dmso_2_colors %>% 
+  filter(padj_te_DMSO<0.05) %>% 
+  dplyr::select(symbol, DMSO_1, a209) %>% 
+  pivot_longer(2:3, names_to="treatment", values_to = "log2FoldChange") %>% 
+  mutate(direction= case_when(
+    log2FoldChange < 0 ~ "down",
+    log2FoldChange > 0 ~ "up",
+    .default="other"
+  )) %>% 
+ unite(col=treatment_direction, treatment, direction, sep=" ", remove=FALSE) %>% 
+  filter(treatment_direction != "a209 other") %>% 
+    filter(treatment_direction != "DMSO_1 other")
+
+detailed_pcut_a209$treatment_direction <- factor(detailed_pcut_a209$treatment_direction, levels=c("DMSO_1 up", "a209 up","DMSO_1 down","a209 down"))
+
+ggplot(detailed_pcut_a209, aes(x= treatment_direction, y=log2FoldChange, color=treatment))+
+  geom_violin()+
+  scale_color_manual(values=c("#CC79A7", "grey"))+
+  geom_point(position = position_jitter(seed = 1, width = 0.2), alpha=.4) +
+  theme_cowplot()+
+  ylim(-1.5,1.5)
+
+ggsave(here("plots/plots_8430/violin_a209_p_cutoff.pdf"))
+
+
+ggplot(detailed_pcut_a209, aes(y=log2FoldChange, x=treatment_direction, color=treatment))+
+  geom_boxplot()+
+  scale_color_manual(values=c("#CC79A7", "grey"))+
+  theme_cowplot()+
+  ylim(-1.5,1.5)
+
+ggsave(here("plots/plots_8430/boxplot_a209_p_cutoff.pdf"))
+
+```
+
+
+
+```{r}
+t_test <- detailed %>%
+  t.test(log2FoldChange ~ treatment, data = .)
+
+t_test
+
+```
+
+```{r}
+ggplot(detailed, aes(x=log2FoldChange, color=treatment))+
+  geom_density()+
+  theme_cowplot()+
+  xlim(-1,1)+
+  scale_color_manual(values=c("#009E73", "grey"))
+
+ggsave(here("plots/plots_8430/violin.pdf"))
+
+```
+
+```{r}
+# sig_numbers_acute <-all_changes_dmso_8430 %>% 
+#   dplyr::select(symbol, LFC_te_DMSO, LFC_te_8430, padj_te_DMSO, padj_te_8430)
+# 
+# dmso <- sig_numbers_acute %>% 
+#   dplyr::select(symbol, LFC_te_DMSO, padj_te_DMSO) %>% 
+#   pivot_longer(2, names_to="DMSO", values_to = "LFC")
+#   
+#   
+  
+
+dmso <- all_counts_acute_DMSO %>% 
+  rename("DMSO_up" = "upreg") %>% 
+  rename("DMSO_down" = "downreg") %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  rename("acute_hypoxia_sig_changes"="V1")
+
+c8430_acute <- all_counts_acute_8430 %>% 
+  rename("8430_up" = "upreg") %>% 
+  rename("8430_down" = "downreg") %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  rename("acute_hypoxia_sig_changes"="V1")
+
+acute_changes <- rbind(dmso, c8430_acute) %>% 
+  rownames_to_column("category")
+
+acute_changes$category <- factor(acute_changes$category, levels=c("DMSO_up", "DMSO_down", "8430_up","8430_down"))
+
+  
+#   
+# all_changes_dmso_8430 %>% 
+#   mutate(acute_hypoxic_response = case_when(
+#     LFC_te_DMSO > 0 & padj_te_DMSO < 0.05 ~ "DMSO_up",
+#     LFC_te_DMSO < 0 & padj_te_DMSO < 0.05 ~ "DMSO_down",
+#     LFC_te_8430 > 0 & padj_te_8430 < 0.05 ~ "8430_up",
+#     LFC_te_8430 < 0 & padj_te_8430 < 0.05 ~ "8430_down",
+#     .default="other"
+#   )) %>% 
+#  filter(acute_hypoxic_response != "other")
+# 
+
+
+ggplot(acute_changes, aes(x=category, y=acute_hypoxia_sig_changes))+
+  geom_bar(stat="identity")+
+  theme_cowplot()+
+    geom_text(aes(label = acute_hypoxia_sig_changes), vjust = -0.4)
+
+ggsave(here("plots/plots_8430/bars.pdf"))
 
 
 ```
