@@ -1175,6 +1175,14 @@ scatter_acute_sictrl_3e
 
 ggsave(filename= here("plots/plots_231/acute_sictrl_si3e.pdf"), scatter_acute_sictrl_3e, height=4, width=4)
 
+sig_sictrl %>% 
+  filter(padj_te_3e < 0.05 & LFC_te_si3e > 0) %>% 
+  nrow()
+
+sig_sictrl %>% 
+  filter(padj_te_3e < 0.05 & LFC_te_si3e < 0) %>% 
+  nrow()
+
 ```
 
 
@@ -1229,6 +1237,9 @@ scatter_acute_sictrl_3d <- ggMarginal(scatter_acute_sictrl_3d, type = "histogram
 scatter_acute_sictrl_3d
 
 ggsave(filename= here("plots/plots_231/acute_sictrl_si3d.pdf"), scatter_acute_sictrl_3d, height=4, width=4)
+
+
+nrow(sig_sictrl)
 
 ```
 
@@ -1867,7 +1878,7 @@ pval <- norm_all.pval.matrix %>%
   pivot_longer(2:11, names_to = "comparison", values_to="pval_value")
 
 
-odds_pval <- left_join(odds, pval, by=c("sample", "comparison")) %>% 
+odds_pval_norm <- left_join(odds, pval, by=c("sample", "comparison")) %>% 
   tidyr::unite("comparison", 1:2, sep="-") 
 ```
 
@@ -1875,7 +1886,7 @@ odds_pval <- left_join(odds, pval, by=c("sample", "comparison")) %>%
 
 
 ```{r}
-odds_pval_3e<-odds_pval %>% 
+odds_pval_3e<-odds_pval_norm %>% 
   filter(comparison == "mcf7six1, si3e, down-mb231, si3e, down"| 
          comparison =="mcf7six1, si3e, up-mb231, si3e, up"|
            comparison == "mcf7six1, si3d, down-mb231, si3d, down"|
@@ -1939,7 +1950,7 @@ pval <- hyp_all.pval.matrix %>%
   pivot_longer(2:11, names_to = "comparison", values_to="pval_value")
 
 
-odds_pval <- left_join(odds, pval, by=c("sample", "comparison")) %>% 
+odds_pval_hyp <- left_join(odds, pval, by=c("sample", "comparison")) %>% 
   tidyr::unite("comparison", 1:2, sep="-") 
 ```
 
@@ -1947,7 +1958,7 @@ odds_pval <- left_join(odds, pval, by=c("sample", "comparison")) %>%
 
 
 ```{r}
-odds_pval_3e<-odds_pval %>% 
+odds_pval_3e<-odds_pval_hyp %>% 
   filter(comparison == "mcf7six1, si3e, down-mb231, si3e, down"| 
          comparison =="mcf7six1, si3e, up-mb231, si3e, up"|
            comparison == "mcf7six1, si3d, down-mb231, si3d, down"|
@@ -2246,20 +2257,20 @@ nrow(mcf7six1_acute_3d)
 3e overlap between cell lines
 ```{r}
 acute_3e_sig_down_MCF7SIX1 <- mcf7six1_acute_3e %>% 
-  filter(LFC_te_sictrl > 0) %>% 
+  filter(LFC_te_sictrl < 0) %>% 
   pull(symbol)
 
 acute_3e_sig_up_MCF7SIX1 <- mcf7six1_acute_3e %>% 
-  filter(LFC_te_sictrl < 0) %>% 
+  filter(LFC_te_sictrl > 0) %>% 
   pull(symbol)
 
 
 acute_3e_sig_down_MB231 <- mb231_acute_3e %>% 
-  filter(LFC_te_sictrl > 0) %>% 
+  filter(LFC_te_sictrl < 0) %>% 
   pull(symbol)
 
 acute_3e_sig_up_MB231 <- mb231_acute_3e %>% 
-  filter(LFC_te_sictrl < 0) %>% 
+  filter(LFC_te_sictrl > 0) %>% 
   pull(symbol)
 
 
@@ -2350,6 +2361,983 @@ ggsave(here("plots/plots_231/acute_up_d.pdf"))
 
 ```
 
+
+# Compare the acute hypoxic response in both cell lines
+
+
+Correlation between TE changes with control in both cell lines
+```{r}
+
+colnames(mcf7six1_acute)
+
+mcf7six1_acute_ctrl <- mcf7six1_acute %>% 
+  dplyr::select(gene_id, LFC_te_sictrl, padj_te_sictrl) %>% 
+  rename("LFC_te_sictrl_mcf7six1" = "LFC_te_sictrl") %>% 
+    rename("padj_te_sictrl_mcf7six1" = "padj_te_sictrl")
+
+
+
+
+mb231_acute_ctrl <- all_changes %>% 
+  dplyr::select(gene_id, LFC_te_sictrl, padj_te_sictrl) %>% 
+  rename("LFC_te_sictrl_mb231" = "LFC_te_sictrl") %>% 
+    rename("padj_te_sictrl_mb231" = "padj_te_sictrl")
+
+both_lines_ctrl <- left_join(mcf7six1_acute_ctrl, mb231_acute_ctrl)
+
+
+
+
+```
+
+
+```{r}
+
+scatter_acute_both_cells <- ggplot(data = both_lines_ctrl, aes(x = LFC_te_sictrl_mcf7six1, y = LFC_te_sictrl_mb231)) + 
+  ylim(-2,2) + 
+  xlim(-2,2) +
+  geom_hline(yintercept = 0, color = "grey") + 
+  geom_vline(xintercept = 0, color = "grey") +
+  geom_point(alpha=.25) +
+  ylab(bquote(Log[2]~"MB231 si-ctrl LFC"~"TE: hypoxia vs normoxia")) +
+  xlab(bquote(Log[2]~"MCF7SIX1 si-ctrl LFC"~"TE: hypoxia vs normoxia")) +
+    theme_cowplot(font_size = 9)+
+  theme_prism()+
+  stat_cor(
+    method = "pearson", 
+    label.x = -1.8,   # adjust placement
+    label.y = 1.8,
+    size = 5)
+
+scatter_acute_both_cells <- ggMarginal(scatter_acute_both_cells, type = "histogram",
+           xparams = list(binwidth = .1, fill = "orange"),
+           yparams = list(binwidth = .1, fill = "pink")
+           )
+
+scatter_acute_both_cells
+
+ggsave(filename= here("plots/plots_231/acute_sictrl.pdf"), scatter_acute_both_cells, height=4, width=4)
+
+```
+
+# Overlap of a209 targets in mcf7six1 with e and d in 231s
+# NORMOXIA
+```{r}
+odds_pval_a209<-odds_pval_norm %>% 
+  filter(comparison == "mcf7six1, a209, down-mb231, si3e, down"| 
+         comparison =="mcf7six1, a209, up-mb231, si3e, up"|
+           comparison == "mcf7six1, a209, down-mb231, si3d, down"|
+           comparison == "mcf7six1, a209, up-mb231, si3d, up")
+
+
+ggpubr::ggbarplot(odds_pval_a209, x="comparison", y="odds_value", label = formatC(odds_pval_3e$pval_value, format = "e", digits = 2), title="Overlap of 3e/3d targets in MB-231s in normoxia with a209 in MCF7SIX1s", palette = c(si3d_col, si3e_col), ylim=c(0,6))+
+  geom_hline(aes(yintercept=1))+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+
+ggsave(here("plots/plots_231/normoverlap209.pdf"), width=7, height=7)
+
+```
+
+
+#HYPOXIA
+```{r}
+odds_pval_a209_hyp<-odds_pval_hyp %>% 
+ filter(comparison == "mcf7six1, a209, down-mb231, si3e, down"| 
+         comparison =="mcf7six1, a209, up-mb231, si3e, up"|
+           comparison == "mcf7six1, a209, down-mb231, si3d, down"|
+           comparison == "mcf7six1, a209, up-mb231, si3d, up")
+
+
+ggpubr::ggbarplot(odds_pval_a209_hyp, x="comparison", y="odds_value", label = formatC(odds_pval_3e$pval_value, format = "e", digits = 2), title="Overlap of 3e/3d targets in MB-231s in normoxia with a209 in MCF7SIX1s", palette = c(si3d_col, si3e_col), ylim=c(0,6))+
+  geom_hline(aes(yintercept=1))+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+
+ggsave(here("plots/plots_231/hypoverlap.pdf"), width=7, height=7)
+
+```
+
+
+
+# Venn diagrams
+
+```{r}
+
+all_lists <- bind_rows(mcf7six1_si3e_normoxia_up, mcf7six1_si3d_normoxia_up, a209_normoxia_up, 
+                       mcf7six1_si3e_normoxia_down, mcf7six1_si3d_normoxia_down, a209_normoxia_down, 
+                       mcf7six1_si3e_hypoxia_up, mcf7six1_si3d_hypoxia_up, a209_hypoxia_up, 
+                       mcf7six1_si3e_hypoxia_down, mcf7six1_si3d_hypoxia_down, a209_hypoxia_down,
+                       mb231_si3e_normoxia_up, mb231_si3d_normoxia_up, 
+                       mb231_si3e_normoxia_down, mb231_si3d_normoxia_down, 
+                       mb231_si3e_hypoxia_up, mb231_si3d_hypoxia_up, 
+                       mb231_si3e_hypoxia_down, mb231_si3d_hypoxia_down) %>% 
+extract(gs_name,
+        into = c("cell_line", "treatment", "condition", "direction"),
+        regex = "([^_]+)_([^_]+)_([^_]+)_([^_]+)")
+
+```
+
+Normoxia
+## Venn diagram of 3e/d gene overlaps in normoxia
+```{r compare genes}
+mcf7six1_si3e_normoxia_up <- mcf7six1_si3e_normoxia_up %>% pull(symbol)
+mcf7six1_si3d_normoxia_up <- mcf7six1_si3d_normoxia_up %>% pull(symbol)
+
+mcf7six1_si3e_normoxia_down <- mcf7six1_si3e_normoxia_down %>% pull(symbol)
+mcf7six1_si3d_normoxia_down <- mcf7six1_si3d_normoxia_down %>% pull(symbol)
+
+mb231_si3e_normoxia_up <- mb231_si3e_normoxia_up %>% pull(symbol)
+mb231_si3d_normoxia_up <- mb231_si3d_normoxia_up %>% pull(symbol)
+
+mb231_si3e_normoxia_down <- mb231_si3e_normoxia_down %>% pull(symbol)
+mb231_si3d_normoxia_down <- mb231_si3d_normoxia_down %>% pull(symbol)
+
+#3e
+
+#up
+
+norm_te_up_3e <- list(
+  MCF7SIX1 = mcf7six1_si3e_normoxia_up, 
+  MDA_MB_231 = mb231_si3e_normoxia_up
+)
+
+ggvenn(
+  norm_te_up_3e,
+  auto_scale = TRUE,
+  text_size = 6,
+  fill_color = c(si3e_col, "blue")
+) +
+  ggtitle("Up with 3e KD - Normoxia") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 18) # center + bigger font
+  )
+
+ggsave(width = 6, height = 6, filename = here("plots/plots_231/3e_norm_vennup.pdf"))
+
+
+#down
+
+norm_te_down_3e <- list(
+  MCF7SIX1 = mcf7six1_si3e_normoxia_down, 
+  MDA_MB_231 = mb231_si3e_normoxia_down
+)
+
+ggvenn(
+  norm_te_down_3e,
+  auto_scale = TRUE,
+  text_size = 6,
+  fill_color = c(si3e_col, "blue")
+) +
+  ggtitle("down with 3e KD - Normoxia") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 18) # center + bigger font
+  )
+
+ggsave(width = 6, height = 6, filename = here("plots/plots_231/3e_norm_venndown.pdf"))
+
+
+
+
+
+
+#3d
+
+#up
+
+norm_te_up_3d <- list(
+  MCF7SIX1 = mcf7six1_si3d_normoxia_up, 
+  MDA_MB_231 = mb231_si3d_normoxia_up
+)
+
+ggvenn(
+  norm_te_up_3d,
+  auto_scale = TRUE,
+  text_size = 6,
+  fill_color = c(si3d_col, "red"))+
+  ggtitle("Up with 3d KD - Normoxia") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 18) # center + bigger font
+  )
+
+ggsave(width = 6, height = 6, filename = here("plots/plots_231/3d_norm_vennup.pdf"))
+
+
+#down
+
+norm_te_down_3d <- list(
+  MCF7SIX1 = mcf7six1_si3d_normoxia_down, 
+  MDA_MB_231 = mb231_si3d_normoxia_down
+)
+
+ggvenn(
+  norm_te_down_3d,
+  auto_scale = TRUE,
+  text_size = 6,
+  fill_color = c(si3d_col, "red")
+) +
+  ggtitle("down with 3d KD - Normoxia") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 18) # center + bigger font
+  )
+
+ggsave(width = 6, height = 6, filename = here("plots/plots_231/3d_norm_venndown.pdf"))
+
+
+```
+
+
+
+
+hypoxia
+## Venn diagram of 3e/d gene overlaps in hypoxia
+```{r compare genes}
+mcf7six1_si3e_hypoxia_up <- mcf7six1_si3e_hypoxia_up %>% pull(symbol)
+mcf7six1_si3d_hypoxia_up <- mcf7six1_si3d_hypoxia_up %>% pull(symbol)
+
+mcf7six1_si3e_hypoxia_down <- mcf7six1_si3e_hypoxia_down %>% pull(symbol)
+mcf7six1_si3d_hypoxia_down <- mcf7six1_si3d_hypoxia_down %>% pull(symbol)
+
+mb231_si3e_hypoxia_up <- mb231_si3e_hypoxia_up %>% pull(symbol)
+mb231_si3d_hypoxia_up <- mb231_si3d_hypoxia_up %>% pull(symbol)
+
+mb231_si3e_hypoxia_down <- mb231_si3e_hypoxia_down %>% pull(symbol)
+mb231_si3d_hypoxia_down <- mb231_si3d_hypoxia_down %>% pull(symbol)
+
+#3e
+
+#up
+
+hyp_te_up_3e <- list(
+  MCF7SIX1 = mcf7six1_si3e_hypoxia_up, 
+  MDA_MB_231 = mb231_si3e_hypoxia_up
+)
+
+ggvenn(
+  hyp_te_up_3e,
+  auto_scale = TRUE,
+  text_size = 6,
+  fill_color = c(si3e_col, "blue")
+) +
+  ggtitle("Up with 3e KD - hypoxia") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 18) # center + bigger font
+  )
+
+ggsave(width = 6, height = 6, filename = here("plots/plots_231/3e_hyp_vennup.pdf"))
+
+
+#down
+
+hyp_te_down_3e <- list(
+  MCF7SIX1 = mcf7six1_si3e_hypoxia_down, 
+  MDA_MB_231 = mb231_si3e_hypoxia_down
+)
+
+ggvenn(
+  hyp_te_down_3e,
+  auto_scale = TRUE,
+  text_size = 6,
+  fill_color = c(si3e_col, "blue")
+) +
+  ggtitle("down with 3e KD - hypoxia") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 18) # center + bigger font
+  )
+
+ggsave(width = 6, height = 6, filename = here("plots/plots_231/3e_hyp_venndown.pdf"))
+
+
+
+
+
+
+#3d
+
+#up
+
+hyp_te_up_3d <- list(
+  MCF7SIX1 = mcf7six1_si3d_hypoxia_up, 
+  MDA_MB_231 = mb231_si3d_hypoxia_up
+)
+
+ggvenn(
+  hyp_te_up_3d,
+  auto_scale = TRUE,
+  text_size = 6,
+  fill_color = c(si3d_col, "red"))+
+  ggtitle("Up with 3d KD - hypoxia") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 18) # center + bigger font
+  )
+
+ggsave(width = 6, height = 6, filename = here("plots/plots_231/3d_hyp_vennup.pdf"))
+
+
+#down
+
+hyp_te_down_3d <- list(
+  MCF7SIX1 = mcf7six1_si3d_hypoxia_down, 
+  MDA_MB_231 = mb231_si3d_hypoxia_down
+)
+
+ggvenn(
+  hyp_te_down_3d,
+  auto_scale = TRUE,
+  text_size = 6,
+  fill_color = c(si3d_col, "red")
+) +
+  ggtitle("down with 3d KD - hypoxia") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 18) # center + bigger font
+  )
+
+ggsave(width = 6, height = 6, filename = here("plots/plots_231/3d_hyp_venndown.pdf"))
+
+
+```
+
+
+
+
+# Pathway analysis
+
+
+## Lists for pathway analysis - delete
+Separate lists by direction of change -- delete? -- add back depending on whether we want that scatter plot in the supplement
+```{r}
+
+hyp_3d_up <- res_hypox_si3d %>%
+  filter(padj < 0.05 & log2FoldChange > 0) %>% pull(gene_id)
+
+hyp_3d_down <- res_hypox_si3d %>%
+  filter(padj < 0.05 & log2FoldChange < 0) %>% pull(gene_id)
+
+hyp_3e_up <- res_hypox_si3e %>%
+  filter(padj < 0.05 & log2FoldChange > 0) %>% pull(gene_id)
+
+hyp_3e_down <- res_hypox_si3e %>%
+  filter(padj < 0.05 & log2FoldChange < 0) %>% pull(gene_id)
+
+
+```
+
+
+## Pathway analysis gene list setup
+```{r prep GSEA analysis}
+
+#3d lists
+
+eif3d_hyp <- res_hypox_si3d$log2FoldChange
+names(eif3d_hyp) <- res_hypox_si3d$symbol
+
+eif3d_hyp <- sort(eif3d_hyp, decreasing = TRUE)
+
+eif3d_hyp <- eif3d_hyp[!duplicated(names(eif3d_hyp))]
+
+#3e lists
+
+eif3e_hyp <- res_hypox_si3e$log2FoldChange
+names(eif3e_hyp) <- res_hypox_si3e$symbol
+
+eif3e_hyp <- sort(eif3e_hyp, decreasing = TRUE)
+
+eif3e_hyp <- eif3e_hyp[!duplicated(names(eif3e_hyp))]
+
+
+```
+
+### Hallmark and C2 pathway setup
+```{r}
+m_df_h <- msigdbr(species = "Homo sapiens") %>%
+  filter(gs_cat == "H") %>% 
+  dplyr::select(gs_name, gene_symbol)
+
+m_df_c2 <- msigdbr(species = "Homo sapiens") %>%
+  filter(gs_cat == "C2" & gs_subcat != "CGP") %>% 
+  dplyr::select(gs_name, gene_symbol)
+```
+
+Hypoxia
+```{r}
+eif3d_te_h <- GSEA(
+  geneList = eif3d_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+eif3e_te_h <- GSEA(
+  geneList = eif3e_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+
+
+hyp_te_h_3d <-
+  eif3d_te_h@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
+    mutate(sample="eIF3d")
+
+
+hyp_te_h_3e <- 
+  eif3e_te_h@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
+  mutate(sample="eIF3e")
+
+
+
+hyp_hallmark <- rbind(hyp_te_h_3d, hyp_te_h_3e) %>% 
+  mutate(significant = case_when(
+    p.adjust < 0.05 ~"*",
+    .default=""
+  ))
+
+pathways_to_include <- hyp_hallmark %>% 
+  filter(significant=="*")
+
+pathways_to_include <- pathways_to_include$ID
+
+hyp_hallmark %>%
+  filter(ID %in% pathways_to_include) %>%
+  ggplot(aes(x = ID, y = NES, fill=sample)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = significant), 
+            position = position_dodge(width = 0.9), 
+            hjust = -0.2) +  # Adjust hjust for better alignment
+  # theme_cowplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  scale_fill_manual(values=c(si3d_col, si3e_col))+
+  coord_flip()+
+  theme_cowplot()+
+  ggtitle("Pathways enriched with KD - Hypoxia")
+
+ggsave(here("plots/plots_231/pathway_bars_hypoxia.pdf"))
+
+
+
+
+
+
+```
+Normoxia
+```{r}
+
+
+#3d lists
+
+eif3d_norm <- res_normox_si3d$log2FoldChange
+names(eif3d_norm) <- res_normox_si3d$symbol
+
+eif3d_norm <- sort(eif3d_norm, decreasing = TRUE)
+
+eif3d_norm <- eif3d_norm[!duplicated(names(eif3d_norm))]
+
+#3e lists
+
+eif3e_norm <- res_normox_si3e$log2FoldChange
+names(eif3e_norm) <- res_normox_si3e$symbol
+
+eif3e_norm <- sort(eif3e_norm, decreasing = TRUE)
+
+eif3e_norm <- eif3e_norm[!duplicated(names(eif3e_norm))]
+
+
+eif3d_te_h <- GSEA(
+  geneList = eif3d_norm,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+eif3e_te_h <- GSEA(
+  geneList = eif3e_norm,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+
+
+norm_te_h_3d <-
+  eif3d_te_h@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
+    mutate(sample="eIF3d")
+
+
+norm_te_h_3e <- 
+  eif3e_te_h@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
+  mutate(sample="eIF3e")
+
+
+
+norm_hallmark <- rbind(norm_te_h_3d, norm_te_h_3e) %>% 
+  mutate(significant = case_when(
+    p.adjust < 0.05 ~"*",
+    .default=""
+  ))
+
+pathways_to_include <- norm_hallmark %>% 
+  filter(significant=="*")
+
+pathways_to_include <- pathways_to_include$ID
+
+norm_hallmark %>%
+  filter(ID %in% pathways_to_include) %>%
+  ggplot(aes(x = ID, y = NES, fill=sample)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = significant), 
+            position = position_dodge(width = 0.9), 
+            hjust = -0.2) +  # Adjust hjust for better alignment
+  # theme_cowplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  scale_fill_manual(values=c(si3d_col, si3e_col))+
+  coord_flip()+
+  theme_cowplot()+
+  ggtitle("Pathways enriched with KD - normoxia")
+
+ggsave(here("plots/plots_231/pathway_bars_normoxia.pdf"))
+
+
+
+
+
+
+```
+Hypoxia kegg
+```{r GSEA KEGG}
+eif3d_te_kegg <- GSEA(
+  geneList = eif3d_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))
+  )
+
+eif3e_te_kegg <- GSEA(
+  geneList = eif3e_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))
+  )
+
+hyp_te_kegg_3d <-
+  eif3d_te_kegg@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
+    mutate(sample="eIF3d")
+
+hyp_te_kegg_3e <- 
+  eif3e_te_kegg@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
+      mutate(sample="eIF3e")
+
+
+
+
+
+
+hyp_kegg <- rbind(hyp_te_kegg_3d, hyp_te_kegg_3e) %>% 
+  mutate(significant = case_when(
+    p.adjust < 0.05 ~"*",
+    .default=""
+  ))
+
+pathways_to_include <- hyp_kegg %>% 
+  filter(significant=="*")
+
+pathways_to_include <- pathways_to_include$ID
+
+hyp_kegg %>%
+  filter(ID %in% pathways_to_include) %>%
+  ggplot(aes(x = ID, y = NES, fill=sample)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = significant), 
+            position = position_dodge(width = 0.9), 
+            hjust = -0.2) +  # Adjust hjust for better alignment
+  # theme_cowplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  scale_fill_manual(values=c(si3d_col, si3e_col))+
+  coord_flip()+
+  theme_cowplot()+
+  ggtitle("Pathways enriched with KD - hypoxia")
+
+ggsave(here("plots/plots_231/pathway_bars_hypoxia_kegg.pdf"))
+
+
+
+
+
+```
+NORMOXIA
+```{r}
+eif3d_te_kegg <- GSEA(
+  geneList = eif3d_norm,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))
+  )
+
+eif3e_te_kegg <- GSEA(
+  geneList = eif3e_norm,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))
+  )
+
+norm_te_kegg_3d <-
+  eif3d_te_kegg@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
+    mutate(sample="eIF3d")
+
+norm_te_kegg_3e <- 
+  eif3e_te_kegg@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
+      mutate(sample="eIF3e")
+
+
+
+
+
+
+norm_kegg <- rbind(norm_te_kegg_3d, norm_te_kegg_3e) %>% 
+  mutate(significant = case_when(
+    p.adjust < 0.05 ~"*",
+    .default=""
+  ))
+
+pathways_to_include <- norm_kegg %>% 
+  filter(significant=="*")
+
+pathways_to_include <- pathways_to_include$ID
+
+norm_kegg %>%
+  filter(ID %in% pathways_to_include) %>%
+  ggplot(aes(x = ID, y = NES, fill=sample)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = significant), 
+            position = position_dodge(width = 0.9), 
+            hjust = -0.2) +  # Adjust hjust for better alignment
+  # theme_cowplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  scale_fill_manual(values=c(si3d_col, si3e_col))+
+  coord_flip()+
+  theme_cowplot()+
+  ggtitle("Pathways enriched with KD - normoxia")
+
+ggsave(here("plots/plots_231/pathway_bars_normoxia_kegg.pdf"))
+
+
+
+```
+
+
+
+
+
+
+
+
+
+### Hallmark pathway enrichment analysis
+
+```{r GSEA Hallmarks}
+
+eif3d_te_h <- GSEA(
+  geneList = eif3d_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+
+eif3e_te_h <- GSEA(
+  geneList = eif3e_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+
+hyp_te_h <- dplyr::full_join(
+  eif3d_te_h@result %>%
+  dplyr::select(ID,NES,pvalue,qvalue) %>%
+  rename_with(~ paste0("eif3d_", .), is.numeric),
+  eif3e_te_h@result %>%
+  dplyr::select(ID,NES,pvalue,qvalue) %>%
+  rename_with(~ paste0("eif3e_", .), is.numeric),
+  by = "ID") %>% 
+  filter(eif3d_pvalue < 0.05 | eif3e_pvalue < 0.05)  %>%
+  dplyr::arrange(-eif3e_NES) %>%
+  mutate(delta = eif3e_NES - eif3d_NES)
+
+
+hyp_te_h$ID <- gsub(pattern = "HALLMARK_", replacement = "", x = hyp_te_h$ID)
+
+hyp_te_h <- hyp_te_h %>% 
+  mutate(color= ifelse(ID=="HYPOXIA", "red", "black"))
+
+
+ggscatter(data = hyp_te_h,
+          x = "eif3d_NES",
+          y = "eif3e_NES",
+          title = "Hallmark pathways - Hypoxia",
+          label = "ID",
+          repel = TRUE,
+          font.label=7,
+  color="color",
+  palette=c("black", "red"))+
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  ylim(-2.5,2.5) +
+  xlim(-2.5,2.5) + theme_prism()+
+  guides(color = FALSE)
+
+DT::datatable(hyp_te_h) %>%
+  formatRound(which(sapply(hyp_te_h,is.numeric)), digits = 3)
+
+
+
+ggsave(width = 4, height = 4, filename = here("plots/fig3/hypoxia_halmarks.pdf"))
+
+
+hyp_h_table <- hyp_te_h %>% 
+  mutate(direction = ifelse(eif3d_NES < 0 & eif3e_NES < 0, "down_both",
+                            ifelse(eif3d_NES > 0 & eif3e_NES > 0, "up_both",
+                            ifelse(eif3d_NES > 0 & eif3e_NES < 0, "up_3d_down_3e",
+                            ifelse(eif3d_NES < 0 & eif3e_NES > 0, "up_3e_down_3d", "NA")))))
+
+write_csv(hyp_h_table, here("counts/fig3/hyp_hallmarks_table.csv"))
+
+
+
+
+
+```
+
+Visualize a different way -- with bars
+
+```{r}
+
+hyp_te_h_3d <-
+  eif3d_te_h@result %>%
+  dplyr::select(ID,NES,pvalue,qvalue) %>% 
+  mutate(sample="eIF3d")
+
+hyp_te_h_3e <-
+  eif3e_te_h@result %>% 
+  dplyr::select(ID,NES,pvalue,qvalue) %>% 
+  mutate(sample="eIF3e")
+
+hyp_hallmark <- rbind(hyp_te_h_3d, hyp_te_h_3e) %>% 
+  mutate(significant = case_when(
+    qvalue < 0.05 ~"*",
+    .default=""
+  ))
+
+pathways_to_include <- hyp_hallmark %>% 
+  filter(significant=="*")
+
+pathways_to_include <- pathways_to_include$ID
+
+hyp_hallmark %>%
+  filter(ID %in% pathways_to_include) %>%
+  ggplot(aes(x = ID, y = NES, fill = sample)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = significant), 
+            position = position_dodge(width = 0.9), 
+            hjust = -0.2) +  # Adjust hjust for better alignment
+  # theme_cowplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  coord_flip()
+
+
+ggsave(here("plots/fig3/hallmark_bars.pdf"), width=8, height = 6)
+```
+
+
+### KEGG
+
+```{r GSEA KEGG}
+eif3d_te_kegg <- GSEA(
+  geneList = eif3d_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))
+  )
+
+eif3e_te_kegg <- GSEA(
+  geneList = eif3e_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))
+  )
+
+hyp_te_kegg <- dplyr::full_join(
+  eif3d_te_kegg@result %>%
+  dplyr::select(ID,NES,pvalue,qvalue) %>%
+  rename_with(~ paste0("eif3d_", .), is.numeric),
+  eif3e_te_kegg@result %>%
+  dplyr::select(ID,NES,pvalue,qvalue) %>%
+  rename_with(~ paste0("eif3e_", .), is.numeric),
+  by = "ID") %>% 
+  filter(eif3d_qvalue < 0.05 | eif3e_qvalue < 0.05) %>%
+  dplyr::arrange(-eif3e_NES) %>%
+  mutate(delta = eif3e_NES - eif3d_NES)
+
+hyp_te_kegg$ID <- gsub(pattern = "KEGG_", replacement = "", x = hyp_te_kegg$ID)
+
+ggscatter(data = hyp_te_kegg,
+          x = "eif3d_NES",
+          y = "eif3e_NES",
+          label = "ID",
+          title = "KEGG pathways - hypoxia",
+          repel = TRUE,
+          font.label = 6) +
+  scale_color_continuous(type = "viridis") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  ylim(-2.5,2.5) +
+  xlim(-2.5,2.5) +
+  theme_prism()
+
+
+#DT::datatable(hyp_te_kegg) %>%
+ # formatRound(which(sapply(hyp_te_kegg,is.numeric)), digits = 3) 
+
+
+
+
+ggsave(width = 4, height = 4, filename = here("plots/fig3/hypoxia_kegg.pdf"))
+
+
+hyp_kegg_table <- hyp_te_kegg %>% 
+  mutate(direction = ifelse(eif3d_NES < 0 & eif3e_NES < 0, "down_both",
+                            ifelse(eif3d_NES > 0 & eif3e_NES > 0, "up_both",
+                            ifelse(eif3d_NES > 0 & eif3e_NES < 0, "up_3d_down_3e",
+                            ifelse(eif3d_NES < 0 & eif3e_NES > 0, "up_3e_down_3d", "NA")))))
+
+write_csv(hyp_kegg_table, here("counts/fig3/hyp_kegg_table.csv"))
+
+
+```
+
+
+### REACTOME
+
+```{r GSEA REACTOME}
+eif3d_te_reactome <- GSEA(
+  geneList = eif3d_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_c2 %>%
+  filter(grepl('^REACTOME', gs_name))
+  )
+
+eif3e_te_reactome <- GSEA(
+  geneList = eif3e_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_c2 %>%
+  filter(grepl('^REACTOME', gs_name))
+  )
+
+hyp_te_react <- dplyr::full_join(
+  eif3d_te_reactome@result %>%
+  dplyr::select(ID,NES,pvalue,qvalue) %>%
+  rename_with(~ paste0("eif3d_", .), is.numeric),
+  eif3e_te_reactome@result %>%
+  dplyr::select(ID,NES,pvalue,qvalue) %>%
+  rename_with(~ paste0("eif3e_", .), is.numeric),
+  by = "ID") %>% 
+  filter(eif3d_qvalue < 0.05 | eif3e_qvalue < 0.05)  %>%
+  dplyr::arrange(-eif3e_NES) %>%
+  mutate(delta = eif3e_NES - eif3d_NES)
+
+hyp_te_react$ID <- gsub(pattern = "REACTOME_", replacement = "", x = hyp_te_react$ID)
+
+ggscatter(data = hyp_te_react,
+          x = "eif3d_NES",
+          y = "eif3e_NES",
+          label = "ID",
+          repel = TRUE,
+          title = "Reactome pathways - hypoxia",
+          font.label = 6) +
+  scale_color_continuous(type = "viridis") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  ylim(-2.5,2.5) +
+  xlim(-2.5,2.5) +
+  theme_prism()
+
+
+# DT::datatable(hyp_te_react) %>%
+#   formatRound(which(sapply(hyp_te_react,is.numeric)), digits = 3) 
+
+
+
+ggsave(width = 4, height = 4, filename = here("plots/fig3/hypoxia_reactome.pdf"))
+
+
+hyp_react_table <- hyp_te_react %>% 
+  mutate(direction = ifelse(eif3d_NES < 0 & eif3e_NES < 0, "down_both",
+                            ifelse(eif3d_NES > 0 & eif3e_NES > 0, "up_both",
+                            ifelse(eif3d_NES > 0 & eif3e_NES < 0, "up_3d_down_3e",
+                            ifelse(eif3d_NES < 0 & eif3e_NES > 0, "up_3e_down_3d", "NA")))))
+
+write_csv(hyp_react_table, here("counts/fig3/hyp_react_table.csv"))
+```
 
 
 
