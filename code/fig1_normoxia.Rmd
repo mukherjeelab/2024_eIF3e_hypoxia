@@ -665,7 +665,6 @@ ggsave(here("plots/pathways/normoxia_hallmark_3e.png"))
 
 
 ### Hallmark pathways
-@Kate delete if we are just using bars instead
 ```{r GSEA Hallmarks}
 
 eif3d_te_h <- GSEA(
@@ -789,8 +788,7 @@ ggsave(here("plots/fig1/eIF3d_hypoxiapathway.pdf"), width=6, height=5)
 ```
 
 
-### KEGG pathways - delete
-@Kate - are we using Kegg in supplement? if not, delete
+### KEGG pathways
 ```{r GSEA KEGG}
 eif3d_te_kegg <- GSEA(
   geneList = eif3d_te,
@@ -848,7 +846,6 @@ DT::datatable(norm_te_kegg) %>%
 
 ggsave(width = 4, height = 4, filename = here("plots/fig1/normoxia_kegg.pdf"))
 
-# @kate -> change this (and any other case of nested ifelse) to using case_when
 norm_kegg_table <- norm_te_kegg %>% 
   mutate(direction = ifelse(eif3d_NES < 0 & eif3e_NES < 0, "down_both",
                             ifelse(eif3d_NES > 0 & eif3e_NES > 0, "up_both",

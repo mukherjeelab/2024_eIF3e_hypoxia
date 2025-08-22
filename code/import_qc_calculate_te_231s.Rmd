@@ -24,6 +24,7 @@ library(gridExtra)
 library(ggthemes)
 library(ggrepel)
 library(scales)
+library(survival)
 library(DESeq2)
 library(limma)
 library(clusterProfiler)
@@ -38,6 +39,8 @@ library(ggExtra)
 library(ggprism)
 library(GeneOverlap)
 library(writexl)
+library(survminer)
+library(readxl)
 library(reshape2)
 ```
 
@@ -417,7 +420,7 @@ complete_list <- full_te_list %>%
   left_join(full_ribo_list, by= "gene_id")
 
 
-write_csv(complete_list, here("counts/calculate_te/complete_te_rna_ribo_list_231.csv"))
+write_csv(complete_list, here("counts/counts_231/complete_te_rna_ribo_list_231.csv"))
 
 
 ```
@@ -493,11 +496,6 @@ ggplot(eif3e_data, aes(x=treatment, y=value))+
 
 # ###############################################################################
 # just doing TE here
-
-
-
-
-
 
 ## HIF1alpha levels after compound treatment
 
@@ -1132,28 +1130,33 @@ sig_sictrl <- all_changes %>%
   filter(padj_te_sictrl <0.05)
 
 #counts sictrl
+ctrl_down<-
 sig_sictrl %>% 
   filter(LFC_te_sictrl < 0) %>% 
   filter(padj_te_sictrl < 0.05) %>% 
   nrow()
 
+ctrl_up<-
 sig_sictrl %>% 
   filter(LFC_te_sictrl > 0) %>% 
   filter(padj_te_sictrl < 0.05) %>% 
   nrow()
 
 #counts 3eKD
+down_3e<-
 sig_sictrl %>% 
   filter(LFC_te_si3e < 0) %>% 
   filter(padj_te_3e < 0.05) %>% 
   nrow()
 
+up_3e <-
 sig_sictrl %>% 
   filter(LFC_te_si3e > 0) %>% 
   filter(padj_te_3e < 0.05) %>% 
   nrow()
 
-
+1-(up_3e/ctrl_up)
+1-(down_3e/ctrl_down)
 
 scatter_acute_sictrl_3e <- ggplot(data = sig_sictrl, aes(x = LFC_te_sictrl, y = LFC_te_si3e)) + 
   ylim(-2,2) + 
@@ -1206,15 +1209,20 @@ sig_sictrl %>%
   nrow()
 
 #counts 3dKD
+down_3d <-
 sig_sictrl %>% 
   filter(LFC_te_si3d < 0) %>% 
   filter(padj_te_si3d < 0.05) %>% 
   nrow()
 
+up_3d <-
 sig_sictrl %>% 
   filter(LFC_te_si3d > 0) %>% 
   filter(padj_te_si3d < 0.05) %>% 
   nrow()
+
+1-(up_3d/ctrl_up)
+1-(down_3d/ctrl_down)
 
 
 
@@ -1299,7 +1307,7 @@ dataset= "normoxia_3e"
 all_counts_normox_si3e <- data.frame(dataset, upreg, downreg)
 all_counts_normox_si3e
 
-write_csv(res_normox_si3e, here("counts/231/normoxia_si_ctrl_3e.csv"))
+write_csv(res_normox_si3e, here("counts/counts_231/normoxia_si_ctrl_3e.csv"))
 
 ```
 
@@ -1357,7 +1365,7 @@ dataset= "normoxia_3d"
 all_counts_normox_si3d <- data.frame(dataset, upreg, downreg)
 all_counts_normox_si3d
 
-write_csv(res_normox_si3d, here("counts/231/normoxia_si_ctrl_3d.csv"))
+write_csv(res_normox_si3d, here("counts/counts_231/normoxia_si_ctrl_3d.csv"))
 
 ```
 
@@ -1416,7 +1424,7 @@ dataset= "hypoxia_3e"
 all_counts_hypox_si3e <- data.frame(dataset, upreg, downreg)
 all_counts_hypox_si3e
 
-write_csv(res_hypox_si3e, here("counts/231/hypoxia_si_ctrl_3e.csv"))
+write_csv(res_hypox_si3e, here("counts/counts_231/hypoxia_si_ctrl_3e.csv"))
 
 ```
 
@@ -1474,7 +1482,7 @@ dataset= "hypoxia_3d"
 all_counts_hypox_si3d <- data.frame(dataset, upreg, downreg)
 all_counts_hypox_si3d
 
-write_csv(res_hypox_si3d, here("counts/231/hypoxia_si_ctrl_3d.csv"))
+write_csv(res_hypox_si3d, here("counts/counts_231/hypoxia_si_ctrl_3d.csv"))
 
 ```
 
@@ -1535,10 +1543,10 @@ ggsave(here("plots/plots_231/eIF3dbars.pdf"), eif3d_bar, width = 4, height = 4)
 
 # Do targets overlap with data from MCF7-SIX1s?
 
-pull in mcf7 six q data and label everything by cell line
+pull in mcf7 six 1 data and label everything by cell line
 
 
-## Lists for this data
+## Create gene lists for downstream analysis
 231s
 
 normoxia
@@ -1856,12 +1864,6 @@ norm_all.pval.matrix <- getMatrix(gom.all, "pval")
 ```
 
 
-
-
-
-
-
-
 # plot odds ratios as bars with p values
 ```{r}
 
@@ -1929,11 +1931,6 @@ hyp_all.pval.matrix <- getMatrix(gom.all, "pval")
 
 
 
-
-
-
-
-
 # plot odds ratios as bars with p values
 ```{r}
 
@@ -1953,8 +1950,6 @@ pval <- hyp_all.pval.matrix %>%
 odds_pval_hyp <- left_join(odds, pval, by=c("sample", "comparison")) %>% 
   tidyr::unite("comparison", 1:2, sep="-") 
 ```
-
-
 
 
 ```{r}
@@ -2588,10 +2583,6 @@ ggsave(width = 6, height = 6, filename = here("plots/plots_231/3d_norm_venndown.
 
 ```
 
-
-
-
-hypoxia
 ## Venn diagram of 3e/d gene overlaps in hypoxia
 ```{r compare genes}
 mcf7six1_si3e_hypoxia_up <- mcf7six1_si3e_hypoxia_up %>% pull(symbol)
@@ -2615,6 +2606,8 @@ hyp_te_up_3e <- list(
   MDA_MB_231 = mb231_si3e_hypoxia_up
 )
 
+intersect_up_3e <- intersect(mcf7six1_si3e_hypoxia_up,mb231_si3e_hypoxia_up)
+
 ggvenn(
   hyp_te_up_3e,
   auto_scale = TRUE,
@@ -2625,6 +2618,7 @@ ggvenn(
   theme(
     plot.title = element_text(hjust = 0.5, size = 18) # center + bigger font
   )
+
 
 ggsave(width = 6, height = 6, filename = here("plots/plots_231/3e_hyp_vennup.pdf"))
 
@@ -2646,6 +2640,9 @@ ggvenn(
   theme(
     plot.title = element_text(hjust = 0.5, size = 18) # center + bigger font
   )
+
+intersect_down_3e <- intersect(mcf7six1_si3e_hypoxia_down,mb231_si3e_hypoxia_down)
+
 
 ggsave(width = 6, height = 6, filename = here("plots/plots_231/3e_hyp_venndown.pdf"))
 
@@ -2675,6 +2672,8 @@ ggvenn(
 
 ggsave(width = 6, height = 6, filename = here("plots/plots_231/3d_hyp_vennup.pdf"))
 
+intersect_up_3d <- intersect(mcf7six1_si3d_hypoxia_up,mb231_si3d_hypoxia_up)
+
 
 #down
 
@@ -2695,6 +2694,65 @@ ggvenn(
   )
 
 ggsave(width = 6, height = 6, filename = here("plots/plots_231/3d_hyp_venndown.pdf"))
+intersect_down_3d <- intersect(mcf7six1_si3d_hypoxia_down,mb231_si3d_hypoxia_down)
+
+
+```
+
+
+# Export major lists for hypoxia
+```{r}
+res_231_3d<-
+res_hypox_si3d %>%
+  dplyr::select(symbol, log2FoldChange, padj) %>% 
+  rename("LFC_231_3d" = "log2FoldChange") %>% 
+    rename("padj_231_3d" = "padj")
+
+res_231_3e<-
+res_hypox_si3e %>%
+  dplyr::select(symbol, log2FoldChange, padj) %>% 
+  rename("LFC_231_3e" = "log2FoldChange") %>% 
+    rename("padj_231_3e" = "padj")
+
+
+res_mcf7six1_3d<-
+mcf7six1_res_hypox_si3d %>%
+  dplyr::select(symbol, log2FoldChange, padj) %>% 
+  rename("LFC_mcf7six1_3d" = "log2FoldChange") %>% 
+    rename("padj_mcf7six1_3d" = "padj")
+
+res_mcf7six1_3e<-
+mcf7six1_res_hypox_si3d %>%
+  dplyr::select(symbol, log2FoldChange, padj) %>% 
+  rename("LFC_mcf7six1_3e" = "log2FoldChange") %>% 
+    rename("padj_mcf7six1_3e" = "padj")
+
+
+
+all_hypox_KD <- 
+  res_231_3d %>% 
+  left_join(res_231_3e) %>% 
+    left_join(res_mcf7six1_3d) %>% 
+  left_join(res_mcf7six1_3e) %>% 
+  mutate(intersect_up_3eKD = case_when(
+    symbol %in% intersect_up_3e ~ "intersect",
+    .default = "not_intersect"
+  )) %>% 
+  mutate(intersect_down_3eKD = case_when(
+    symbol %in% intersect_down_3e ~ "intersect",
+    .default = "not_intersect"
+  )) %>% 
+    mutate(intersect_up_3dKD = case_when(
+    symbol %in% intersect_up_3d ~ "intersect",
+    .default = "not_intersect"
+  )) %>% 
+  mutate(intersect_down_3dKD = case_when(
+    symbol %in% intersect_down_3d ~ "intersect",
+    .default = "not_intersect"
+  ))
+
+
+write_xlsx(all_hypox_KD, here("counts/counts_231/all_hypoxia_intersect.xlsx"))
 
 
 ```
@@ -2702,10 +2760,11 @@ ggsave(width = 6, height = 6, filename = here("plots/plots_231/3d_hyp_venndown.p
 
 
 
+
 # Pathway analysis
 
 
-## Lists for pathway analysis - delete
+## Lists for pathway analysis
 Separate lists by direction of change -- delete? -- add back depending on whether we want that scatter plot in the supplement
 ```{r}
 
@@ -2758,7 +2817,14 @@ m_df_h <- msigdbr(species = "Homo sapiens") %>%
 m_df_c2 <- msigdbr(species = "Homo sapiens") %>%
   filter(gs_cat == "C2" & gs_subcat != "CGP") %>% 
   dplyr::select(gs_name, gene_symbol)
+
+
+
+m_df_c2_curated <- msigdbr(species = "Homo sapiens") %>%
+  filter(gs_cat == "C2") %>% 
+  dplyr::select(gs_name, gene_symbol)
 ```
+
 
 Hypoxia
 ```{r}
@@ -2830,76 +2896,56 @@ ggsave(here("plots/plots_231/pathway_bars_hypoxia.pdf"))
 
 
 ```
-Normoxia
+
+Hypoxia C2
 ```{r}
-
-
-#3d lists
-
-eif3d_norm <- res_normox_si3d$log2FoldChange
-names(eif3d_norm) <- res_normox_si3d$symbol
-
-eif3d_norm <- sort(eif3d_norm, decreasing = TRUE)
-
-eif3d_norm <- eif3d_norm[!duplicated(names(eif3d_norm))]
-
-#3e lists
-
-eif3e_norm <- res_normox_si3e$log2FoldChange
-names(eif3e_norm) <- res_normox_si3e$symbol
-
-eif3e_norm <- sort(eif3e_norm, decreasing = TRUE)
-
-eif3e_norm <- eif3e_norm[!duplicated(names(eif3e_norm))]
-
-
-eif3d_te_h <- GSEA(
-  geneList = eif3d_norm,
+eif3d_te_c2 <- GSEA(
+  geneList = eif3d_hyp,
   eps = 0,
   pAdjustMethod = "fdr",
   pvalueCutoff = 1,
   minGSSize = 20,
   maxGSSize = 1000,
-  TERM2GENE = m_df_h
+  TERM2GENE = m_df_c2
   )
 
-eif3e_te_h <- GSEA(
-  geneList = eif3e_norm,
+eif3e_te_c2 <- GSEA(
+  geneList = eif3e_hyp,
   eps = 0,
   pAdjustMethod = "fdr",
   pvalueCutoff = 1,
   minGSSize = 20,
   maxGSSize = 1000,
-  TERM2GENE = m_df_h
+  TERM2GENE = m_df_c2
   )
 
 
 
-norm_te_h_3d <-
-  eif3d_te_h@result %>%
+hyp_te_c2_3d <-
+  eif3d_te_c2@result %>%
   dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
     mutate(sample="eIF3d")
 
 
-norm_te_h_3e <- 
-  eif3e_te_h@result %>%
+hyp_te_c2_3e <- 
+  eif3e_te_c2@result %>%
   dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
   mutate(sample="eIF3e")
 
 
 
-norm_hallmark <- rbind(norm_te_h_3d, norm_te_h_3e) %>% 
+hyp_c2 <- rbind(hyp_te_c2_3d, hyp_te_c2_3e) %>% 
   mutate(significant = case_when(
     p.adjust < 0.05 ~"*",
     .default=""
   ))
 
-pathways_to_include <- norm_hallmark %>% 
+pathways_to_include <- hyp_c2 %>%
   filter(significant=="*")
 
 pathways_to_include <- pathways_to_include$ID
 
-norm_hallmark %>%
+hyp_c2 %>%
   filter(ID %in% pathways_to_include) %>%
   ggplot(aes(x = ID, y = NES, fill=sample)) +
   geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
@@ -2911,16 +2957,171 @@ norm_hallmark %>%
   scale_fill_manual(values=c(si3d_col, si3e_col))+
   coord_flip()+
   theme_cowplot()+
-  ggtitle("Pathways enriched with KD - normoxia")
+  ggtitle("Pathways enriched with KD - Hypoxia")
 
-ggsave(here("plots/plots_231/pathway_bars_normoxia.pdf"))
+ggsave(here("plots/plots_231/pathway_bars_hypoxia_c2.pdf"))
 
 
+hyp_c2_sig <- hyp_c2 %>% 
+  filter(significant=="*")
 
 
 
 
 ```
+
+make table
+```{r}
+hyp_te_c2_3d_indiv <-
+  eif3d_te_c2@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
+  rename("NES_3d" = "NES", "p.adjust_3d"="p.adjust", "core_enrichment_3d" = "core_enrichment")
+
+
+hyp_te_c2_3e_indiv <- 
+  eif3e_te_c2@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
+    rename("NES_3e" = "NES", "p.adjust_3e"="p.adjust", "core_enrichment_3e" = "core_enrichment")
+
+colnames(hyp_te_c2_3e_indiv)
+
+
+hyp_c2 <- left_join(hyp_te_c2_3d_indiv, hyp_te_c2_3e_indiv)
+
+
+hyp_c2 <- rbind(hyp_te_c2_3d, hyp_te_c2_3e) %>% 
+  mutate(significant = case_when(
+    p.adjust < 0.05 ~"*",
+    .default=""
+  ))
+
+pathways_to_include <- hyp_c2 %>%
+  filter(significant=="*")
+```
+
+
+Hypoxia C2
+
+```{r}
+eif3d_te_c2 <- GSEA(
+  geneList = eif3d_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_c2_curated
+  )
+
+eif3e_te_c2 <- GSEA(
+  geneList = eif3e_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_c2_curated
+  )
+
+
+
+hyp_te_c2_3d <-
+  eif3d_te_c2@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
+    mutate(sample="eIF3d")
+
+
+hyp_te_c2_3e <- 
+  eif3e_te_c2@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
+  mutate(sample="eIF3e")
+
+
+
+hyp_c2 <- rbind(hyp_te_c2_3d, hyp_te_c2_3e) %>% 
+  mutate(significant = case_when(
+    p.adjust < 0.05 ~"*",
+    .default=""
+  ))
+
+pathways_to_include <- hyp_c2 %>%
+  filter(significant=="*")
+
+pathways_to_include <- pathways_to_include$ID
+
+hyp_c2 %>%
+  filter(ID %in% pathways_to_include) %>%
+  ggplot(aes(x = ID, y = NES, fill=sample)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = significant), 
+            position = position_dodge(width = 0.9), 
+            hjust = -0.2) +  # Adjust hjust for better alignment
+  # theme_cowplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  scale_fill_manual(values=c(si3d_col, si3e_col))+
+  coord_flip()+
+  theme_cowplot()+
+  ggtitle("Pathways enriched with KD - Hypoxia")
+
+ggsave(here("plots/plots_231/pathway_bars_hypoxia_c2.pdf"))
+
+
+hyp_c2_sig <- hyp_c2 %>% 
+  filter(significant=="*")
+
+
+
+
+```
+
+make table
+```{r}
+hyp_te_c2_3d_indiv <-
+  eif3d_te_c2@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
+  rename("NES_3d" = "NES", "p.adjust_3d"="p.adjust", "core_enrichment_3d" = "core_enrichment")
+
+
+hyp_te_c2_3e_indiv <- 
+  eif3e_te_c2@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
+    rename("NES_3e" = "NES", "p.adjust_3e"="p.adjust", "core_enrichment_3e" = "core_enrichment")
+
+colnames(hyp_te_c2_3e_indiv)
+
+
+hyp_c2 <- left_join(hyp_te_c2_3d_indiv, hyp_te_c2_3e_indiv)
+
+
+hyp_c2 <- rbind(hyp_te_c2_3d, hyp_te_c2_3e) %>% 
+  mutate(significant = case_when(
+    p.adjust < 0.05 ~"*",
+    .default=""
+  ))
+
+pathways_to_include <- hyp_c2 %>%
+  filter(significant=="*")
+
+
+write_xlsx(hyp_c2, here("counts/counts_231/MB231_hypoxia_c2_all.xlsx"))
+
+
+#invasion pathways
+hyp_c2 <- rbind(hyp_te_c2_3d, hyp_te_c2_3e) %>% 
+  mutate(significant = case_when(
+    p.adjust < 0.05 ~"*",
+    .default=""
+  )) %>% 
+  filter(str_detect(ID, "INVA"))
+
+
+write_xlsx(hyp_c2, here("counts/counts_231/MB231_hypoxia_c2curated_invasion.xlsx"))
+```
+
+
+
+
+
 Hypoxia kegg
 ```{r GSEA KEGG}
 eif3d_te_kegg <- GSEA(
@@ -2992,81 +3193,6 @@ ggsave(here("plots/plots_231/pathway_bars_hypoxia_kegg.pdf"))
 
 
 ```
-NORMOXIA
-```{r}
-eif3d_te_kegg <- GSEA(
-  geneList = eif3d_norm,
-  eps = 0,
-  pAdjustMethod = "fdr",
-  pvalueCutoff = 1,
-  minGSSize = 20,
-  maxGSSize = 1000,
-  TERM2GENE = m_df_c2 %>%
-  filter(grepl('^KEGG', gs_name))
-  )
-
-eif3e_te_kegg <- GSEA(
-  geneList = eif3e_norm,
-  eps = 0,
-  pAdjustMethod = "fdr",
-  pvalueCutoff = 1,
-  minGSSize = 20,
-  maxGSSize = 1000,
-  TERM2GENE = m_df_c2 %>%
-  filter(grepl('^KEGG', gs_name))
-  )
-
-norm_te_kegg_3d <-
-  eif3d_te_kegg@result %>%
-  dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
-    mutate(sample="eIF3d")
-
-norm_te_kegg_3e <- 
-  eif3e_te_kegg@result %>%
-  dplyr::select(ID,NES,p.adjust,core_enrichment) %>% 
-      mutate(sample="eIF3e")
-
-
-
-
-
-
-norm_kegg <- rbind(norm_te_kegg_3d, norm_te_kegg_3e) %>% 
-  mutate(significant = case_when(
-    p.adjust < 0.05 ~"*",
-    .default=""
-  ))
-
-pathways_to_include <- norm_kegg %>% 
-  filter(significant=="*")
-
-pathways_to_include <- pathways_to_include$ID
-
-norm_kegg %>%
-  filter(ID %in% pathways_to_include) %>%
-  ggplot(aes(x = ID, y = NES, fill=sample)) +
-  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
-  geom_text(aes(label = significant), 
-            position = position_dodge(width = 0.9), 
-            hjust = -0.2) +  # Adjust hjust for better alignment
-  # theme_cowplot() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-  scale_fill_manual(values=c(si3d_col, si3e_col))+
-  coord_flip()+
-  theme_cowplot()+
-  ggtitle("Pathways enriched with KD - normoxia")
-
-ggsave(here("plots/plots_231/pathway_bars_normoxia_kegg.pdf"))
-
-
-
-```
-
-
-
-
-
-
 
 
 
@@ -3340,4 +3466,2588 @@ write_csv(hyp_react_table, here("counts/fig3/hyp_react_table.csv"))
 ```
 
 
+# Patient survival data ---------------------------------------------------------
 
+Create RNA signatures
+Confirm direction -- opposite of previous
+
+# 3e hypoxia rna
+```{r}
+
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3e")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("si3e", "sictrl"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  rna_subset <- all_raw[, colnames(all_raw) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_hyp_3e <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+# export to excel ---------------------------------------------------------------
+  
+   writexl::write_xlsx(x = res_hyp_3e, path = here("counts/counts_231/rna_signature_3e_hypoxia_231.xlsx"), col_names = T)
+
+#confirm direction
+  res_hyp_3e %>% 
+    filter(symbol=="EIF3E")
+
+```
+
+# 3d hypoxia rna
+```{r}
+
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3d")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("si3d", "sictrl"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  rna_subset <- all_raw[, colnames(all_raw) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_hyp_3d <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+# export to excel ---------------------------------------------------------------
+  
+   writexl::write_xlsx(x = res_hyp_3d, path = here("counts/counts_231/rna_signature_3d_hypoxia_231.xlsx"), col_names = T)
+
+#confirm direction
+  res_hyp_3d %>% 
+    filter(symbol=="EIF3D")
+
+```
+
+
+# Prepare survival analysis
+### Separate RNA signatures by direction
+
+```{r}
+# 3e hypoxia
+
+sig_rna_3e_hyp <- res_hyp_3e %>% 
+  filter(padj < 0.05)
+
+up_3e_hyp <- sig_rna_3e_hyp %>% 
+  filter(log2FoldChange > 1)%>% 
+  pull(symbol)
+
+down_3e_hyp <- sig_rna_3e_hyp %>% 
+  filter(log2FoldChange < -1)%>% 
+  pull(symbol)
+  
+```
+
+```{r}
+# 3d hypoxia
+
+sig_rna_3d_hyp <- res_hyp_3d %>% 
+  filter(padj < 0.05)
+
+up_3d_hyp <- sig_rna_3d_hyp %>% 
+  filter(log2FoldChange > 1) %>% 
+  pull(symbol)
+  
+
+down_3d_hyp <- sig_rna_3d_hyp %>% 
+  filter(log2FoldChange < -1)%>% 
+  pull(symbol)
+  
+
+```
+
+
+# Import METABRIC microarray data from cbioportal - read patient z scores and matching clinical data
+Nature 2012 and Nat Commun 2016
+
+```{r cache = TRUE}
+zscores <- read.table(here("cbioportal_data/brca_metabric/data_mrna_illumina_microarray_zscores_ref_diploid_samples.txt"), sep="\t", header=T)
+row.names(zscores) <- gsub("_", ".",row.names(zscores))
+
+zscores_all_symbol <- zscores %>% 
+  dplyr::select(-Entrez_Gene_Id)
+
+### Average scores for duplicate patients
+
+dup_genes <- zscores$Hugo_Symbol[duplicated(zscores$Hugo_Symbol)]
+
+dedup <- zscores %>%
+  filter(Hugo_Symbol %in% dup_genes) %>%
+  group_by(Hugo_Symbol) %>%
+  summarise(across(everything(), mean))
+
+
+merged_zscores <- zscores %>%
+  filter(!Hugo_Symbol %in% dup_genes) %>% 
+  bind_rows(., dedup) %>% 
+  as.tibble() %>%
+  column_to_rownames("Hugo_Symbol") %>% 
+  as.data.frame()
+
+
+```
+
+# eIF3e hypoxia signature and survival prediction
+### Calculate z scores
+```{r}
+# filter merged z score data based on genes in my signature
+exp_3e <- merged_zscores %>%
+  rownames_to_column("Hugo_Symbol") %>% 
+  filter(Hugo_Symbol %in% sig_rna_3e_hyp$symbol) %>% 
+  column_to_rownames("Hugo_Symbol") %>% 
+  dplyr::select(-Entrez_Gene_Id)
+
+# empty df
+sig_zscores_3e <- data.frame(patient=colnames(exp_3e),
+                         up_z_score=NA,
+                         down_z_score=NA)
+#calculate z score
+
+for (i in 1:nrow(sig_zscores_3e)) {
+  sig_zscores_3e[i,2] <- mean(exp_3e[up_3e_hyp,i],  na.rm=TRUE)
+  sig_zscores_3e[i,3] <- mean(exp_3e[down_3e_hyp,i],  na.rm=TRUE)
+  }
+
+sig_zscores_3e <- sig_zscores_3e %>%
+  mutate(total_z_score = up_z_score - down_z_score)
+
+quantile_groups <- quantile(sig_zscores_3e$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+sig_zscores_3e$quantile <- cut(sig_zscores_3e$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+sig_zscores_3e$patient <- sub("-[^-]*$", "", sig_zscores_3e$patient)
+
+sig_zscores_3e$patient <- gsub("\\.", "-", sig_zscores_3e$patient)
+
+
+```
+
+
+# eIF3d hypoxia signature and survival prediction
+### Calculate z scores
+```{r}
+# filter merged z score data based on genes in my signature
+exp_3d <- merged_zscores %>%
+  rownames_to_column("Hugo_Symbol") %>% 
+  filter(Hugo_Symbol %in% sig_rna_3d_hyp$symbol) %>% 
+  column_to_rownames("Hugo_Symbol") %>% 
+  dplyr::select(-Entrez_Gene_Id)
+
+# empty df
+sig_zscores_3d <- data.frame(patient=colnames(exp_3d),
+                         up_z_score=NA,
+                         down_z_score=NA)
+#calculate z score
+
+for (i in 1:nrow(sig_zscores_3d)) {
+  sig_zscores_3d[i,2] <- mean(exp_3d[up_3d_hyp,i],  na.rm=TRUE)
+  sig_zscores_3d[i,3] <- mean(exp_3d[down_3d_hyp,i],  na.rm=TRUE)
+  }
+
+sig_zscores_3d <- sig_zscores_3d %>%
+  mutate(total_z_score = up_z_score - down_z_score)
+
+quantile_groups <- quantile(sig_zscores_3d$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+sig_zscores_3d$quantile <- cut(sig_zscores_3d$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+
+sig_zscores_3d$patient <- gsub("\\.", "-", sig_zscores_3d$patient)
+
+```
+
+
+# Import clinical data
+```{r}
+clin <- read_excel(here("cbioportal_data/brca_metabric/data_clinical_patient_edit.xlsx"))
+clin$OS_MONTHS <- as.numeric(clin$OS_MONTHS)
+clin$OS_STATUS[which(clin$OS_STATUS == "1:DECEASED" & clin$OS_MONTHS > 120)] <- "0:LIVING"
+clin$OS_STATUS <- clin$OS_STATUS == "1:DECEASED"
+clin <- cbind(clin, OS_YEARS = clin$OS_MONTHS/12)
+clin$OS_YEARS[which(clin$OS_YEARS >= 10)] <- 10
+
+```
+
+### visualizing high and low quartile in each survival plot for the paper.
+## 3e survival
+```{r}
+#bind clin data with z score data
+
+all_data_3e_hyp <- left_join(clin, sig_zscores_3e, by=c("PATIENT_ID"="patient")) %>% 
+  filter(quantile != "NA")
+
+all_data_3e_hyp <- all_data_3e_hyp %>% 
+  filter(quantile == 1 | quantile == 4)
+
+fit_all_3e_hyp <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_data_3e_hyp)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_data_3e_hyp)
+summary_coxfit_3e_norm <- summary(coxfit)
+
+
+hr <- round(summary_coxfit_3e_norm$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit_3e_norm$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+#3e_colors
+colors <- grDevices::colorRampPalette(c("grey", si3e_col))(2)
+
+
+surv_plot_3e_hyp<-
+ggsurvplot(fit_all_3e_hyp,
+           data = all_data_3e_hyp,
+           size = 1,
+           palette =colors, 
+          legend.labs=c("Low 3e", "High 3e"),
+         #  legend.labs=c("Low 3e", "Med-Low 3e", "Med-High 3e", "High 3e"),
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_3e_hyp$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+ggsave("3e_hyp_surv_plot_231.pdf", path=here("plots/plots_231"),width = 11.5, height=8)
+
+
+```
+
+## 3d survival
+```{r}
+#bind clin data with z score data
+
+all_data_3d_hyp <- left_join(clin, sig_zscores_3d, by=c("PATIENT_ID"="patient")) %>% 
+  filter(quantile != "NA")
+
+all_data_3d_hyp <- all_data_3d_hyp %>% 
+  filter(quantile == 1 | quantile == 4)
+
+fit_all_3d_hyp <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_data_3d_hyp)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_data_3d_hyp)
+summary_coxfit_3d_norm <- summary(coxfit)
+
+
+hr <- round(summary_coxfit_3d_norm$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit_3d_norm$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+colors <- grDevices::colorRampPalette(c("grey", si3d_col))(2)
+
+surv_plot_3d_hyp<-
+ggsurvplot(fit_all_3d_hyp,
+           data = all_data_3d_hyp,
+           size = 1,
+           palette = colors, 
+          legend.labs=c("Low 3d", "High 3d"),
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_3d_hyp$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+ggsave("3d_hyp_surv_plot_231.pdf", path=here("plots/plots_231"),width = 11.5, height=8)
+
+
+```
+
+
+# TCGA
+
+## Import hypoxia signature from ye et al
+Hypoxia signature in breast cancer:
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6279594/#:~:text=The%2042%2Dgene%20expression%20signature,mediate%20the%20conserved%20hypoxic%20response
+
+
+```{r}
+ye_hyp_sig <- read_excel(here("other_data/hypoxic_sig_ye.xlsx"))
+#up values only
+
+#calculate z scores for enrichment of hypoxia signature
+
+# filter merged z score data based on genes in my signature
+exp_hyp_sig <- merged_zscores %>%
+  rownames_to_column("Hugo_Symbol") %>% 
+  filter(Hugo_Symbol %in% ye_hyp_sig$up_in_hypoxia) %>% 
+  column_to_rownames("Hugo_Symbol") %>% 
+  dplyr::select(-Entrez_Gene_Id)
+
+# empty df
+sig_zscores_hyp_signature <- data.frame(patient=colnames(exp_hyp_sig),
+                         z_score=NA)
+#calculate z score
+
+for (i in 1:nrow(sig_zscores_hyp_signature)) {
+  sig_zscores_hyp_signature[i,2] <- mean(exp_hyp_sig[,i],  na.rm=TRUE)
+}
+
+
+quantile_groups <- quantile(sig_zscores_hyp_signature$z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+sig_zscores_hyp_signature$quantile <- cut(sig_zscores_hyp_signature$z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+sig_zscores_hyp_signature$patient <- sub("-[^-]*$", "", sig_zscores_hyp_signature$patient)
+
+sig_zscores_hyp_signature$patient <- gsub("\\.", "-", sig_zscores_hyp_signature$patient)
+
+
+#Bind z score hypoxia signature with clin data
+
+
+all_data_hif_ye <- left_join(clin, sig_zscores_hyp_signature, by=c("PATIENT_ID"="patient"))
+
+all_data_hif_ye <- all_data_hif_ye %>% 
+  filter(quantile == 1 | quantile == 4)
+
+#plot
+
+fit_all_data_hif_ye <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_data_hif_ye)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_data_hif_ye)
+summary_coxfit_ye <- summary(coxfit)
+
+exp(summary_coxfit_ye$coefficients[1])
+
+hr <- round(summary_coxfit_ye$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit_ye$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+colors <- grDevices::colorRampPalette(c("grey", "red"))(2)
+
+surv_plot_ye_hyp<-
+ggsurvplot(fit_all_data_hif_ye,
+           data = all_data_hif_ye,
+           size = 1,
+           palette = colors, 
+           break.time.by = 1,
+          legend.labs=c("Low Hypoxia", "High Hypoxia"),
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_ye_hyp$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+ggsave("surv_plot_ye_hyp.pdf", path=here("plots/fig8"),width = 11.5, height=8)
+
+
+#boxplot of quartile expression
+
+ggplot(all_data_hif_ye, aes(x=quantile,y=z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for eIF3d hypoxia signature")
+
+```
+
+
+## correlation of 3e and hypoxia score
+
+```{r}
+
+patient_ye_and_3e <- left_join(sig_zscores_3e, sig_zscores_hyp_signature, by="patient") %>% 
+  dplyr::rename("hypoxia_z_score"="z_score") %>% 
+   dplyr::rename("eIF3e_z_score"="total_z_score")
+
+
+```
+
+## Divide patients into 3e sig high/low and hypoxia signature high/low
+
+Make four groups based on quandrants -- 3e levels in hypoxia
+```{r}
+
+patient_ye_and_3e <- patient_ye_and_3e %>% 
+  mutate(quadrant = ifelse(hypoxia_z_score < 0 & eIF3e_z_score < 0, "low hypoxia and low 3e",
+                           ifelse(hypoxia_z_score > 0 & eIF3e_z_score < 0, "high hypoxia and low 3e",
+                                  ifelse(hypoxia_z_score > 0 & eIF3e_z_score > 0, "high hypoxia and high 3e",
+                                         ifelse(hypoxia_z_score < 0 & eIF3e_z_score > 0, "low hypoxia and high 3e", "other")))))
+
+
+patient_ye_and_3e$quadrant <- factor(patient_ye_and_3e$quadrant, levels=c("low hypoxia and low 3e","high hypoxia and low 3e","low hypoxia and high 3e", "high hypoxia and high 3e"))
+
+
+```
+
+Determine correlation and color by group
+```{r}
+ggplot(patient_ye_and_3e, aes(x=hypoxia_z_score, y= eIF3e_z_score, color=quadrant))+
+  geom_point()+
+  xlab("Ye hypoxia signature z score")+
+  ylab("eIF3e-hyp z score")+
+  theme_prism()+ 
+  theme(text = element_text(size = 14))+
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0)+
+  scale_color_manual(values=c("high hypoxia and high 3e"="#9B4D96", 
+                       "high hypoxia and low 3e"="red", 
+                       "low hypoxia and low 3e"="grey", 
+                       "low hypoxia and high 3e"= "#56B4E9"))
+
+
+ggsave("3e_hyp_and_ye.pdf", path=here("plots/fig8"),width = 5.5, height=3)
+
+cor.test(patient_ye_and_3e$hypoxia_z_score, patient_ye_and_3e$eIF3e_z_score, method="pearson")
+```
+
+Plot survival curve
+```{r}
+#bind with clin data
+patient_ye_and_3e_hyp_clin <- left_join(clin, patient_ye_and_3e, by=c("PATIENT_ID"="patient"))
+
+#plot
+
+fit_all_hypoxia_3e <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = patient_ye_and_3e_hyp_clin)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, patient_ye_and_3e_hyp_clin)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+
+levels(patient_ye_and_3e_hyp_clin$quadrant)
+
+surv_plot_3e_and_hypoxia_sig<-
+ggsurvplot(fit_all_hypoxia_3e,
+           data = patient_ye_and_3e_hyp_clin,
+           size = 1,
+           palette = c("grey", "red", si3e_col, "#9B4D96"), 
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 7,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_3e_and_hypoxia_sig$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+ggsave("surv_plot_3e_and_hypoxia_sig.pdf", path=here("plots/plots_231"),width = 11.5, height=8)
+
+#compare middle two quadrants
+
+levels(patient_ye_and_3e_hyp_clin$quadrant)
+
+# Relevel the 'quadrant' factor to set the desired reference group
+patient_ye_and_3e_hyp_clin$quadrant <- relevel(patient_ye_and_3e_hyp_clin$quadrant, ref = "high hypoxia and low 3e")
+
+# Fit the Cox model
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = patient_ye_and_3e_hyp_clin)
+summary_coxfit <- summary(coxfit)
+print(summary_coxfit)
+
+
+
+```
+
+## Metabric data controls:
+1. exclusing points in the middle of the correlation chart as negative controls.
+2. Neg control/random quantiles
+3. Pos control - checking death with cancer status
+
+Control: excluding points in the middle as a negative control for the survival curve analysis
+```{r}
+
+ctrl_patient_ye_and_3e <- patient_ye_and_3e %>% 
+  mutate(change = case_when(
+    (hypoxia_z_score < -0.1 | hypoxia_z_score > 0.1) &
+      (eIF3e_z_score < -0.1 | eIF3e_z_score > 0.1) ~ "big_change",
+    .default="small_change"
+  ))
+
+ctrl_patient_ye_and_3e <- ctrl_patient_ye_and_3e %>% 
+  filter(change == "big_change")
+
+
+ggplot(ctrl_patient_ye_and_3e, aes(x=hypoxia_z_score, y= eIF3e_z_score))+
+  geom_point()+
+  xlab("Ye hypoxia signature z score")+
+  ylab("eIF3e-hyp z score")+
+  theme_cowplot()+ 
+  theme(text = element_text(size = 14))+
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0)
+
+
+ggsave("3e_hyp_and_ye.pdf", path=here("plots/fig8"),width = 4, height=3)
+
+cor.test(ctrl_patient_ye_and_3e$hypoxia_z_score, ctrl_patient_ye_and_3e$eIF3e_z_score, method="pearson")
+
+#p value still signficiant
+
+#. test survival curve
+
+ctrl_patient_ye_and_3e <- ctrl_patient_ye_and_3e %>% 
+  mutate(quadrant = ifelse(hypoxia_z_score < 0 & eIF3e_z_score < 0, "low hypoxia and low eIF3e (hypoxia)",
+                           ifelse(hypoxia_z_score > 0 & eIF3e_z_score < 0, "high hypoxia and low eIF3e (hypoxia)",
+                                  ifelse(hypoxia_z_score > 0 & eIF3e_z_score > 0, "high hypoxia and high eIF3e (hypoxia)",
+                                         ifelse(hypoxia_z_score < 0 & eIF3e_z_score > 0, "low hypoxia sig and high eIF3e (hypoxia)", "other")))))
+
+#bind with clin data
+ctrl_patient_ye_and_3e_hyp_clin <- left_join(clin, ctrl_patient_ye_and_3e, by=c("PATIENT_ID"="patient"))
+
+#plot
+
+fit_all_hypoxia_3e <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = ctrl_patient_ye_and_3e_hyp_clin)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, patient_ye_and_3e_hyp_clin)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+ctrl_patient_ye_and_3e_hyp_clin$quadrant <- factor(ctrl_patient_ye_and_3e_hyp_clin$quadrant, levels=c("low hypoxia and low eIF3e (hypoxia)", "high hypoxia and low eIF3e (hypoxia)", "low hypoxia sig and high eIF3e (hypoxia)", "high hypoxia and high eIF3e (hypoxia)"))
+
+quadrant_levels <- levels(ctrl_patient_ye_and_3e_hyp_clin$quadrant)
+
+# ctrl_surv_plot_3e_and_hypoxia_sig<-
+# ggsurvplot(fit_all_hypoxia_3e,
+#            data = ctrl_patient_ye_and_3e_hyp_clin,
+#            size = 1,
+#            palette = c("#E7B800", "pink", "purple", "#2E9FDF"), 
+#            break.time.by = 1,
+#            ylab="Overall Survival",
+#            xlab = "Time in years",
+#            xlim = c(0,10),
+#            font.x = 30,      
+#            font.y = 30,      
+#            font.tickslab = 25,
+#            font.legend = 7,
+#            conf.int = FALSE,
+#            pval = F,
+#            risk.table = FALSE,
+#            risk.table.col = "strata",
+#            risk.table.height = 0.25,
+#            ggtheme = theme_prism())
+# 
+# ctrl_surv_plot_3e_and_hypoxia_sig$plot +
+#   annotate(
+#     "text", 
+#     x = 3, y = 0.2, 
+#     label = paste("HR =", hr, "\np =", pval), 
+#     size = 12, 
+#     color = "black"
+#   )
+# 
+
+#trend remains, even when taking out values with low levels of changes
+
+
+```
+
+## Controls
+
+## Positive control
+
+Visualize OS_STATUS
+
+```{r}
+fit_pos <- survfit(Surv(OS_YEARS, OS_STATUS) ~ OS_STATUS, data = all_data_3e_hyp)
+
+
+ggsurvplot(fit_pos, data = all_data_3e_hyp, size = 1, palette = c("#E7B800", "#2E9FDF"),legend.labs = c("alive", "died_from_cancer"),  break.time.by = 1, ylab="Overall Survival", xlab = "Time in years", xlim = c(0,10),conf.int = TRUE, pval = TRUE, risk.table = TRUE,  risk.table.col = "strata", risk.table.height = 0.25, ggtheme = theme_bw())
+
+```
+
+## Negative Control for eIF3e signature
+
+For a negative control -- random genes comprising signatures-- same number of genes just random
+
+In my 3e hyp signature, there are:
+78 up genes
+77 down genes
+
+Create random gene signatures and evaluate how they impact survival
+```{r}
+
+all_genes <- rownames(merged_zscores)
+
+fake_pos_list <-all_genes[sample(1:length(all_genes), 78)]
+fake_neg_list <-all_genes[sample(1:length(all_genes), 77)]
+
+
+# empty df
+neg_ctrl_zscores <- data.frame(patient=colnames(exp_3e),
+                         up_z_score=NA,
+                         down_z_score=NA)
+#calculate z score
+
+for (i in 1:nrow(neg_ctrl_zscores)) {
+  neg_ctrl_zscores[i,2] <- mean(exp_3e[fake_pos_list,i],  na.rm=TRUE)
+  neg_ctrl_zscores[i,3] <- mean(exp_3e[fake_neg_list,i],  na.rm=TRUE)
+  }
+
+neg_ctrl_zscores <- neg_ctrl_zscores %>%
+  mutate(total_z_score = up_z_score - down_z_score)
+
+quantile_groups <- quantile(neg_ctrl_zscores$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+neg_ctrl_zscores$quantile <- cut(neg_ctrl_zscores$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+neg_ctrl_zscores$patient <- gsub("\\.", "-", neg_ctrl_zscores$patient)
+
+# Survival plot
+
+#Bind z score hypoxia signature with clin data
+
+
+all_data_neg_ctrl <- left_join(clin, neg_ctrl_zscores, by=c("PATIENT_ID"="patient"))
+
+
+#plot
+
+neg_ctrl_fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_data_neg_ctrl)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_data_neg_ctrl)
+summary_coxfit_ye <- summary(coxfit)
+
+
+hr <- round(summary_coxfit_ye$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit_ye$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+
+surv_plot_neg_ctrl<-
+ggsurvplot(neg_ctrl_fit,
+           data = all_data_neg_ctrl,
+           size = 1,
+           palette = c("#E7B800", "pink", "purple", "#2E9FDF"), 
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_neg_ctrl$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+
+
+#boxplot of quartile expression
+
+ggplot(all_data_neg_ctrl, aes(x=quantile,y=total_z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("neg ctrl z scores")
+
+
+```
+
+
+
+
+# Repeat analysis using TCGA dataset
+TCGA Firehouse legacy
+Downloaded from cbioportal
+
+1,108 samples
+```{r cache = TRUE}
+zscores_tcga <- read.table(here("cbioportal_data/brca_tcga/tcga_data_mrna_seq_v2_rsem_zscores_ref_diploid_samples.txt"), sep="\t", header=T)
+row.names(zscores) <- gsub("_", ".",row.names(zscores))
+
+zscores_tcga_all_symbol <- zscores_tcga %>% 
+  dplyr::select(-Entrez_Gene_Id)
+
+### Average scores for duplicates
+
+dup_genes_tcga <- zscores_tcga_all_symbol$Hugo_Symbol[duplicated(zscores_tcga_all_symbol$Hugo_Symbol)]
+
+dedup <- zscores_tcga_all_symbol %>%
+  filter(Hugo_Symbol %in% dup_genes_tcga) %>%
+  group_by(Hugo_Symbol) %>%
+  summarise(across(everything(), mean))
+
+merged_zscores_tcga <- zscores_tcga_all_symbol %>%
+  filter(!Hugo_Symbol %in% dup_genes_tcga) %>% 
+  bind_rows(., dedup) %>% 
+  as.tibble() %>%
+  column_to_rownames("Hugo_Symbol") %>% 
+  as.data.frame()
+
+```
+
+# eIF3e hypoxia signature and survival prediction
+### Calculate z scores
+```{r}
+# filter merged z score data based on genes in my signature
+exp_3e_tcga <- merged_zscores_tcga %>%
+  rownames_to_column("Hugo_Symbol") %>% 
+  filter(Hugo_Symbol %in% sig_rna_3e_hyp$symbol) %>% 
+  column_to_rownames("Hugo_Symbol")
+
+# empty df
+sig_zscores_3e_tcga <- data.frame(patient=colnames(exp_3e_tcga),
+                         up_z_score=NA,
+                         down_z_score=NA)
+#calculate z score
+
+for (i in 1:nrow(sig_zscores_3e_tcga)) {
+  sig_zscores_3e_tcga[i,2] <- mean(exp_3e_tcga[up_3e_hyp,i],  na.rm=TRUE)
+  sig_zscores_3e_tcga[i,3] <- mean(exp_3e_tcga[down_3e_hyp,i],  na.rm=TRUE)
+  }
+
+sig_zscores_3e_tcga <- sig_zscores_3e_tcga %>%
+  mutate(total_z_score = up_z_score - down_z_score)
+
+quantile_groups <- quantile(sig_zscores_3e_tcga$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+sig_zscores_3e_tcga$quantile <- cut(sig_zscores_3e_tcga$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+sig_zscores_3e_tcga$patient <- gsub("\\.", "-", as.character(sig_zscores_3e_tcga$patient))
+sig_zscores_3e_tcga$patient <- sub("-[^-]*$", "", sig_zscores_3e_tcga$patient)
+
+```
+
+## Import TCGA patient data
+```{r}
+clin_tcga <- read_excel(here("cbioportal_data/new_tcga_clinical.xlsx"))
+colnames(clin_tcga)
+
+#do not need all these columns
+
+clin_small <- clin_tcga %>% 
+  dplyr::select(OS_STATUS, OS_MONTHS, PATIENT_ID)
+
+# years and months in this are not reading correctly
+#get rid of not available
+clin_small <- clin_small %>%
+  filter(OS_MONTHS != "[Not Available]") %>% 
+  filter(OS_MONTHS > 0)
+
+clin_small$OS_MONTHS <- as.numeric(clin_small$OS_MONTHS)
+
+clin_small$OS_STATUS[which(clin_small$OS_STATUS == "1:DECEASED" & clin_small$OS_MONTHS > 120)] <- "0:LIVING"
+ 
+ clin_small$OS_STATUS <- clin_small$OS_STATUS == "1:DECEASED"
+
+clin$OS_MONTHS <- as.numeric(clin$OS_MONTHS)
+
+clin_small <- clin_small %>% 
+  mutate(OS_YEARS= clin_small$OS_MONTHS/12)
+
+clin_small$OS_YEARS[which(clin_small$OS_YEARS >= 10)] <- 10
+```
+
+
+## 3e survival
+```{r}
+#bind clin data with z score data
+
+all_tcga_3e <- left_join(clin_small, sig_zscores_3e_tcga, by=c("PATIENT_ID"="patient")) %>% 
+  filter(quantile != "NA") %>% 
+  filter(quantile==1 | quantile==4)
+
+fit_tcga_3e <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_tcga_3e)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_tcga_3e)
+summary_coxfit<- summary(coxfit)
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+colors <- grDevices::colorRampPalette(c("grey", si3e_col))(2)
+
+
+surv_plot_3e_tcga<-
+ggsurvplot(fit_tcga_3e,
+           data = all_tcga_3e,
+           size = 1,
+           palette = colors, 
+          legend.labs=c("Low 3e", "High 3e"),
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = TRUE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_3e_tcga$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+ggsave("tcga_3e_231.pdf", path=here("plots/plots_231"),width = 8, height=6)
+
+#boxplot of quartile expression
+
+ggplot(all_tcga_3e, aes(x=quantile,y=total_z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for eIF3e hypoxia signature")
+
+```
+
+## 3d TCGA
+### Calculate z scores
+```{r}
+# filter merged z score data based on genes in my signature
+exp_3d_tcga <- merged_zscores_tcga %>%
+  rownames_to_column("Hugo_Symbol") %>% 
+  filter(Hugo_Symbol %in% sig_rna_3d_hyp$symbol) %>% 
+  column_to_rownames("Hugo_Symbol")
+
+# empty df
+sig_zscores_3d_tcga <- data.frame(patient=colnames(exp_3d_tcga),
+                         up_z_score=NA,
+                         down_z_score=NA)
+#calculate z score
+
+for (i in 1:nrow(sig_zscores_3d_tcga)) {
+  sig_zscores_3d_tcga[i,2] <- mean(exp_3d_tcga[up_3d_hyp,i],  na.rm=TRUE)
+  sig_zscores_3d_tcga[i,3] <- mean(exp_3d_tcga[down_3d_hyp,i],  na.rm=TRUE)
+  }
+
+sig_zscores_3d_tcga <- sig_zscores_3d_tcga %>%
+  mutate(total_z_score = up_z_score - down_z_score)
+
+quantile_groups <- quantile(sig_zscores_3d_tcga$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+sig_zscores_3d_tcga$quantile <- cut(sig_zscores_3d_tcga$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+sig_zscores_3d_tcga$patient <- gsub("\\.", "-", as.character(sig_zscores_3d_tcga$patient))
+sig_zscores_3d_tcga$patient <- sub("-[^-]*$", "", sig_zscores_3d_tcga$patient)
+
+```
+
+```{r}
+#bind clin data with z score data
+
+all_tcga_3d <- left_join(clin_small, sig_zscores_3d_tcga, by=c("PATIENT_ID"="patient")) %>% 
+  filter(quantile != "NA") %>% 
+    filter(quantile==1 | quantile==4)
+
+
+fit_tcga_3d <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_tcga_3d)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_tcga_3d)
+summary_coxfit<- summary(coxfit)
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+colors <- grDevices::colorRampPalette(c("grey", si3d_col))(2)
+
+
+surv_plot_3d_tcga<-
+ggsurvplot(fit_tcga_3d,
+           data = all_tcga_3d,
+           size = 1,
+           palette = colors,
+                     legend.labs=c("Low 3d", "High 3d"),
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = TRUE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_3d_tcga$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+ggsave("tcga_3d_231.pdf", path=here("plots/plots_231"),width = 8, height=6)
+
+
+
+
+#boxplot of quartile expression
+
+ggplot(all_tcga_3d, aes(x=quantile,y=total_z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for eIF3d hypoxia signature")
+
+```
+
+
+# Find the intersection of 3e and 3d RNA signature, do surival analysis with that
+
+## Import MCF7-SIX1 data
+
+```{r}
+
+six1_res_hyp_3d <- read_xlsx(path = here("counts/fig8/rna_signature_3d_hypoxia.xlsx"), col_names = T)
+
+#confirm direction
+  six1_res_hyp_3d %>% 
+    filter(symbol=="EIF3D")
+  
+six1_res_hyp_3e <- read_xlsx(path = here("counts/fig8/rna_signature_3e_hypoxia.xlsx"), col_names = T)
+
+#confirm direction
+  six1_res_hyp_3e %>% 
+    filter(symbol=="EIF3E")
+
+```
+
+
+Doing a cutoff of LFC of 1 leads to very few genes in the intersect 
+
+```{r}
+
+six1_sig_rna_3d_hyp <- six1_res_hyp_3d %>% 
+  filter(padj < 0.05)
+
+six1_up_3d_hyp <- six1_sig_rna_3d_hyp %>% 
+  filter(log2FoldChange > 1) %>% 
+  pull(symbol)
+  
+
+six1_down_3d_hyp <- six1_sig_rna_3d_hyp %>% 
+  filter(log2FoldChange < -1)%>% 
+  pull(symbol)
+  
+```
+
+```{r}
+intersect_hyp_up_3d <- intersect(six1_up_3d_hyp, up_3d_hyp) %>% view()
+
+intersect_hyp_down_3d <- intersect(six1_down_3d_hyp, down_3d_hyp) %>% view()
+
+```
+
+```{r}
+
+six1_sig_rna_3e_hyp <- six1_res_hyp_3e %>% 
+  filter(padj < 0.05)
+
+six1_up_3e_hyp <- six1_sig_rna_3e_hyp %>% 
+  filter(log2FoldChange > 1) %>% 
+  pull(symbol)
+  
+
+six1_down_3e_hyp <- six1_sig_rna_3e_hyp %>% 
+  filter(log2FoldChange < -1)%>% 
+  pull(symbol)
+  
+```
+
+```{r}
+intersect_hyp_up_3e <- intersect(six1_up_3e_hyp, up_3e_hyp) %>% view()
+
+intersect_hyp_down_3e <- intersect(six1_down_3e_hyp, down_3e_hyp) %>% view()
+
+```
+
+# eIF3e hypoxia signature and survival prediction
+### Calculate z scores
+```{r}
+# filter merged z score data based on genes in my signature
+exp_3e <- merged_zscores %>%
+  rownames_to_column("Hugo_Symbol") %>% 
+  column_to_rownames("Hugo_Symbol") %>% 
+  dplyr::select(-Entrez_Gene_Id)
+
+# empty df
+sig_zscores_3e <- data.frame(patient=colnames(exp_3e),
+                         up_z_score=NA,
+                         down_z_score=NA)
+#calculate z score
+
+for (i in 1:nrow(sig_zscores_3e)) {
+  sig_zscores_3e[i,2] <- mean(exp_3e[intersect_hyp_up_3e,i],  na.rm=TRUE)
+  sig_zscores_3e[i,3] <- mean(exp_3e[intersect_hyp_down_3e,i],  na.rm=TRUE)
+  }
+
+sig_zscores_3e <- sig_zscores_3e %>%
+  mutate(total_z_score = up_z_score - down_z_score)
+
+quantile_groups <- quantile(sig_zscores_3e$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+sig_zscores_3e$quantile <- cut(sig_zscores_3e$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+sig_zscores_3e$patient <- sub("-[^-]*$", "", sig_zscores_3e$patient)
+
+sig_zscores_3e$patient <- gsub("\\.", "-", sig_zscores_3e$patient)
+
+
+```
+
+
+# eIF3d hypoxia signature and survival prediction
+### Calculate z scores
+```{r}
+# filter merged z score data based on genes in my signature
+exp_3d <- merged_zscores %>%
+  rownames_to_column("Hugo_Symbol") %>% 
+  column_to_rownames("Hugo_Symbol") %>% 
+  dplyr::select(-Entrez_Gene_Id)
+
+# empty df
+sig_zscores_3d <- data.frame(patient=colnames(exp_3d),
+                         up_z_score=NA,
+                         down_z_score=NA)
+#calculate z score
+
+for (i in 1:nrow(sig_zscores_3d)) {
+  sig_zscores_3d[i,2] <- mean(exp_3d[intersect_hyp_up_3d,i],  na.rm=TRUE)
+  sig_zscores_3d[i,3] <- mean(exp_3d[intersect_hyp_down_3d,i],  na.rm=TRUE)
+  }
+
+sig_zscores_3d <- sig_zscores_3d %>%
+  mutate(total_z_score = up_z_score - down_z_score)
+
+quantile_groups <- quantile(sig_zscores_3d$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+sig_zscores_3d$quantile <- cut(sig_zscores_3d$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+
+sig_zscores_3d$patient <- gsub("\\.", "-", sig_zscores_3d$patient)
+
+```
+
+
+# Import clinical data
+```{r}
+clin <- read_excel(here("cbioportal_data/brca_metabric/data_clinical_patient_edit.xlsx"))
+clin$OS_MONTHS <- as.numeric(clin$OS_MONTHS)
+clin$OS_STATUS[which(clin$OS_STATUS == "1:DECEASED" & clin$OS_MONTHS > 120)] <- "0:LIVING"
+clin$OS_STATUS <- clin$OS_STATUS == "1:DECEASED"
+clin <- cbind(clin, OS_YEARS = clin$OS_MONTHS/12)
+clin$OS_YEARS[which(clin$OS_YEARS >= 10)] <- 10
+
+```
+
+### visualizing high and low quartile in each survival plot for the paper.
+## 3e survival
+```{r}
+#bind clin data with z score data
+
+all_data_3e_hyp <- left_join(clin, sig_zscores_3e, by=c("PATIENT_ID"="patient")) %>% 
+  filter(quantile != "NA")
+
+all_data_3e_hyp <- all_data_3e_hyp %>% 
+  filter(quantile == 1 | quantile == 4)
+
+fit_all_3e_hyp <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_data_3e_hyp)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_data_3e_hyp)
+summary_coxfit_3e_norm <- summary(coxfit)
+
+
+hr <- round(summary_coxfit_3e_norm$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit_3e_norm$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+#3e_colors
+colors <- grDevices::colorRampPalette(c("grey", si3e_col))(2)
+
+
+surv_plot_3e_hyp<-
+ggsurvplot(fit_all_3e_hyp,
+           data = all_data_3e_hyp,
+           size = 1,
+           palette =colors, 
+          legend.labs=c("Low 3e", "High 3e"),
+         #  legend.labs=c("Low 3e", "Med-Low 3e", "Med-High 3e", "High 3e"),
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_3e_hyp$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+ggsave("3e_hyp_surv_plot_intersect.pdf", path=here("plots/plots_231"),width = 11.5, height=8)
+
+
+
+
+#boxplot of quartile expression
+
+ggplot(all_data_3e_hyp, aes(x=quantile,y=total_z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for eIF3e hypoxia signature")
+
+
+#examples of more analyses, not used in paper
+ggviolin(data = all_data_3e_hyp %>% filter(ER_IHC != ""), y = "total_z_score", x = "ER_IHC", fill = "ER_IHC", palette = ggokabeito::palette_okabe_ito(), add = "median_iqr" ) +
+  rotate_x_text(45)
+
+ggviolin(data = all_data_3e_hyp %>% filter(THREEGENE != ""), y = "total_z_score", x = "THREEGENE", fill = "THREEGENE", palette = ggokabeito::palette_okabe_ito(), add = "boxplot", add.params = list(fill = "white")) +
+  rotate_x_text(45)
+
+
+#claudin subtype
+ggviolin(data = all_data_3e_hyp , y = "total_z_score", x = "CLAUDIN_SUBTYPE", fill = "CLAUDIN_SUBTYPE", palette = ggokabeito::palette_okabe_ito(), add = "median_iqr" ) +
+  rotate_x_text(45)
+
+
+```
+
+## 3d survival
+```{r}
+#bind clin data with z score data
+
+all_data_3d_hyp <- left_join(clin, sig_zscores_3d, by=c("PATIENT_ID"="patient")) %>% 
+  filter(quantile != "NA")
+
+all_data_3d_hyp <- all_data_3d_hyp %>% 
+  filter(quantile == 1 | quantile == 4)
+
+fit_all_3d_hyp <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_data_3d_hyp)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_data_3d_hyp)
+summary_coxfit_3d_norm <- summary(coxfit)
+
+
+hr <- round(summary_coxfit_3d_norm$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit_3d_norm$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+colors <- grDevices::colorRampPalette(c("grey", si3d_col))(2)
+
+surv_plot_3d_hyp<-
+ggsurvplot(fit_all_3d_hyp,
+           data = all_data_3d_hyp,
+           size = 1,
+           palette = colors, 
+          legend.labs=c("Low 3d", "High 3d"),
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_3d_hyp$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+ggsave("3d_hyp_surv_plot_intersect.pdf", path=here("plots/plots_231"),width = 11.5, height=8)
+
+
+
+
+#boxplot of quartile expression
+
+ggplot(all_data_3d_hyp, aes(x=quantile,y=total_z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for eIF3d hypoxia signature")
+
+count(all_data_3d_hyp$quantile==1)
+
+ggviolin(data = all_data_3d_hyp %>% filter(ER_IHC != ""), y = "total_z_score", x = "ER_IHC", fill = "ER_IHC", palette = ggokabeito::palette_okabe_ito(), add = "median_iqr" ) +
+  rotate_x_text(45)
+
+ggviolin(data = all_data_3d_hyp %>% filter(THREEGENE != ""), y = "total_z_score", x = "THREEGENE", fill = "THREEGENE", palette = ggokabeito::palette_okabe_ito(), add = "boxplot", add.params = list(fill = "white")) +
+  rotate_x_text(45)
+
+```
+## Sanity check:
+REpeat analyses using random subsets of the group adn make sure results look the same
+
+3e
+```{r}
+all_data_3e_hyp <- left_join(clin, sig_zscores_3e, by=c("PATIENT_ID"="patient")) %>% 
+  filter(quantile != "NA")
+
+all_data_3e_hyp <- all_data_3e_hyp %>% 
+  filter(quantile == 1 | quantile == 4) %>% 
+    slice_sample(n = 100)
+
+
+fit_all_3e_hyp <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_data_3e_hyp)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_data_3e_hyp)
+summary_coxfit_3e_norm <- summary(coxfit)
+
+
+hr <- round(summary_coxfit_3e_norm$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit_3e_norm$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+#3e_colors
+colors <- grDevices::colorRampPalette(c("grey", si3e_col))(2)
+
+
+surv_plot_3e_hyp<-
+ggsurvplot(fit_all_3e_hyp,
+           data = all_data_3e_hyp,
+           size = 1,
+           palette =colors, 
+          legend.labs=c("Low 3e", "High 3e"),
+         #  legend.labs=c("Low 3e", "Med-Low 3e", "Med-High 3e", "High 3e"),
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_3e_hyp$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+
+```
+
+3d -- random subset
+
+```{r}
+all_data_3d_hyp <- all_data_3d_hyp %>% 
+  filter(quantile == 1 | quantile == 4) %>% 
+  slice_sample(n = 400)
+
+fit_all_3d_hyp <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_data_3d_hyp)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_data_3d_hyp)
+summary_coxfit_3d_norm <- summary(coxfit)
+
+
+hr <- round(summary_coxfit_3d_norm$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit_3d_norm$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+colors <- grDevices::colorRampPalette(c("grey", si3d_col))(2)
+
+surv_plot_3d_hyp<-
+ggsurvplot(fit_all_3d_hyp,
+           data = all_data_3d_hyp,
+           size = 1,
+           palette = colors, 
+          legend.labs=c("Low 3d", "High 3d"),
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_3d_hyp$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+```
+
+
+
+
+
+# Intersect TCGA
+
+
+# eIF3e hypoxia signature and survival prediction
+### Calculate z scores
+
+# eIF3e hypoxia signature and survival prediction
+### Calculate z scores
+```{r}
+# filter merged z score data based on genes in my signature
+exp_3e_tcga <- merged_zscores_tcga %>%
+  rownames_to_column("Hugo_Symbol") %>% 
+  column_to_rownames("Hugo_Symbol")
+
+# empty df
+sig_zscores_3e_tcga <- data.frame(patient=colnames(exp_3e_tcga),
+                         up_z_score=NA,
+                         down_z_score=NA)
+#calculate z score
+
+for (i in 1:nrow(sig_zscores_3e_tcga)) {
+  sig_zscores_3e_tcga[i,2] <- mean(exp_3e_tcga[intersect_hyp_up_3e,i],  na.rm=TRUE)
+  sig_zscores_3e_tcga[i,3] <- mean(exp_3e_tcga[intersect_hyp_down_3e,i],  na.rm=TRUE)
+  }
+
+sig_zscores_3e_tcga <- sig_zscores_3e_tcga %>%
+  mutate(total_z_score = up_z_score - down_z_score)
+
+quantile_groups <- quantile(sig_zscores_3e_tcga$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+sig_zscores_3e_tcga$quantile <- cut(sig_zscores_3e_tcga$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+sig_zscores_3e_tcga$patient <- gsub("\\.", "-", as.character(sig_zscores_3e_tcga$patient))
+sig_zscores_3e_tcga$patient <- sub("-[^-]*$", "", sig_zscores_3e_tcga$patient)
+
+```
+
+
+## 3e survival
+```{r}
+#bind clin data with z score data
+
+all_tcga_3e <- left_join(clin_small, sig_zscores_3e_tcga, by=c("PATIENT_ID"="patient")) %>% 
+  filter(quantile != "NA") %>% 
+  filter(quantile==1 | quantile==4)
+
+fit_tcga_3e <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_tcga_3e)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_tcga_3e)
+summary_coxfit<- summary(coxfit)
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+colors <- grDevices::colorRampPalette(c("grey", si3e_col))(2)
+
+
+surv_plot_3e_tcga<-
+ggsurvplot(fit_tcga_3e,
+           data = all_tcga_3e,
+           size = 1,
+           palette = colors, 
+          legend.labs=c("Low 3e", "High 3e"),
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = TRUE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_3e_tcga$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+ggsave("tcga_3e_intersect.pdf", path=here("plots/plots_231"),width = 8, height=6)
+
+#boxplot of quartile expression
+
+ggplot(all_tcga_3e, aes(x=quantile,y=total_z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for eIF3e hypoxia signature")
+
+```
+
+## 3d TCGA
+### Calculate z scores
+```{r}
+# filter merged z score data based on genes in my signature
+exp_3d_tcga <- merged_zscores_tcga %>%
+  rownames_to_column("Hugo_Symbol") %>% 
+  column_to_rownames("Hugo_Symbol")
+
+# empty df
+sig_zscores_3d_tcga <- data.frame(patient=colnames(exp_3d_tcga),
+                         up_z_score=NA,
+                         down_z_score=NA)
+#calculate z score
+
+for (i in 1:nrow(sig_zscores_3d_tcga)) {
+  sig_zscores_3d_tcga[i,2] <- mean(exp_3d_tcga[intersect_hyp_up_3d,i],  na.rm=TRUE)
+  sig_zscores_3d_tcga[i,3] <- mean(exp_3d_tcga[intersect_hyp_down_3d,i],  na.rm=TRUE)
+  }
+
+sig_zscores_3d_tcga <- sig_zscores_3d_tcga %>%
+  mutate(total_z_score = up_z_score - down_z_score)
+
+quantile_groups <- quantile(sig_zscores_3d_tcga$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+sig_zscores_3d_tcga$quantile <- cut(sig_zscores_3d_tcga$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+sig_zscores_3d_tcga$patient <- gsub("\\.", "-", as.character(sig_zscores_3d_tcga$patient))
+sig_zscores_3d_tcga$patient <- sub("-[^-]*$", "", sig_zscores_3d_tcga$patient)
+
+```
+
+```{r}
+#bind clin data with z score data
+
+all_tcga_3d <- left_join(clin_small, sig_zscores_3d_tcga, by=c("PATIENT_ID"="patient")) %>% 
+  filter(quantile != "NA") %>% 
+    filter(quantile==1 | quantile==4)
+
+
+fit_tcga_3d <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_tcga_3d)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_tcga_3d)
+summary_coxfit<- summary(coxfit)
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+colors <- grDevices::colorRampPalette(c("grey", si3d_col))(2)
+
+
+surv_plot_3d_tcga<-
+ggsurvplot(fit_tcga_3d,
+           data = all_tcga_3d,
+           size = 1,
+           palette = colors,
+                     legend.labs=c("Low 3d", "High 3d"),
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = TRUE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_3d_tcga$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+ggsave("tcga_3d_intersect.pdf", path=here("plots/plots_231"),width = 8, height=6)
+
+
+
+
+#boxplot of quartile expression
+
+ggplot(all_tcga_3d, aes(x=quantile,y=total_z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for eIF3d hypoxia signature")
+
+```
+
+
+3d subsample sanity check
+```{r}
+all_tcga_3d <- left_join(clin_small, sig_zscores_3d_tcga, by=c("PATIENT_ID"="patient")) %>% 
+  filter(quantile != "NA") %>% 
+    filter(quantile==1 | quantile==4) %>% 
+    slice_sample(n = 100)
+
+
+
+fit_tcga_3d <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_tcga_3d)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_tcga_3d)
+summary_coxfit<- summary(coxfit)
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+colors <- grDevices::colorRampPalette(c("grey", si3d_col))(2)
+
+
+surv_plot_3d_tcga<-
+ggsurvplot(fit_tcga_3d,
+           data = all_tcga_3d,
+           size = 1,
+           palette = colors,
+                     legend.labs=c("Low 3d", "High 3d"),
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = TRUE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_3d_tcga$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+```
+
+3e sanity check
+```{r}
+all_tcga_3e <- left_join(clin_small, sig_zscores_3e_tcga, by=c("PATIENT_ID"="patient")) %>% 
+  filter(quantile != "NA") %>% 
+  filter(quantile==1 | quantile==4) %>% 
+  slice_sample(n=100)
+
+fit_tcga_3e <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_tcga_3e)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_tcga_3e)
+summary_coxfit<- summary(coxfit)
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+colors <- grDevices::colorRampPalette(c("grey", si3e_col))(2)
+
+
+surv_plot_3e_tcga<-
+ggsurvplot(fit_tcga_3e,
+           data = all_tcga_3e,
+           size = 1,
+           palette = colors, 
+          legend.labs=c("Low 3e", "High 3e"),
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = TRUE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_3e_tcga$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+```
+
+
+
+
+
+# Hypoxia signature
+
+On the intersect signature for both cell lines
+
+
+## Import hypoxia signature from ye et al
+Hypoxia signature in breast cancer:
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6279594/#:~:text=The%2042%2Dgene%20expression%20signature,mediate%20the%20conserved%20hypoxic%20response
+
+
+```{r}
+ye_hyp_sig <- read_excel(here("other_data/hypoxic_sig_ye.xlsx"))
+#up values only
+
+#calculate z scores for enrichment of hypoxia signature
+
+# filter merged z score data based on genes in my signature
+exp_hyp_sig <- merged_zscores %>%
+  rownames_to_column("Hugo_Symbol") %>% 
+  filter(Hugo_Symbol %in% ye_hyp_sig$up_in_hypoxia) %>% 
+  column_to_rownames("Hugo_Symbol") %>% 
+  dplyr::select(-Entrez_Gene_Id)
+
+# empty df
+sig_zscores_hyp_signature <- data.frame(patient=colnames(exp_hyp_sig),
+                         z_score=NA)
+#calculate z score
+
+for (i in 1:nrow(sig_zscores_hyp_signature)) {
+  sig_zscores_hyp_signature[i,2] <- mean(exp_hyp_sig[,i],  na.rm=TRUE)
+}
+
+
+quantile_groups <- quantile(sig_zscores_hyp_signature$z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+sig_zscores_hyp_signature$quantile <- cut(sig_zscores_hyp_signature$z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+sig_zscores_hyp_signature$patient <- sub("-[^-]*$", "", sig_zscores_hyp_signature$patient)
+
+sig_zscores_hyp_signature$patient <- gsub("\\.", "-", sig_zscores_hyp_signature$patient)
+
+
+#Bind z score hypoxia signature with clin data
+
+
+all_data_hif_ye <- left_join(clin, sig_zscores_hyp_signature, by=c("PATIENT_ID"="patient"))
+
+all_data_hif_ye <- all_data_hif_ye %>% 
+  filter(quantile == 1 | quantile == 4)
+
+#plot
+
+fit_all_data_hif_ye <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_data_hif_ye)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_data_hif_ye)
+summary_coxfit_ye <- summary(coxfit)
+
+exp(summary_coxfit_ye$coefficients[1])
+
+hr <- round(summary_coxfit_ye$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit_ye$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+colors <- grDevices::colorRampPalette(c("grey", "red"))(2)
+
+surv_plot_ye_hyp<-
+ggsurvplot(fit_all_data_hif_ye,
+           data = all_data_hif_ye,
+           size = 1,
+           palette = colors, 
+           break.time.by = 1,
+          legend.labs=c("Low Hypoxia", "High Hypoxia"),
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_ye_hyp$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+ggsave("surv_plot_ye_hyp.pdf", path=here("plots/fig8"),width = 11.5, height=8)
+
+
+#boxplot of quartile expression
+
+ggplot(all_data_hif_ye, aes(x=quantile,y=z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for eIF3d hypoxia signature")
+
+```
+
+
+## correlation of 3e and hypoxia score
+
+```{r}
+
+exp_3e <- merged_zscores %>%
+  rownames_to_column("Hugo_Symbol") %>% 
+  column_to_rownames("Hugo_Symbol") %>% 
+  dplyr::select(-Entrez_Gene_Id)
+
+# empty df
+sig_zscores_3e <- data.frame(patient=colnames(exp_3e),
+                         up_z_score=NA,
+                         down_z_score=NA)
+#calculate z score
+
+for (i in 1:nrow(sig_zscores_3e)) {
+  sig_zscores_3e[i,2] <- mean(exp_3e[intersect_hyp_up_3e,i],  na.rm=TRUE)
+  sig_zscores_3e[i,3] <- mean(exp_3e[intersect_hyp_down_3e,i],  na.rm=TRUE)
+  }
+
+sig_zscores_3e <- sig_zscores_3e %>%
+  mutate(total_z_score = up_z_score - down_z_score)
+
+quantile_groups <- quantile(sig_zscores_3e$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+sig_zscores_3e$quantile <- cut(sig_zscores_3e$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+sig_zscores_3e$patient <- sub("-[^-]*$", "", sig_zscores_3e$patient)
+
+sig_zscores_3e$patient <- gsub("\\.", "-", sig_zscores_3e$patient)
+
+
+
+patient_ye_and_3e <- left_join(sig_zscores_3e, sig_zscores_hyp_signature, by="patient") %>% 
+  dplyr::rename("hypoxia_z_score"="z_score") %>% 
+   dplyr::rename("eIF3e_z_score"="total_z_score")
+
+
+```
+
+## Divide patients into 3e sig high/low and hypoxia signature high/low
+
+Make four groups based on quandrants -- 3e levels in hypoxia
+```{r}
+
+patient_ye_and_3e <- patient_ye_and_3e %>% 
+  mutate(quadrant = ifelse(hypoxia_z_score < 0 & eIF3e_z_score < 0, "low hypoxia and low 3e",
+                           ifelse(hypoxia_z_score > 0 & eIF3e_z_score < 0, "high hypoxia and low 3e",
+                                  ifelse(hypoxia_z_score > 0 & eIF3e_z_score > 0, "high hypoxia and high 3e",
+                                         ifelse(hypoxia_z_score < 0 & eIF3e_z_score > 0, "low hypoxia and high 3e", "other")))))
+
+
+patient_ye_and_3e$quadrant <- factor(patient_ye_and_3e$quadrant, levels=c("low hypoxia and low 3e","high hypoxia and low 3e","low hypoxia and high 3e", "high hypoxia and high 3e"))
+
+
+```
+
+Determine correlation and color by group
+```{r}
+ggplot(patient_ye_and_3e, aes(x=hypoxia_z_score, y= eIF3e_z_score, color=quadrant))+
+  geom_point()+
+  xlab("Ye hypoxia signature z score")+
+  ylab("eIF3e-hyp z score")+
+  theme_prism()+ 
+  theme(text = element_text(size = 14))+
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0)+
+  scale_color_manual(values=c("high hypoxia and high 3e"="#9B4D96", 
+                       "high hypoxia and low 3e"="red", 
+                       "low hypoxia and low 3e"="grey", 
+                       "low hypoxia and high 3e"= "#56B4E9"))
+
+
+ggsave("intersect_3e_hyp_and_ye.pdf", path=here("plots/plots_231"),width = 5.5, height=3)
+
+cor.test(patient_ye_and_3e$hypoxia_z_score, patient_ye_and_3e$eIF3e_z_score, method="pearson")
+```
+
+Plot survival curve
+```{r}
+#bind with clin data
+patient_ye_and_3e_hyp_clin <- left_join(clin, patient_ye_and_3e, by=c("PATIENT_ID"="patient"))
+
+#plot
+
+fit_all_hypoxia_3e <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = patient_ye_and_3e_hyp_clin)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, patient_ye_and_3e_hyp_clin)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+
+levels(patient_ye_and_3e_hyp_clin$quadrant)
+
+surv_plot_3e_and_hypoxia_sig<-
+ggsurvplot(fit_all_hypoxia_3e,
+           data = patient_ye_and_3e_hyp_clin,
+           size = 1,
+           palette = c("grey", "red", si3e_col, "#9B4D96"), 
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 7,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_3e_and_hypoxia_sig$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+ggsave("intersect_surv_plot_3e_and_hypoxia_sig.pdf", path=here("plots/plots_231"),width = 11.5, height=8)
+
+#compare middle two quadrants
+
+levels(patient_ye_and_3e_hyp_clin$quadrant)
+
+# Relevel the 'quadrant' factor to set the desired reference group
+patient_ye_and_3e_hyp_clin$quadrant <- relevel(patient_ye_and_3e_hyp_clin$quadrant, ref = "low hypoxia and low 3e")
+
+# Fit the Cox model
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = patient_ye_and_3e_hyp_clin)
+summary_coxfit <- summary(coxfit)
+print(summary_coxfit)
+
+summary(patient_ye_and_3e_hyp_clin$quadrant)
+
+```
+
+
+#3d
+
+
+## correlation of 3d and hypoxia score
+
+```{r}
+
+exp_3d <- merged_zscores %>%
+  rownames_to_column("Hugo_Symbol") %>% 
+  column_to_rownames("Hugo_Symbol") %>% 
+  dplyr::select(-Entrez_Gene_Id)
+
+# empty df
+sig_zscores_3d <- data.frame(patient=colnames(exp_3d),
+                         up_z_score=NA,
+                         down_z_score=NA)
+#calculate z score
+
+for (i in 1:nrow(sig_zscores_3d)) {
+  sig_zscores_3d[i,2] <- mean(exp_3d[intersect_hyp_up_3d,i],  na.rm=TRUE)
+  sig_zscores_3d[i,3] <- mean(exp_3d[intersect_hyp_down_3d,i],  na.rm=TRUE)
+  }
+
+sig_zscores_3d <- sig_zscores_3d %>%
+  mutate(total_z_score = up_z_score - down_z_score)
+
+quantile_groups <- quantile(sig_zscores_3d$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+sig_zscores_3d$quantile <- cut(sig_zscores_3d$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+sig_zscores_3d$patient <- sub("-[^-]*$", "", sig_zscores_3d$patient)
+
+sig_zscores_3d$patient <- gsub("\\.", "-", sig_zscores_3d$patient)
+
+
+
+patient_ye_and_3d <- left_join(sig_zscores_3d, sig_zscores_hyp_signature, by="patient") %>% 
+  dplyr::rename("hypoxia_z_score"="z_score") %>% 
+   dplyr::rename("eIF3d_z_score"="total_z_score")
+
+
+```
+
+## Divide patients into 3d sig high/low and hypoxia signature high/low
+
+Make four groups based on quandrants -- 3d levels in hypoxia
+```{r}
+
+patient_ye_and_3d <- patient_ye_and_3d %>% 
+  mutate(quadrant = ifelse(hypoxia_z_score < 0 & eIF3d_z_score < 0, "low hypoxia and low 3d",
+                           ifelse(hypoxia_z_score > 0 & eIF3d_z_score < 0, "high hypoxia and low 3d",
+                                  ifelse(hypoxia_z_score > 0 & eIF3d_z_score > 0, "high hypoxia and high 3d",
+                                         ifelse(hypoxia_z_score < 0 & eIF3d_z_score > 0, "low hypoxia and high 3d", "other")))))
+
+
+patient_ye_and_3d$quadrant <- factor(patient_ye_and_3d$quadrant, levels=c("low hypoxia and low 3d","high hypoxia and low 3d","low hypoxia and high 3d", "high hypoxia and high 3d"))
+
+
+```
+
+Determine correlation and color by group
+```{r}
+ggplot(patient_ye_and_3d, aes(x=hypoxia_z_score, y= eIF3d_z_score, color=quadrant))+
+  geom_point()+
+  xlab("Ye hypoxia signature z score")+
+  ylab("eIF3d-hyp z score")+
+  theme_prism()+ 
+  theme(text = element_text(size = 14))+
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0)+
+  scale_color_manual(values=c("high hypoxia and high 3d"="#9B4D96", 
+                       "high hypoxia and low 3d"="red", 
+                       "low hypoxia and low 3d"="grey", 
+                       "low hypoxia and high 3d"= "#56B4E9"))
+
+
+ggsave("intersect_3d_hyp_and_ye.pdf", path=here("plots/plots_231"),width = 5.5, height=3)
+
+cor.test(patient_ye_and_3d$hypoxia_z_score, patient_ye_and_3d$eIF3d_z_score, method="pearson")
+```
+
+Plot survival curve
+```{r}
+#bind with clin data
+patient_ye_and_3d_hyp_clin <- left_join(clin, patient_ye_and_3d, by=c("PATIENT_ID"="patient"))
+
+#plot
+
+fit_all_hypoxia_3d <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = patient_ye_and_3d_hyp_clin)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, patient_ye_and_3d_hyp_clin)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+
+levels(patient_ye_and_3d_hyp_clin$quadrant)
+
+surv_plot_3d_and_hypoxia_sig<-
+ggsurvplot(fit_all_hypoxia_3d,
+           data = patient_ye_and_3d_hyp_clin,
+           size = 1,
+           palette = c("grey", "red", "#56B4E9", "#9B4D96"), 
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 7,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_3d_and_hypoxia_sig$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+ggsave("intersect_surv_plot_3d_and_hypoxia_sig.pdf", path=here("plots/plots_231"),width = 11.5, height=8)
+
+#compare middle two quadrants
+
+levels(patient_ye_and_3d_hyp_clin$quadrant)
+
+# Relevel the 'quadrant' factor to set the desired reference group
+patient_ye_and_3d_hyp_clin$quadrant <- relevel(patient_ye_and_3d_hyp_clin$quadrant, ref = "low hypoxia and low 3d")
+
+# Fit the Cox model
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = patient_ye_and_3d_hyp_clin)
+summary_coxfit <- summary(coxfit)
+print(summary_coxfit)
+
+summary(patient_ye_and_3d_hyp_clin$quadrant)
+
+```
+
+
+
+
+
+# TCGA version of this
+
+TCGA hypoxia signature.
+
+```{r}
+#calculate z scores for enrichment of hypoxia signature
+
+# filter merged z score data based on genes in my signature
+exp_hyp_sig <- merged_zscores_tcga %>%
+  rownames_to_column("Hugo_Symbol") %>% 
+  filter(Hugo_Symbol %in% ye_hyp_sig$up_in_hypoxia) %>% 
+  column_to_rownames("Hugo_Symbol")
+
+
+# empty df
+sig_zscores_hyp_signature <- data.frame(patient=colnames(exp_hyp_sig),
+                         z_score=NA)
+#calculate z score
+
+for (i in 1:nrow(sig_zscores_hyp_signature)) {
+  sig_zscores_hyp_signature[i,2] <- mean(exp_hyp_sig[,i],  na.rm=TRUE)
+}
+
+
+quantile_groups <- quantile(sig_zscores_hyp_signature$z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+sig_zscores_hyp_signature$quantile <- cut(sig_zscores_hyp_signature$z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+
+sig_zscores_hyp_signature$patient <- gsub("\\.", "-", as.character(sig_zscores_hyp_signature$patient))
+sig_zscores_hyp_signature$patient <- sub("-[^-]*$", "", sig_zscores_hyp_signature$patient)
+
+
+#Bind z score hypoxia signature with clin data
+
+
+all_data_hif_ye <- left_join(clin_small, sig_zscores_hyp_signature, by=c("PATIENT_ID"="patient"))
+
+all_data_hif_ye <- all_data_hif_ye %>% 
+  filter(quantile == 1 | quantile == 4)
+
+#plot
+
+fit_all_data_hif_ye <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quantile, data = all_data_hif_ye)
+
+
+
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quantile, all_data_hif_ye)
+summary_coxfit_ye <- summary(coxfit)
+
+exp(summary_coxfit_ye$coefficients[1])
+
+hr <- round(summary_coxfit_ye$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit_ye$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+colors <- grDevices::colorRampPalette(c("grey", "red"))(2)
+
+surv_plot_ye_hyp<-
+ggsurvplot(fit_all_data_hif_ye,
+           data = all_data_hif_ye,
+           size = 1,
+           palette = colors, 
+           break.time.by = 1,
+          legend.labs=c("Low Hypoxia", "High Hypoxia"),
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_ye_hyp$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+ggsave("surv_plot_ye_hyp.pdf", path=here("plots/fig8"),width = 11.5, height=8)
+
+
+#boxplot of quartile expression
+
+ggplot(all_data_hif_ye, aes(x=quantile,y=z_score, group=quantile)) +
+  geom_boxplot()+
+  theme_cowplot()+
+  ggtitle("Patient scores for eIF3d hypoxia signature")
+
+```
+
+
+
+
+## correlation of 3e and hypoxia score
+
+```{r}
+
+exp_3e_tcga_intersect <- merged_zscores_tcga %>%
+  rownames_to_column("Hugo_Symbol") %>% 
+  column_to_rownames("Hugo_Symbol")
+
+
+
+# empty df
+sig_zscores_3e <- data.frame(patient=colnames(exp_3e_tcga_intersect),
+                         up_z_score=NA,
+                         down_z_score=NA)
+#calculate z score
+
+for (i in 1:nrow(sig_zscores_3e)) {
+  sig_zscores_3e[i,2] <- mean(exp_3e[intersect_hyp_up_3e$x,i],  na.rm=TRUE)
+  sig_zscores_3e[i,3] <- mean(exp_3e[intersect_hyp_down_3e$x,i],  na.rm=TRUE)
+  }
+
+sig_zscores_3e <- sig_zscores_3e %>%
+  mutate(total_z_score = up_z_score - down_z_score)
+
+quantile_groups <- quantile(sig_zscores_3e$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+sig_zscores_3e$quantile <- cut(sig_zscores_3e$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+sig_zscores_3e$patient <- gsub("\\.", "-", as.character(sig_zscores_3e$patient))
+sig_zscores_3e$patient <- sub("-[^-]*$", "", sig_zscores_3e$patient)
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+patient_ye_and_3e <- left_join(sig_zscores_3e, sig_zscores_hyp_signature, by="patient") %>% 
+  dplyr::rename("hypoxia_z_score"="z_score") %>% 
+   dplyr::rename("eIF3e_z_score"="total_z_score")
+
+```
+
+
+## Divide patients into 3e sig high/low and hypoxia signature high/low
+
+Make four groups based on quandrants -- 3e levels in hypoxia
+```{r}
+
+patient_ye_and_3e <- patient_ye_and_3e %>% 
+  mutate(quadrant = ifelse(hypoxia_z_score < 0 & eIF3e_z_score < 0, "low hypoxia and low 3e",
+                           ifelse(hypoxia_z_score > 0 & eIF3e_z_score < 0, "high hypoxia and low 3e",
+                                  ifelse(hypoxia_z_score > 0 & eIF3e_z_score > 0, "high hypoxia and high 3e",
+                                         ifelse(hypoxia_z_score < 0 & eIF3e_z_score > 0, "low hypoxia and high 3e", "other")))))
+
+
+patient_ye_and_3e$quadrant <- factor(patient_ye_and_3e$quadrant, levels=c("low hypoxia and low 3e","high hypoxia and low 3e","low hypoxia and high 3e", "high hypoxia and high 3e"))
+
+
+```
+
+Determine correlation and color by group
+```{r}
+ggplot(patient_ye_and_3e, aes(x=hypoxia_z_score, y= eIF3e_z_score, color=quadrant))+
+  geom_point()+
+  xlab("Ye hypoxia signature z score")+
+  ylab("eIF3e-hyp z score")+
+  theme_prism()+ 
+  theme(text = element_text(size = 14))+
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0)+
+  scale_color_manual(values=c("high hypoxia and high 3e"="#9B4D96", 
+                       "high hypoxia and low 3e"="red", 
+                       "low hypoxia and low 3e"="grey", 
+                       "low hypoxia and high 3e"= "#56B4E9"))
+
+
+ggsave("intersect_3e_hyp_and_ye_tcga.pdf", path=here("plots/plots_231"),width = 5.5, height=3)
+
+cor.test(patient_ye_and_3e$hypoxia_z_score, patient_ye_and_3e$eIF3e_z_score, method="pearson")
+```
+
+Plot survival curve
+```{r}
+#bind with clin data
+patient_ye_and_3e_hyp_clin <- left_join(clin_small, patient_ye_and_3e, by=c("PATIENT_ID"="patient"))
+
+#plot
+
+fit_all_hypoxia_3e <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = patient_ye_and_3e_hyp_clin)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, patient_ye_and_3e_hyp_clin)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+
+levels(patient_ye_and_3e_hyp_clin$quadrant)
+
+surv_plot_3e_and_hypoxia_sig<-
+ggsurvplot(fit_all_hypoxia_3e,
+           data = patient_ye_and_3e_hyp_clin,
+           size = 1,
+           palette = c("grey", "red", si3e_col, "#9B4D96"), 
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 7,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_3e_and_hypoxia_sig$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+ggsave("intersect_surv_plot_3e_and_hypoxia_sig_tcga.pdf", path=here("plots/plots_231"),width = 11.5, height=8)
+
+#compare middle two quadrants
+
+levels(patient_ye_and_3e_hyp_clin$quadrant)
+
+# Relevel the 'quadrant' factor to set the desired reference group
+patient_ye_and_3e_hyp_clin$quadrant <- relevel(patient_ye_and_3e_hyp_clin$quadrant, ref = "low hypoxia and low 3e")
+
+# Fit the Cox model
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = patient_ye_and_3e_hyp_clin)
+summary_coxfit <- summary(coxfit)
+print(summary_coxfit)
+
+summary(patient_ye_and_3e_hyp_clin$quadrant)
+
+```
+
+
+#3d
+
+
+## correlation of 3d and hypoxia score
+
+```{r}
+
+exp_3d_tcga_intersect <- merged_zscores_tcga %>%
+  rownames_to_column("Hugo_Symbol") %>% 
+  column_to_rownames("Hugo_Symbol")
+
+
+
+# empty df
+sig_zscores_3d <- data.frame(patient=colnames(exp_3d_tcga_intersect),
+                         up_z_score=NA,
+                         down_z_score=NA)
+#calculate z score
+
+for (i in 1:nrow(sig_zscores_3d)) {
+  sig_zscores_3d[i,2] <- mean(exp_3d[intersect_hyp_up_3d$x,i],  na.rm=TRUE)
+  sig_zscores_3d[i,3] <- mean(exp_3d[intersect_hyp_down_3d$x,i],  na.rm=TRUE)
+  }
+
+sig_zscores_3d <- sig_zscores_3d %>%
+  mutate(total_z_score = up_z_score - down_z_score)
+
+quantile_groups <- quantile(sig_zscores_3d$total_z_score, probs=seq(0,1,.25), na.rm=TRUE)
+
+sig_zscores_3d$quantile <- cut(sig_zscores_3d$total_z_score, breaks = quantile_groups, include.lowest = TRUE, labels = FALSE)
+
+sig_zscores_3d$patient <- gsub("\\.", "-", as.character(sig_zscores_3d$patient))
+sig_zscores_3d$patient <- sub("-[^-]*$", "", sig_zscores_3d$patient)
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+patient_ye_and_3d <- left_join(sig_zscores_3d, sig_zscores_hyp_signature, by="patient") %>% 
+  dplyr::rename("hypoxia_z_score"="z_score") %>% 
+   dplyr::rename("eIF3d_z_score"="total_z_score")
+
+```
+
+
+## Divide patients into 3d sig high/low and hypoxia signature high/low
+
+Make four groups based on quandrants -- 3d levels in hypoxia
+```{r}
+
+patient_ye_and_3d <- patient_ye_and_3d %>% 
+  mutate(quadrant = ifelse(hypoxia_z_score < 0 & eIF3d_z_score < 0, "low hypoxia and low 3d",
+                           ifelse(hypoxia_z_score > 0 & eIF3d_z_score < 0, "high hypoxia and low 3d",
+                                  ifelse(hypoxia_z_score > 0 & eIF3d_z_score > 0, "high hypoxia and high 3d",
+                                         ifelse(hypoxia_z_score < 0 & eIF3d_z_score > 0, "low hypoxia and high 3d", "other")))))
+
+
+patient_ye_and_3d$quadrant <- factor(patient_ye_and_3d$quadrant, levels=c("low hypoxia and low 3d","high hypoxia and low 3d","low hypoxia and high 3d", "high hypoxia and high 3d"))
+
+
+```
+
+Determine correlation and color by group
+```{r}
+ggplot(patient_ye_and_3d, aes(x=hypoxia_z_score, y= eIF3d_z_score, color=quadrant))+
+  geom_point()+
+  xlab("Ye hypoxia signature z score")+
+  ylab("eIF3d-hyp z score")+
+  theme_prism()+ 
+  theme(text = element_text(size = 14))+
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0)+
+  scale_color_manual(values=c("high hypoxia and high 3d"="#9B4D96", 
+                       "high hypoxia and low 3d"="red", 
+                       "low hypoxia and low 3d"="grey", 
+                       "low hypoxia and high 3d"= "#56B4E9"))
+
+
+ggsave("intersect_3d_hyp_and_ye_tcga.pdf", path=here("plots/plots_231"),width = 5.5, height=3)
+
+cor.test(patient_ye_and_3d$hypoxia_z_score, patient_ye_and_3d$eIF3d_z_score, method="pearson")
+```
+
+Plot survival curve
+```{r}
+#bind with clin data
+patient_ye_and_3d_hyp_clin <- left_join(clin_small, patient_ye_and_3d, by=c("PATIENT_ID"="patient"))
+
+#plot
+
+fit_all_hypoxia_3d <- survfit(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = patient_ye_and_3d_hyp_clin)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, patient_ye_and_3d_hyp_clin)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+
+levels(patient_ye_and_3d_hyp_clin$quadrant)
+
+surv_plot_3d_and_hypoxia_sig<-
+ggsurvplot(fit_all_hypoxia_3d,
+           data = patient_ye_and_3d_hyp_clin,
+           size = 1,
+           palette = c("grey", "red", "#56B4E9", "#9B4D96"), 
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 7,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_3d_and_hypoxia_sig$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+ggsave("intersect_surv_plot_3d_and_hypoxia_sig_tcga.pdf", path=here("plots/plots_231"),width = 11.5, height=8)
+
+#compare middle two quadrants
+
+levels(patient_ye_and_3d_hyp_clin$quadrant)
+
+# Relevel the 'quadrant' factor to set the desired reference group
+patient_ye_and_3d_hyp_clin$quadrant <- relevel(patient_ye_and_3d_hyp_clin$quadrant, ref = "low hypoxia and low 3d")
+
+# Fit the Cox model
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = patient_ye_and_3d_hyp_clin)
+summary_coxfit <- summary(coxfit)
+print(summary_coxfit)
+
+summary(patient_ye_and_3d_hyp_clin$quadrant)
+
+```

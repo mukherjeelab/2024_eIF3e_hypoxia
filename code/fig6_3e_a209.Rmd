@@ -460,7 +460,7 @@ all_counts_acute_a209_ribo <- data.frame(dataset, upreg, downreg)
 ```
 
 
-## Visualize acute hypoxic response in DMSO @Neel we do not use this in the figure- do we want the following chart? - if not delete!
+## Visualize acute hypoxic response in DMSO 
 Export all acute changes as a single table
 
 ```{r}

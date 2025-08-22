@@ -70,7 +70,7 @@ rna_ribo_counts <- as.matrix(raw_counts)
 
 ```
 
-# 3e hypoxia rna @Kate if we keep generate signatures code we can skip the deseq2 and import from there
+# 3e hypoxia rna 
 ```{r}
 
 metadata_loop <- metadata %>% 
@@ -167,12 +167,10 @@ sample_info <- metadata_loop %>%
     filter(symbol=="EIF3D")
 
 ```
-#@Kate RIBO and TE sig-- in another file not for pub?
 
-#@Neel the major thing here is I'm doing this analysis using a cutoff of 1 LFC for the rna signature (rather than 0.5 LFC cutoff etc). We may want 0.5-- the interpretation is very similar either way
 
 # Normoxia analysis for supplement
-# 3e normoxia rna @Kate if we keep generate signatures code we can skip the deseq2 and import from there
+# 3e normoxia rna 
 ```{r}
 
 metadata_loop <- metadata %>% 
@@ -524,7 +522,6 @@ clin$OS_YEARS[which(clin$OS_YEARS >= 10)] <- 10
 ```
 
 ### visualizing high and low quartile in each survival plot for the paper.
-@Kate delete violin plots below. 
 ## 3e survival
 ```{r}
 #bind clin data with z score data
@@ -592,7 +589,6 @@ ggplot(all_data_3e_hyp, aes(x=quantile,y=total_z_score, group=quantile)) +
   ggtitle("Patient scores for eIF3e hypoxia signature")
 
 
-#@Kate-- decide if needed. Connor wanted to see this but not used in paper. Same with charts below in this chunk
 
 ggviolin(data = all_data_3e_hyp %>% filter(ER_IHC != ""), y = "total_z_score", x = "ER_IHC", fill = "ER_IHC", palette = ggokabeito::palette_okabe_ito(), add = "median_iqr" ) +
   rotate_x_text(45)
@@ -609,7 +605,6 @@ ggviolin(data = all_data_3e_hyp , y = "total_z_score", x = "CLAUDIN_SUBTYPE", fi
 ```
 
 ## 3d survival
-@Kate delete violin plots below
 ```{r}
 #bind clin data with z score data
 
@@ -674,8 +669,7 @@ ggplot(all_data_3d_hyp, aes(x=quantile,y=total_z_score, group=quantile)) +
 
 count(all_data_3d_hyp$quantile==1)
 
-#@Kate decide if this is wanted-- probably is not
-# maybe something like this could be relevant
+
 ggviolin(data = all_data_3d_hyp %>% filter(ER_IHC != ""), y = "total_z_score", x = "ER_IHC", fill = "ER_IHC", palette = ggokabeito::palette_okabe_ito(), add = "median_iqr" ) +
   rotate_x_text(45)
 
@@ -1038,7 +1032,6 @@ print(summary_coxfit)
 
 Control: excluding points in the middle as a negative control for the survival curve analysis
 Same as earlier with a filter
-@Kate and @Neel do we need this in here?? -- I think I can remove this whole chunk
 ```{r}
 
 ctrl_patient_ye_and_3e <- patient_ye_and_3e %>% 
@@ -1243,7 +1236,7 @@ ggplot(all_data_neg_ctrl, aes(x=quantile,y=total_z_score, group=quantile)) +
 ```
 
 Repeat this 1000 times and determine how many times after 1000 we get a significant p value at random
-Keeping this commented out because it takes forever @Kate probably remove, or if needed do this faster
+Keeping this commented out because it takes forever
 
 ```{r}
 # Vector to store p-values
@@ -1661,7 +1654,7 @@ ggsurvplot(fit_pos, data = all_data_3e_hyp, size = 1, palette = c("#E7B800", "#2
 
 ```
 
-## Negative Control for eIF3e signature @Kate need to find a way to do this better (like done in MPRA) with P values
+## Negative Control for eIF3e signature
 
 Now neg control -- random genes comprising signatures-- same number of genes just random
 
@@ -1751,7 +1744,7 @@ surv_plot_neg_ctrl$plot +
 ```
 
 Repeat this 1000 times
-Keeping this commented out because it takes forever @Kate fix-- and decide if we want TCGA data in the paper
+Keeping this commented out because it takes forever 
 ```{r}
 # #Vector to store p-values
 # pval_results <- numeric(1000)

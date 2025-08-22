@@ -12,7 +12,6 @@ knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
 ```
 
 
-@Kate Get rid of all pathway stuff
 
 ```{r install packages, echo=FALSE}
 library(here)
@@ -1243,7 +1242,6 @@ ggsave(here("plots/fig3/hyp_e_d.pdf"), scatter_hypoxia, width=4, height=4)
 
 
 
-@Kate delete everything below if we do not want pathway analysis in the paper for this figure
 
 ## Pathway analysis gene list setup
 ```{r prep GSEA analysis}

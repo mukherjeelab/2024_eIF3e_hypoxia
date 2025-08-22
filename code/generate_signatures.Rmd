@@ -7,8 +7,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-This is probably not needed for the paper. Unless we add something with TE sigantures. But, we need a place to calcualte these for our other work.
-
 TE signatures generated already, can pull in, then export subset.
 RNA signatures generated for eIF3e and eIF3d in hypoxia in fig 8
 Ribo signatures needed

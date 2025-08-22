@@ -77,7 +77,6 @@ gene_symbol <- geneInfo %>% dplyr::select(gene_id, symbol) %>% unique()
 ```
 
 
-@Neel, here, I am not filtering for protein coding only as I do in calculate_te.Rmd.  Is that okay for these qc steps?
 
 ```{r txi import, include=FALSE}
 #name files to import
