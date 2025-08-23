@@ -4297,6 +4297,12 @@ merged_zscores_tcga <- zscores_tcga_all_symbol %>%
 
 ```
 
+
+
+
+
+
+
 # eIF3e hypoxia signature and survival prediction
 ### Calculate z scores
 ```{r}
@@ -4357,6 +4363,291 @@ clin_small <- clin_small %>%
   mutate(OS_YEARS= clin_small$OS_MONTHS/12)
 
 clin_small$OS_YEARS[which(clin_small$OS_YEARS >= 10)] <- 10
+```
+
+# TCGA copy number variation
+
+
+
+## Looking at copy number alterations in data
+
+```{r}
+
+# metabric_cna <- read.table(here("cbioportal_data/data_cna.txt"), fill=TRUE, header=TRUE) %>% 
+#   dplyr::select(-Entrez_Gene_Id)
+
+
+cna <- read.table(here("cbioportal_data/brca_tcga/data_cna.txt"), fill=TRUE, header=TRUE) %>% 
+  dplyr::select(-Entrez_Gene_Id)
+
+eIF3e_cna <- cna %>% 
+  filter(Hugo_Symbol=="EIF3E") 
+
+# eIF3e_cna[ , 2:2174] <- lapply(eIF3e_cna[ , 2:2174], as.character)
+
+
+eIF3e_cna<- eIF3e_cna%>%
+  pivot_longer(cols= 2:1081, names_to = "patient", values_to = "cna")
+
+
+# clean names
+eIF3e_cna$patient <- gsub("\\.", "-", as.character(eIF3e_cna$patient))
+eIF3e_cna$patient <- sub("-[^-]*$", "", eIF3e_cna$patient)
+
+
+#take just TCGA
+
+eIF3e_cna_cancer <- eIF3e_cna %>% 
+  dplyr::select(-Hugo_Symbol)
+
+eIF3e_cna_cancer$cna <- as.numeric(eIF3e_cna_cancer$cna)
+
+
+#bind with patient data
+
+# ggplot(eIF3e_cna_cancer, aes(x=cna))+
+#   geom_histogram()+
+#   theme_cowplot()
+ 
+eIF3e_cna_cancer_clin <- left_join(clin_small, eIF3e_cna_cancer, by=c("PATIENT_ID"="patient"))
+
+eIF3e_cna_cancer_clin <- eIF3e_cna_cancer_clin %>% 
+  mutate(copy_number_alt = case_when(
+    cna ==1 ~ "gain",
+    cna == 2 ~ "amplification",
+    cna == 0 ~ "no_change",
+    cna < 0 ~ "loss",
+    .default="other"
+  ))
+
+
+eIF3e_cna_cancer_clin %>% 
+  filter(cna !="NA") %>% 
+  group_by(cna) %>% 
+  summarise(count = n()) %>%
+  mutate(percentage = count / sum(count) * 100)
+
+#get rid of -2
+
+# eIF3e_cna_cancer_clin <- eIF3e_cna_cancer_clin %>% 
+#   filter(cna > -2)
+
+eIF3e_cna_cancer_clin$cna <- as.factor(eIF3e_cna_cancer_clin$cna)
+eIF3e_cna_cancer_clin <- eIF3e_cna_cancer_clin %>% 
+  filter(copy_number_alt != "other" & copy_number_alt != "loss")
+
+
+eIF3e_cna_cancer_clin$copy_number_alt <- factor(eIF3e_cna_cancer_clin$copy_number_alt, levels=c("no_change", "gain", "amplification"))
+
+summary(eIF3e_cna_cancer_clin$copy_number_alt)
+
+
+cna_3e_fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ copy_number_alt, data = eIF3e_cna_cancer_clin)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ copy_number_alt, eIF3e_cna_cancer_clin)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+colors <- grDevices::colorRampPalette(c("grey", si3e_col))(3)
+
+surv_plot_cna<-
+ggsurvplot(cna_3e_fit,
+           data = eIF3e_cna_cancer_clin,
+           size = 1,
+           palette = c("grey", si3e_col, "#0b6ca3"), 
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_cna$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+
+ggsave("cna_3e.pdf", path=here("plots/fig8/tcga"),width = 8, height=6)
+
+ #percentage of copy number gains for each
+
+
+
+```
+
+3d
+```{r}
+
+# metabric_cna <- read.table(here("cbioportal_data/data_cna.txt"), fill=TRUE, header=TRUE) %>% 
+#   dplyr::select(-Entrez_Gene_Id)
+
+
+
+eIF3d_cna <- cna %>% 
+  filter(Hugo_Symbol=="EIF3D") 
+
+# eIF3d_cna[ , 2:2174] <- lapply(eIF3d_cna[ , 2:2174], as.character)
+
+
+eIF3d_cna<- eIF3d_cna%>%
+  pivot_longer(cols= 2:1081, names_to = "patient", values_to = "cna")
+
+
+# clean names
+eIF3d_cna$patient <- gsub("\\.", "-", as.character(eIF3d_cna$patient))
+eIF3d_cna$patient <- sub("-[^-]*$", "", eIF3d_cna$patient)
+
+
+#take just TCGA
+
+eIF3d_cna_cancer <- eIF3d_cna %>% 
+  dplyr::select(-Hugo_Symbol)
+
+eIF3d_cna_cancer$cna <- as.numeric(eIF3d_cna_cancer$cna)
+
+
+#bind with patient data
+
+# ggplot(eIF3d_cna_cancer, aes(x=cna))+
+#   geom_histogram()+
+#   theme_cowplot()
+ 
+eIF3d_cna_cancer_clin <- left_join(clin_small, eIF3d_cna_cancer, by=c("PATIENT_ID"="patient"))
+
+eIF3d_cna_cancer_clin <- eIF3d_cna_cancer_clin %>% 
+  mutate(copy_number_alt = case_when(
+    cna >0 ~ "gain",
+    cna == 0 ~ "no_change",
+    cna < 0 ~ "loss",
+    .default="other"
+  ))
+
+
+eIF3d_cna_cancer_clin %>% 
+  filter(cna !="NA") %>% 
+  group_by(cna) %>% 
+  summarise(count = n()) %>%
+  mutate(percentage = count / sum(count) * 100)
+
+#get rid of -2
+
+# eIF3d_cna_cancer_clin <- eIF3d_cna_cancer_clin %>% 
+#   filter(cna > -2)
+
+eIF3d_cna_cancer_clin$cna <- as.factor(eIF3d_cna_cancer_clin$cna)
+eIF3d_cna_cancer_clin <- eIF3d_cna_cancer_clin %>% 
+  filter(copy_number_alt != "other")
+
+
+eIF3d_cna_cancer_clin$copy_number_alt <- factor(eIF3d_cna_cancer_clin$copy_number_alt, levels=c("loss","no_change", "gain"))
+
+summary(eIF3d_cna_cancer_clin$copy_number_alt)
+
+
+cna_3d_fit <- survfit(Surv(OS_YEARS, OS_STATUS) ~ copy_number_alt, data = eIF3d_cna_cancer_clin)
+
+
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ copy_number_alt, eIF3d_cna_cancer_clin)
+summary_coxfit <- summary(coxfit)
+
+
+hr <- round(summary_coxfit$coefficients[1, "exp(coef)"], 2)
+pval <- format.pval(summary_coxfit$coefficients[1, "Pr(>|z|)"], digits = 2, eps = 0.001)
+
+colors <- grDevices::colorRampPalette(c("grey", si3d_col))(3)
+
+surv_plot_cna<-
+ggsurvplot(cna_3d_fit,
+           data = eIF3d_cna_cancer_clin,
+           size = 1,
+           palette = c("#8a8884", "grey", si3d_col), 
+           break.time.by = 1,
+           ylab="Overall Survival",
+           xlab = "Time in years",
+           xlim = c(0,10),
+           font.x = 30,      
+           font.y = 30,      
+           font.tickslab = 25,
+           font.legend = 25,
+           conf.int = FALSE,
+           pval = F,
+           risk.table = FALSE,
+           risk.table.col = "strata",
+           risk.table.height = 0.25,
+           ggtheme = theme_prism())
+
+surv_plot_cna$plot +
+  annotate(
+    "text", 
+    x = 3, y = 0.2, 
+    label = paste("HR =", hr, "\np =", pval), 
+    size = 12, 
+    color = "black"
+  )
+
+ggsave("cna_3d.pdf", path=here("plots/fig8/tcga"),width = 8, height=6)
+
+ #percentage of copy number gains for each
+
+
+
+```
+barchart of copy numbers
+```{r}
+cna_bar <-
+cna %>% 
+  filter(Hugo_Symbol=="EIF3D"|Hugo_Symbol=="EIF3E") %>% 
+  pivot_longer(cols= 2:1081, names_to = "patient", values_to = "cna")
+
+cna_bar$patient <- gsub("^TCGA.", "TCGA-", cna_bar$patient)
+
+cna_bar_cancer <- cna_bar
+#   filter(str_detect(patient, "MB-"))
+
+cna_bar_cancer$cna <- as.numeric(cna_bar_cancer$cna)
+
+
+cna_bar_cancer %>% 
+ group_by(cna) %>% 
+  summarise(count = n()) %>%
+  mutate(percentage = count / sum(count) * 100)
+
+
+cna_percent <-
+cna_bar_cancer %>%
+  group_by(Hugo_Symbol, cna) %>%  # Group by gene symbol and cna
+  summarise(count = n()) %>%      # Count occurrences of each cna per gene symbol
+  group_by(Hugo_Symbol) %>%       # Group by gene symbol to calculate percentage within each gene
+  mutate(percentage = count / sum(count) * 100)
+
+
+ggplot(cna_percent, aes(x=cna, y=percentage, fill=Hugo_Symbol))+
+  geom_bar(stat="identity")+
+  facet_wrap(~Hugo_Symbol)+
+  scale_fill_manual(values = c(si3d_col, si3e_col))+
+  geom_text(aes(label = round(percentage)), vjust = -0.5, size = 3)+
+  theme_prism()
+
+
+ggsave("cna_percentages.pdf", path=here("plots/fig8/tcga"),width = 4, height=2)
+
+
 ```
 
 
