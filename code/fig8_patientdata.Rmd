@@ -1025,6 +1025,22 @@ print(summary_coxfit)
 
 ```
 
+
+compare middle two lines
+```{r}
+levels(patient_ye_and_3e_hyp_clin$quadrant)
+
+# Relevel the 'quadrant' factor to set the desired reference group
+patient_ye_and_3e_hyp_clin$quadrant <- relevel(patient_ye_and_3e_hyp_clin$quadrant, ref = "high hypoxia and low 3e")
+
+# Fit the Cox model
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = patient_ye_and_3e_hyp_clin)
+summary_coxfit <- summary(coxfit)
+print(summary_coxfit)
+
+```
+
+
 ## Metabric data controls:
 1. exclusing points in the middle of the correlation chart as negative controls.
 2. Neg control/random quantiles
@@ -1292,7 +1308,7 @@ Keeping this commented out because it takes forever
 ```
 
 
-# Repeat analysis using TCGA dataset --- REMOVE for this publication
+# Repeat analysis using TCGA dataset
 TCGA Firehouse legacy
 Downloaded from cbioportal
 
@@ -1800,7 +1816,7 @@ Keeping this commented out because it takes forever
 
 
 ## Looking at copy number alterations in data
-
+METABRIC
 ```{r}
 cna <- read.table(here("cbioportal_data/data_cna.txt"), fill=TRUE, header=TRUE) %>% 
   dplyr::select(-Entrez_Gene_Id)

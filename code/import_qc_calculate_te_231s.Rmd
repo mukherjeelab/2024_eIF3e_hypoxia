@@ -105,7 +105,7 @@ myTxi <- tximport(myquantfiles, type = "salmon", tx2gene = tx2gene)
 ```
 
 
-No spike ins because i aligned only to the human
+No spike ins-aligned only to the human
 
 ```{r}
 # visualize distribution of counts
@@ -495,7 +495,7 @@ ggplot(eif3e_data, aes(x=treatment, y=value))+
 ```
 
 # ###############################################################################
-# just doing TE here
+#  TE
 
 ## HIF1alpha levels after compound treatment
 
@@ -1543,11 +1543,10 @@ ggsave(here("plots/plots_231/eIF3dbars.pdf"), eif3d_bar, width = 4, height = 4)
 
 # Do targets overlap with data from MCF7-SIX1s?
 
-pull in mcf7 six 1 data and label everything by cell line
+pull in mcf7-six1 data
 
 
 ## Create gene lists for downstream analysis
-231s
 
 normoxia
 ```{r}
@@ -1887,23 +1886,6 @@ odds_pval_norm <- left_join(odds, pval, by=c("sample", "comparison")) %>%
 
 
 
-```{r}
-odds_pval_3e<-odds_pval_norm %>% 
-  filter(comparison == "mcf7six1, si3e, down-mb231, si3e, down"| 
-         comparison =="mcf7six1, si3e, up-mb231, si3e, up"|
-           comparison == "mcf7six1, si3d, down-mb231, si3d, down"|
-           comparison == "mcf7six1, si3d, up-mb231, si3d, up")
-
-
-ggpubr::ggbarplot(odds_pval_3e, x="comparison", y="odds_value", label = formatC(odds_pval_3e$pval_value, format = "e", digits = 2), title="Overlap of 3e/3d targets in normoxia", palette = c(si3d_col, si3e_col), ylim=c(0,16))+
-  geom_hline(aes(yintercept=1))+
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-
-
-ggsave(here("plots/plots_231/normoverlap.pdf"), width=4, height=8)
-
-```
 
 ### Hypoxia
 
@@ -1974,36 +1956,9 @@ ggsave(here("plots/plots_231/hypoverlap.pdf"), width=4, height=8)
 
 # Venn diagrams
 
-```{r}
-
-all_lists <- bind_rows(mcf7six1_si3e_normoxia_up, mcf7six1_si3d_normoxia_up, a209_normoxia_up, 
-                       mcf7six1_si3e_normoxia_down, mcf7six1_si3d_normoxia_down, a209_normoxia_down, 
-                       mcf7six1_si3e_hypoxia_up, mcf7six1_si3d_hypoxia_up, a209_hypoxia_up, 
-                       mcf7six1_si3e_hypoxia_down, mcf7six1_si3d_hypoxia_down, a209_hypoxia_down,
-                       mb231_si3e_normoxia_up, mb231_si3d_normoxia_up, 
-                       mb231_si3e_normoxia_down, mb231_si3d_normoxia_down, 
-                       mb231_si3e_hypoxia_up, mb231_si3d_hypoxia_up, 
-                       mb231_si3e_hypoxia_down, mb231_si3d_hypoxia_down) %>% 
-extract(gs_name,
-        into = c("cell_line", "treatment", "condition", "direction"),
-        regex = "([^_]+)_([^_]+)_([^_]+)_([^_]+)")
-
-```
-
 Normoxia
 ## Venn diagram of 3e/d gene overlaps in normoxia
 ```{r compare genes}
-mcf7six1_si3e_normoxia_up <- mcf7six1_si3e_normoxia_up %>% pull(symbol)
-mcf7six1_si3d_normoxia_up <- mcf7six1_si3d_normoxia_up %>% pull(symbol)
-
-mcf7six1_si3e_normoxia_down <- mcf7six1_si3e_normoxia_down %>% pull(symbol)
-mcf7six1_si3d_normoxia_down <- mcf7six1_si3d_normoxia_down %>% pull(symbol)
-
-mb231_si3e_normoxia_up <- mb231_si3e_normoxia_up %>% pull(symbol)
-mb231_si3d_normoxia_up <- mb231_si3d_normoxia_up %>% pull(symbol)
-
-mb231_si3e_normoxia_down <- mb231_si3e_normoxia_down %>% pull(symbol)
-mb231_si3d_normoxia_down <- mb231_si3d_normoxia_down %>% pull(symbol)
 
 #3e
 
@@ -2160,8 +2115,11 @@ ggvenn(
 ggsave(width = 6, height = 6, filename = here("plots/plots_231/3e_hyp_venndown.pdf"))
 
 
+#save intersect
 
+te_signature_hypoxia_3e_upregulated <- intersect(mcf7six1_si3e_hypoxia_down,mb231_si3e_hypoxia_down)
 
+te_signature_hypoxia_3e_downregulated <- intersect(mcf7six1_si3e_hypoxia_up,mb231_si3e_hypoxia_up)
 
 
 #3d
@@ -2205,6 +2163,31 @@ ggvenn(
   )
 
 ggsave(width = 6, height = 6, filename = here("plots/plots_231/3d_hyp_venndown.pdf"))
+
+
+
+#save intersect
+
+te_signature_hypoxia_3d_upregulated <- intersect(mcf7six1_si3d_hypoxia_down,mb231_si3d_hypoxia_down)
+
+te_signature_hypoxia_3d_downregulated <- intersect(mcf7six1_si3d_hypoxia_up,mb231_si3d_hypoxia_up)
+
+
+
+te_signatures <-list(
+  te_signature_hypoxia_3d_upregulated = te_signature_hypoxia_3d_upregulated,
+  te_signature_hypoxia_3d_downregulated = te_signature_hypoxia_3d_downregulated,
+  te_signature_hypoxia_3e_upregulated = te_signature_hypoxia_3e_upregulated,
+  te_signature_hypoxia_3e_downregulated = te_signature_hypoxia_3e_downregulated
+)
+
+# Convert to data frame (fill shorter lists with NA)
+te_signatures_table <- as.data.frame(do.call(cbind, lapply(te_signatures, `length<-`, max(lengths(te_signatures)))))
+
+# Set column names properly
+colnames(te_signatures_table) <- names(te_signatures)
+
+write_csv(te_signatures_table, here("counts/counts_231/te_sigs_hypoxia.csv"))
 
 
 ```
@@ -2585,17 +2568,17 @@ ggsave(width = 6, height = 6, filename = here("plots/plots_231/3d_norm_venndown.
 
 ## Venn diagram of 3e/d gene overlaps in hypoxia
 ```{r compare genes}
-mcf7six1_si3e_hypoxia_up <- mcf7six1_si3e_hypoxia_up %>% pull(symbol)
-mcf7six1_si3d_hypoxia_up <- mcf7six1_si3d_hypoxia_up %>% pull(symbol)
-
-mcf7six1_si3e_hypoxia_down <- mcf7six1_si3e_hypoxia_down %>% pull(symbol)
-mcf7six1_si3d_hypoxia_down <- mcf7six1_si3d_hypoxia_down %>% pull(symbol)
-
-mb231_si3e_hypoxia_up <- mb231_si3e_hypoxia_up %>% pull(symbol)
-mb231_si3d_hypoxia_up <- mb231_si3d_hypoxia_up %>% pull(symbol)
-
-mb231_si3e_hypoxia_down <- mb231_si3e_hypoxia_down %>% pull(symbol)
-mb231_si3d_hypoxia_down <- mb231_si3d_hypoxia_down %>% pull(symbol)
+# mcf7six1_si3e_hypoxia_up <- mcf7six1_si3e_hypoxia_up %>% pull(symbol)
+# mcf7six1_si3d_hypoxia_up <- mcf7six1_si3d_hypoxia_up %>% pull(symbol)
+# 
+# mcf7six1_si3e_hypoxia_down <- mcf7six1_si3e_hypoxia_down %>% pull(symbol)
+# mcf7six1_si3d_hypoxia_down <- mcf7six1_si3d_hypoxia_down %>% pull(symbol)
+# 
+# mb231_si3e_hypoxia_up <- mb231_si3e_hypoxia_up %>% pull(symbol)
+# mb231_si3d_hypoxia_up <- mb231_si3d_hypoxia_up %>% pull(symbol)
+# 
+# mb231_si3e_hypoxia_down <- mb231_si3e_hypoxia_down %>% pull(symbol)
+# mb231_si3d_hypoxia_down <- mb231_si3d_hypoxia_down %>% pull(symbol)
 
 #3e
 
@@ -3608,6 +3591,7 @@ down_3d_hyp <- sig_rna_3d_hyp %>%
 ```
 
 
+
 # Import METABRIC microarray data from cbioportal - read patient z scores and matching clinical data
 Nature 2012 and Nat Commun 2016
 
@@ -4054,6 +4038,24 @@ print(summary_coxfit)
 
 
 ```
+
+```{r}
+levels(patient_ye_and_3e_hyp_clin$quadrant)
+
+# Relevel the 'quadrant' factor to set the desired reference group
+patient_ye_and_3e_hyp_clin$quadrant <- relevel(patient_ye_and_3e_hyp_clin$quadrant, ref = "high hypoxia and low 3e")
+
+# Fit the Cox model
+coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = patient_ye_and_3e_hyp_clin)
+summary_coxfit <- summary(coxfit)
+print(summary_coxfit)
+
+```
+
+
+
+
+
 
 ## Metabric data controls:
 1. exclusing points in the middle of the correlation chart as negative controls.
@@ -4847,9 +4849,9 @@ six1_down_3d_hyp <- six1_sig_rna_3d_hyp %>%
 ```
 
 ```{r}
-intersect_hyp_up_3d <- intersect(six1_up_3d_hyp, up_3d_hyp) %>% view()
+intersect_hyp_up_3d <- intersect(six1_up_3d_hyp, up_3d_hyp)
 
-intersect_hyp_down_3d <- intersect(six1_down_3d_hyp, down_3d_hyp) %>% view()
+intersect_hyp_down_3d <- intersect(six1_down_3d_hyp, down_3d_hyp)
 
 ```
 
@@ -4870,11 +4872,36 @@ six1_down_3e_hyp <- six1_sig_rna_3e_hyp %>%
 ```
 
 ```{r}
-intersect_hyp_up_3e <- intersect(six1_up_3e_hyp, up_3e_hyp) %>% view()
+intersect_hyp_up_3e <- intersect(six1_up_3e_hyp, up_3e_hyp) 
 
-intersect_hyp_down_3e <- intersect(six1_down_3e_hyp, down_3e_hyp) %>% view()
+intersect_hyp_down_3e <- intersect(six1_down_3e_hyp, down_3e_hyp)
 
 ```
+
+
+export rna signatures
+```{r}
+
+rna_signatures <-list(
+  rna_up_3d_hyp = intersect_hyp_up_3d,
+  rna_down_3d_hyp = intersect_hyp_down_3d,
+  rna_up_3e_hyp = intersect_hyp_up_3e,
+  rna_down_3e_hyp = intersect_hyp_down_3e
+)
+
+
+
+# Convert to data frame (fill shorter lists with NA)
+rna_signatures_table <- as.data.frame(do.call(cbind, lapply(rna_signatures, `length<-`, max(lengths(rna_signatures)))))
+
+# Set column names properly
+colnames(rna_signatures_table) <- names(rna_signatures)
+
+write_csv(rna_signatures_table, here("counts/counts_231/rna_sigs_hypoxia.csv"))
+
+```
+
+
 
 # eIF3e hypoxia signature and survival prediction
 ### Calculate z scores
@@ -5763,7 +5790,7 @@ ggsave("intersect_surv_plot_3e_and_hypoxia_sig.pdf", path=here("plots/plots_231"
 levels(patient_ye_and_3e_hyp_clin$quadrant)
 
 # Relevel the 'quadrant' factor to set the desired reference group
-patient_ye_and_3e_hyp_clin$quadrant <- relevel(patient_ye_and_3e_hyp_clin$quadrant, ref = "low hypoxia and low 3e")
+patient_ye_and_3e_hyp_clin$quadrant <- relevel(patient_ye_and_3e_hyp_clin$quadrant, ref = "high hypoxia and low 3e")
 
 # Fit the Cox model
 coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = patient_ye_and_3e_hyp_clin)
@@ -5911,7 +5938,7 @@ ggsave("intersect_surv_plot_3d_and_hypoxia_sig.pdf", path=here("plots/plots_231"
 levels(patient_ye_and_3d_hyp_clin$quadrant)
 
 # Relevel the 'quadrant' factor to set the desired reference group
-patient_ye_and_3d_hyp_clin$quadrant <- relevel(patient_ye_and_3d_hyp_clin$quadrant, ref = "low hypoxia and low 3d")
+patient_ye_and_3d_hyp_clin$quadrant <- relevel(patient_ye_and_3d_hyp_clin$quadrant, ref = "high hypoxia and low 3d")
 
 # Fit the Cox model
 coxfit <- coxph(Surv(OS_YEARS, OS_STATUS) ~ quadrant, data = patient_ye_and_3d_hyp_clin)
