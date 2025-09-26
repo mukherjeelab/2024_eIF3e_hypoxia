@@ -1,0 +1,1054 @@
+---
+title: "eIF3e and eIF3d are necessary for the acute hypoxic translational response"
+author: "Kate"
+date: "2024-05-27"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+```
+
+
+
+```{r install packages, echo=FALSE}
+library(here)
+library(janitor)
+library(tximport)
+library(tidyverse)
+library(EnhancedVolcano)
+library(msigdbr)
+library(viridis)
+library(gridExtra)
+library(ggthemes)
+library(ggrepel)
+library(scales)
+library(DESeq2)
+library(limma)
+library(clusterProfiler)
+library(plotly)
+library(ggokabeito)
+library(ggvenn)
+library(ggpubr)
+library(DT)
+library(edgeR)
+library(cowplot)
+library(ggExtra)
+library(ggprism)
+library(reshape2)
+```
+
+colors
+```{r}
+
+theme_set(theme_prism())
+
+a209_col = "#CC79A7"
+si3e_col = "#56B4E9"
+si3d_col = "#E69F00"
+```
+
+
+## Load and filter metadata
+Normoxic, hypoxic, and KDs only
+```{r}
+metadata <- read_csv(here("counts/calculate_te/metadata.csv"))
+
+metadata_norm <- metadata %>% 
+  filter(treatment %in% c("sictrl","si3d","si3e"))
+```
+
+## add gene id to symbol key
+
+```{r}
+geneInfo <- read_csv(here("accessories","gencode.v26.primary.info.csv.gz"), col_names = F) %>%
+  filter(!str_detect(X2, "pre_"))
+
+colnames(geneInfo) <- c("gene_id","transcript_id","biotype","symbol")
+
+#map transcripts to gene
+tx2gene <- geneInfo[,c(2,1)]
+gene_symbol <- geneInfo %>% dplyr::select(gene_id, symbol) %>% unique()
+
+```
+
+## Separate ribo counts, rna counts, and te counts
+```{r}
+raw_counts <- read_csv(here("counts/calculate_te/raw_filtered_allCounts.csv")) %>% 
+  column_to_rownames("gene_id")
+
+
+raw_counts_edit <- raw_counts %>%
+  dplyr::select(!matches("DMSO|a209"))
+
+ribo_counts <- as.matrix(raw_counts_edit[,grep(pattern = "ribo",colnames(raw_counts_edit))])
+rna_counts <- as.matrix(raw_counts_edit[,grep(pattern = "rna",colnames(raw_counts_edit))])
+
+
+rna_ribo_counts <- as.matrix(raw_counts_edit)
+
+
+```
+
+Confirm KDs in hypoxia
+
+```{r}
+all_gene_te <- read_csv(here("counts/calculate_te/complete_te_list.csv"))
+
+all_gene_te_long <- all_gene_te %>% 
+  melt() %>% 
+  separate(variable, into = c("condition", "treatment", "rep", "type")) %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment != "a209") %>% 
+  filter(treatment != "DMSO")
+
+all_gene_te_long$treatment <- relevel(factor(all_gene_te_long$treatment), ref = "sictrl")
+
+e_and_d <-all_gene_te_long %>% 
+  filter(symbol=="EIF3E" | symbol=="EIF3D")
+
+ggstripchart(data = e_and_d, x = "treatment", y = "value", color = "treatment", scales="free_y", palette = c("black",si3d_col,si3e_col), position = position_jitterdodge(1.2))+
+  facet_wrap(~symbol+type)
+
+
+bars_e_d_norm <- e_and_d %>% 
+  filter(type != "TE")
+
+bars_e_d_summary <- bars_e_d_norm %>%
+  group_by(symbol, type, treatment) %>%
+  summarise(
+    mean_value = mean(value),
+    sd = sd(value)  # Standard deviation
+  )
+
+bars_e_d_summary$type <- factor(bars_e_d_summary$type, levels=c("rna","ribo"))
+
+ggplot(bars_e_d_summary, aes(x = treatment, y = mean_value, fill = treatment)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin = mean_value - sd, ymax = mean_value + sd), 
+                width = 0.2, position = position_dodge(0.9)) +
+  facet_wrap(~ symbol + type) +
+  scale_fill_manual(values = c("grey",si3d_col,si3e_col)) +
+  # theme_cowplot()+
+    theme(legend.position = "none")
+
+ggsave(here("plots/e_d_rna_ribo_hypoxia.pdf"), width = 4, height = 4.5)
+
+```
+
+## HIF1alpha in si3e and si3d - rna and ribo
+
+```{r}
+
+hif <-all_gene_te_long %>% 
+  filter(symbol=="HIF1A") %>% 
+  filter(type != "TE")
+
+hif_summary <- hif %>%
+  group_by(symbol, type, treatment) %>%
+  summarise(
+    mean_value = mean(value),
+    sd = sd(value)  # Standard deviation
+  )
+
+hif_summary$type <- factor(hif_summary$type, levels=c("rna","ribo"))
+
+ggplot(hif_summary, aes(x = treatment, y = mean_value, fill = treatment)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin = mean_value - sd, ymax = mean_value + sd), 
+                width = 0.2, position = position_dodge(0.9)) +
+  facet_wrap(~ symbol + type) +
+  scale_fill_manual(values = c("grey",si3d_col,si3e_col)) +
+  # theme_cowplot()+
+    theme(legend.position = "none")
+
+ggsave(here("plots/hif_hypoxia.pdf"), width = 4, height = 3)
+
+```
+
+
+## Acute hypoxic response: Control normoxia to hypoxia.
+
+### TE changes
+```{r}
+
+#organize metadata
+metadata_acute_sictrl <- metadata_norm %>% 
+  filter(treatment== "sictrl") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+metadata_acute_sictrl$library <- relevel(factor(metadata_acute_sictrl$library), ref = "rna")
+metadata_acute_sictrl$condition <- relevel(factor(metadata_acute_sictrl$condition), ref = "normoxia")
+
+levels(metadata_acute_sictrl$library)
+levels(metadata_acute_sictrl$condition)
+
+names <- as.character(metadata_acute_sictrl$name)
+
+acute_sictrl <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_acute_sictrl <- DESeqDataSetFromMatrix(
+  countData = acute_sictrl,
+  colData = metadata_acute_sictrl,
+  design = ~condition + library + condition:library
+  )
+
+ddsMat_acute_sictrl <- DESeq(ddsMat_acute_sictrl)
+resultsNames(ddsMat_acute_sictrl)
+res_acute_sictrl <- results(ddsMat_acute_sictrl, name=resultsNames(ddsMat_acute_sictrl)[4], cooksCutoff=F, independentFiltering=F)
+
+
+res_acute_sictrl <- lfcShrink(dds = ddsMat_acute_sictrl, coef = resultsNames(ddsMat_acute_sictrl)[4], res = res_acute_sictrl) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_acute_sictrl %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_acute_sictrl %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+all_counts_acute_sictrl <- data.frame(upreg, downreg)
+
+```
+
+
+### RNA changes
+```{r}
+
+#organize metadata
+metadata_acute_sictrl_rna <- metadata_norm %>% 
+  filter(treatment== "sictrl") %>% 
+  filter(library=="rna") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+
+metadata_acute_sictrl_rna$condition <- relevel(factor(metadata_acute_sictrl_rna$condition), ref = "normoxia")
+
+levels(metadata_acute_sictrl_rna$condition)
+
+names <- as.character(metadata_acute_sictrl_rna$name)
+
+acute_sictrl_rna <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_acute_sictrl_rna <- DESeqDataSetFromMatrix(
+  countData = acute_sictrl_rna,
+  colData = metadata_acute_sictrl_rna,
+  design = ~condition
+  )
+
+ddsMat_acute_sictrl_rna <- DESeq(ddsMat_acute_sictrl_rna)
+resultsNames(ddsMat_acute_sictrl_rna)
+res_acute_sictrl_rna <- results(ddsMat_acute_sictrl_rna, name=resultsNames(ddsMat_acute_sictrl_rna)[2], cooksCutoff=F, independentFiltering=F)
+
+
+res_acute_sictrl_rna <- lfcShrink(dds = ddsMat_acute_sictrl_rna, coef = resultsNames(ddsMat_acute_sictrl_rna)[2], res = res_acute_sictrl_rna) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_acute_sictrl_rna %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_acute_sictrl_rna %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+dataset="rna"
+
+all_counts_acute_sictrl_rna <- data.frame(dataset, upreg, downreg)
+
+```
+
+
+### RIBO changes
+
+```{r}
+
+#organize metadata
+metadata_acute_sictrl_ribo <- metadata_norm %>% 
+  filter(treatment== "sictrl") %>% 
+  filter(library=="ribo") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+
+metadata_acute_sictrl_ribo$condition <- relevel(factor(metadata_acute_sictrl_ribo$condition), ref = "normoxia")
+
+levels(metadata_acute_sictrl_ribo$condition)
+
+names <- as.character(metadata_acute_sictrl_ribo$name)
+
+acute_sictrl_ribo <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_acute_sictrl_ribo <- DESeqDataSetFromMatrix(
+  countData = acute_sictrl_ribo,
+  colData = metadata_acute_sictrl_ribo,
+  design = ~condition
+  )
+
+ddsMat_acute_sictrl_ribo <- DESeq(ddsMat_acute_sictrl_ribo)
+resultsNames(ddsMat_acute_sictrl_ribo)
+res_acute_sictrl_ribo <- results(ddsMat_acute_sictrl_ribo, name=resultsNames(ddsMat_acute_sictrl_ribo)[2], cooksCutoff=F, independentFiltering=F)
+
+
+res_acute_sictrl_ribo <- lfcShrink(dds = ddsMat_acute_sictrl_ribo, coef = resultsNames(ddsMat_acute_sictrl_ribo)[2], res = res_acute_sictrl_ribo) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_acute_sictrl_ribo %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_acute_sictrl_ribo %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+dataset="ribo"
+
+all_counts_acute_sictrl_ribo <- data.frame(dataset, upreg, downreg)
+
+```
+
+## Visualize sictrl acute hypoxic changes
+```{r}
+
+acute_ctrl_counts <- rbind(all_counts_acute_sictrl_rna, all_counts_acute_sictrl_ribo) %>% melt()
+
+acute_ctrl_counts$dataset <- as.factor(acute_ctrl_counts$dataset)
+acute_ctrl_counts$dataset <- relevel(acute_ctrl_counts$dataset, ref = "rna")
+
+ggbarplot(acute_ctrl_counts, x="variable", y="value")+
+  facet_wrap(~dataset)+
+    geom_text(aes(label = value), vjust = -0.3)
+  # theme_cowplot()
+
+ggsave(here("plots/acute_sictrl_counts.pdf"), width=4, height=4)
+
+
+```
+
+
+## Acute hypoxic response: si-eIF3d normoxia to hypoxia.
+
+### TE changes
+```{r}
+
+#organize metadata
+metadata_acute_si3d <- metadata_norm %>% 
+  filter(treatment== "si3d") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+metadata_acute_si3d$library <- relevel(factor(metadata_acute_si3d$library), ref = "rna")
+metadata_acute_si3d$condition <- relevel(factor(metadata_acute_si3d$condition), ref = "normoxia")
+
+levels(metadata_acute_si3d$library)
+levels(metadata_acute_si3d$condition)
+
+names <- as.character(metadata_acute_si3d$name)
+
+acute_si3d <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_acute_si3d <- DESeqDataSetFromMatrix(
+  countData = acute_si3d,
+  colData = metadata_acute_si3d,
+  design = ~condition + library + condition:library
+  )
+
+ddsMat_acute_si3d <- DESeq(ddsMat_acute_si3d)
+resultsNames(ddsMat_acute_si3d)
+res_acute_si3d <- results(ddsMat_acute_si3d, name=resultsNames(ddsMat_acute_si3d)[4], cooksCutoff=F, independentFiltering=F)
+
+
+res_acute_si3d <- lfcShrink(dds = ddsMat_acute_si3d, coef = resultsNames(ddsMat_acute_si3d)[4], res = res_acute_si3d) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_acute_si3d %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_acute_si3d %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+all_counts_acute_si3d <- data.frame(upreg, downreg)
+all_counts_acute_si3d
+```
+
+### RNA changes
+```{r}
+
+#organize metadata
+metadata_acute_si3d_rna <- metadata_norm %>% 
+  filter(treatment== "si3d") %>% 
+  filter(library=="rna") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+
+metadata_acute_si3d_rna$condition <- relevel(factor(metadata_acute_si3d_rna$condition), ref = "normoxia")
+
+levels(metadata_acute_si3d_rna$condition)
+
+names <- as.character(metadata_acute_si3d_rna$name)
+
+acute_si3d_rna <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_acute_si3d_rna <- DESeqDataSetFromMatrix(
+  countData = acute_si3d_rna,
+  colData = metadata_acute_si3d_rna,
+  design = ~condition
+  )
+
+ddsMat_acute_si3d_rna <- DESeq(ddsMat_acute_si3d_rna)
+resultsNames(ddsMat_acute_si3d_rna)
+res_acute_si3d_rna <- results(ddsMat_acute_si3d_rna, name=resultsNames(ddsMat_acute_si3d_rna)[2], cooksCutoff=F, independentFiltering=F)
+
+
+res_acute_si3d_rna <- lfcShrink(dds = ddsMat_acute_si3d_rna, coef = resultsNames(ddsMat_acute_si3d_rna)[2], res = res_acute_si3d_rna) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_acute_si3d_rna %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_acute_si3d_rna %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+dataset="rna"
+
+all_counts_acute_si3d_rna <- data.frame(dataset, upreg, downreg)
+
+```
+
+
+### RIBO changes
+
+```{r}
+
+#organize metadata
+metadata_acute_si3d_ribo <- metadata_norm %>% 
+  filter(treatment== "si3d") %>% 
+  filter(library=="ribo") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+
+metadata_acute_si3d_ribo$condition <- relevel(factor(metadata_acute_si3d_ribo$condition), ref = "normoxia")
+
+levels(metadata_acute_si3d_ribo$condition)
+
+names <- as.character(metadata_acute_si3d_ribo$name)
+
+acute_si3d_ribo <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_acute_si3d_ribo <- DESeqDataSetFromMatrix(
+  countData = acute_si3d_ribo,
+  colData = metadata_acute_si3d_ribo,
+  design = ~condition
+  )
+
+ddsMat_acute_si3d_ribo <- DESeq(ddsMat_acute_si3d_ribo)
+resultsNames(ddsMat_acute_si3d_ribo)
+res_acute_si3d_ribo <- results(ddsMat_acute_si3d_ribo, name=resultsNames(ddsMat_acute_si3d_ribo)[2], cooksCutoff=F, independentFiltering=F)
+
+
+res_acute_si3d_ribo <- lfcShrink(dds = ddsMat_acute_si3d_ribo, coef = resultsNames(ddsMat_acute_si3d_ribo)[2], res = res_acute_si3d_ribo) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_acute_si3d_ribo %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_acute_si3d_ribo %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+dataset="ribo"
+
+all_counts_acute_si3d_ribo <- data.frame(dataset, upreg, downreg)
+
+```
+
+
+## Acute hypoxic response: si-eIF3e normoxia to hypoxia.
+
+### TE changes
+```{r}
+
+#organize metadata
+metadata_acute_si3e <- metadata_norm %>% 
+  filter(treatment== "si3e") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+metadata_acute_si3e$library <- relevel(factor(metadata_acute_si3e$library), ref = "rna")
+metadata_acute_si3e$condition <- relevel(factor(metadata_acute_si3e$condition), ref = "normoxia")
+
+levels(metadata_acute_si3e$library)
+levels(metadata_acute_si3e$condition)
+
+names <- as.character(metadata_acute_si3e$name)
+
+acute_si3e <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_acute_si3e <- DESeqDataSetFromMatrix(
+  countData = acute_si3e,
+  colData = metadata_acute_si3e,
+  design = ~condition + library + condition:library
+  )
+
+ddsMat_acute_si3e <- DESeq(ddsMat_acute_si3e)
+resultsNames(ddsMat_acute_si3e)
+res_acute_si3e <- results(ddsMat_acute_si3e, name=resultsNames(ddsMat_acute_si3e)[4], cooksCutoff=F, independentFiltering=F)
+
+
+res_acute_si3e <- lfcShrink(dds = ddsMat_acute_si3e, coef = resultsNames(ddsMat_acute_si3e)[4], res = res_acute_si3e) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_acute_si3e %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_acute_si3e %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+all_counts_acute_si3e <- data.frame(upreg, downreg)
+all_counts_acute_si3e
+```
+
+### RNA changes
+```{r}
+
+#organize metadata
+metadata_acute_si3e_rna <- metadata_norm %>% 
+  filter(treatment== "si3e") %>% 
+  filter(library=="rna") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+
+metadata_acute_si3e_rna$condition <- relevel(factor(metadata_acute_si3e_rna$condition), ref = "normoxia")
+
+levels(metadata_acute_si3e_rna$condition)
+
+names <- as.character(metadata_acute_si3e_rna$name)
+
+acute_si3e_rna <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_acute_si3e_rna <- DESeqDataSetFromMatrix(
+  countData = acute_si3e_rna,
+  colData = metadata_acute_si3e_rna,
+  design = ~condition
+  )
+
+ddsMat_acute_si3e_rna <- DESeq(ddsMat_acute_si3e_rna)
+resultsNames(ddsMat_acute_si3e_rna)
+res_acute_si3e_rna <- results(ddsMat_acute_si3e_rna, name=resultsNames(ddsMat_acute_si3e_rna)[2], cooksCutoff=F, independentFiltering=F)
+
+
+res_acute_si3e_rna <- lfcShrink(dds = ddsMat_acute_si3e_rna, coef = resultsNames(ddsMat_acute_si3e_rna)[2], res = res_acute_si3e_rna) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_acute_si3e_rna %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_acute_si3e_rna %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+dataset="rna"
+
+all_counts_acute_si3e_rna <- data.frame(dataset, upreg, downreg)
+
+```
+
+### RIBO changes
+
+```{r}
+
+#organize metadata
+metadata_acute_si3e_ribo <- metadata_norm %>% 
+  filter(treatment== "si3e") %>% 
+  filter(library=="ribo") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+
+metadata_acute_si3e_ribo$condition <- relevel(factor(metadata_acute_si3e_ribo$condition), ref = "normoxia")
+
+levels(metadata_acute_si3e_ribo$condition)
+
+names <- as.character(metadata_acute_si3e_ribo$name)
+
+acute_si3e_ribo <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_acute_si3e_ribo <- DESeqDataSetFromMatrix(
+  countData = acute_si3e_ribo,
+  colData = metadata_acute_si3e_ribo,
+  design = ~condition
+  )
+
+ddsMat_acute_si3e_ribo <- DESeq(ddsMat_acute_si3e_ribo)
+resultsNames(ddsMat_acute_si3e_ribo)
+res_acute_si3e_ribo <- results(ddsMat_acute_si3e_ribo, name=resultsNames(ddsMat_acute_si3e_ribo)[2], cooksCutoff=F, independentFiltering=F)
+
+
+res_acute_si3e_ribo <- lfcShrink(dds = ddsMat_acute_si3e_ribo, coef = resultsNames(ddsMat_acute_si3e_ribo)[2], res = res_acute_si3e_ribo) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_acute_si3e_ribo %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_acute_si3e_ribo %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+dataset="ribo"
+
+all_counts_acute_si3e_ribo <- data.frame(dataset, upreg, downreg)
+
+```
+
+## Export all acute changes as a single table
+
+```{r}
+
+sictrl_te <- res_acute_sictrl[,c(1,2,4,7)]
+colnames(sictrl_te)[3] ="LFC_te_sictrl"
+colnames(sictrl_te)[4] ="padj_te_sictrl"
+
+sictrl_ribo <- res_acute_sictrl_ribo[,c(1,4,7)]
+colnames(sictrl_ribo)[2] ="LFC_ribo_sictrl"
+colnames(sictrl_ribo)[3] ="padj_ribo_sictrl"
+
+sictrl_rna <- res_acute_sictrl_rna[,c(1,4,7)]
+colnames(sictrl_rna)[2] ="LFC_rna_sictrl"
+colnames(sictrl_rna)[3] ="padj_rna_sictrl"
+
+si3e_te <- res_acute_si3e[,c(1,4,7)]
+colnames(si3e_te)[2] ="LFC_te_si3e"
+colnames(si3e_te)[3] ="padj_te_3e"
+
+si3e_ribo <- res_acute_si3e_ribo[,c(1,4,7)]
+colnames(si3e_ribo)[2] ="LFC_ribo_si3e"
+colnames(si3e_ribo)[3] ="padj_ribo_si3e"
+
+si3e_rna <- res_acute_si3e_rna[,c(1,4,7)]
+colnames(si3e_rna)[2] ="LFC_rna_si3e"
+colnames(si3e_rna)[3] ="padj_rna_si3e"
+
+si3d_te <- res_acute_si3d[,c(1,4,7)]
+colnames(si3d_te)[2] ="LFC_te_si3d"
+colnames(si3d_te)[3] ="padj_te_si3d"
+
+si3d_ribo <- res_acute_si3d_ribo[,c(1,4,7)]
+colnames(si3d_ribo)[2] ="LFC_ribo_si3d"
+colnames(si3d_ribo)[3] ="padj_ribo_si3d"
+
+si3d_rna <- res_acute_si3d_rna[,c(1,4,7)]
+colnames(si3d_rna)[2] ="LFC_rna_si3d"
+colnames(si3d_rna)[3] ="padj_rna_si3d"
+
+#bind cols ----------------------------------------------------------------------
+
+all_changes <- purrr::reduce(list(sictrl_te,sictrl_ribo,sictrl_rna,si3e_te,si3e_ribo,si3e_rna,si3d_te,si3d_ribo,si3d_rna), dplyr::left_join, by = 'gene_id') %>% 
+  as.data.frame()
+
+write_csv(all_changes, here("counts/all_norm_to_hyp_changes.csv"))
+```
+
+
+## Visualize acute hypoxic response with histograms
+
+## Acute hypoxic changes
+
+```{r}
+
+ctrl <- all_changes %>% 
+  filter(padj_rna_sictrl < 0.05 | padj_ribo_sictrl < 0.05)
+
+ctrl_acute <- ggplot(data = ctrl, aes(x = LFC_rna_sictrl, y = LFC_ribo_sictrl)) + 
+  ylim(-2,2) + 
+  xlim(-2,2) +
+  geom_hline(yintercept = 0, color = "grey") + 
+  geom_vline(xintercept = 0, color = "grey") +
+  geom_point(alpha=.25) +
+  ylab(bquote(Log[2]~"si-CTRL LFC"~"RIBO: hypoxia vs normoxia")) +
+  xlab(bquote(Log[2]~"si-CTRL LFC"~"RNA: hypoxia vs normoxia")) +
+    # theme_cowplot(font_size = 5)+
+  theme_prism()
+
+ctrl_acute <- ggMarginal(ctrl_acute, type = "histogram",
+           xparams = list(binwidth = .1, fill = "grey"),
+           yparams = list(binwidth = .1, fill = "red")
+           )
+
+ggsave(filename = here("plots/rna_ribo_acute.pdf"), ctrl_acute, width = 4, height = 4)
+
+ctrl_acute
+```
+
+
+## TE changes - 3e KD
+
+```{r}
+
+sig_sictrl <- all_changes %>% 
+  filter(padj_te_sictrl <0.05)
+
+
+#counts sig_sictrl
+sig_sictrl %>% 
+  filter(LFC_te_sictrl < 0) %>% 
+  filter(padj_te_sictrl < 0.05) %>% 
+  nrow()
+
+sig_sictrl %>% 
+  filter(LFC_te_sictrl > 0) %>% 
+  filter(padj_te_sictrl < 0.05) %>% 
+  nrow()
+
+#counts si3e
+sig_sictrl %>% 
+  filter(LFC_te_si3e < 0) %>% 
+  filter(padj_te_3e < 0.05) %>% 
+  nrow()
+
+sig_sictrl %>% 
+  filter(LFC_te_si3e > 0) %>% 
+  filter(padj_te_3e < 0.05) %>% 
+  nrow()
+
+
+scatter_3e_acute <- ggplot(data = sig_sictrl, aes(x = LFC_te_sictrl, y = LFC_te_si3e)) + 
+  ylim(-2,2) + 
+  xlim(-2,2) +
+  geom_hline(yintercept = 0, color = "grey") + 
+  geom_vline(xintercept = 0, color = "grey") +
+  geom_point(alpha=.25) +
+  ylab(bquote(Log[2]~"si-eIF3e LFC"~"TE: hypoxia vs normoxia")) +
+  xlab(bquote(Log[2]~"si-CTRL LFC"~"TE: hypoxia vs normoxia")) +
+    # theme_cowplot(font_size = 9)+
+  theme_prism()
+
+scatter_3e_acute <- ggMarginal(scatter_3e_acute, type = "histogram",
+           xparams = list(binwidth = .1, fill = "grey"),
+           yparams = list(binwidth = .1, fill = "#56B4E9")
+           )
+
+scatter_3e_acute
+
+ggsave(filename= here("plots/acute_3e.pdf"), scatter_3e_acute, height=4, width=4)
+
+```
+
+## TE changes - 3d KD
+
+```{r}
+
+
+#counts si3d
+sig_sictrl %>% 
+  filter(LFC_te_si3d < 0) %>% 
+  filter(padj_te_si3d < 0.05) %>% 
+  nrow()
+
+sig_sictrl %>% 
+  filter(LFC_te_si3d > 0) %>% 
+  filter(padj_te_si3d < 0.05) %>% 
+  nrow()
+
+
+scatter_3d_acute <- ggplot(data = sig_sictrl, aes(x = LFC_te_sictrl, y = LFC_te_si3d)) + 
+  ylim(-2,2) + 
+  xlim(-2,2) +
+  geom_hline(yintercept = 0, color = "grey") + 
+  geom_vline(xintercept = 0, color = "grey") +
+  geom_point(alpha=.25) +
+  ylab(bquote(Log[2]~"si-eIF3d LFC"~"TE: hypoxia vs normoxia")) +
+  xlab(bquote(Log[2]~"si-ctrl LFC"~"TE: hypoxia vs normoxia")) +
+    # theme_cowplot(font_size = 9)+
+  theme_prism()
+
+scatter_3d_acute <- ggMarginal(scatter_3d_acute, type = "histogram",
+           xparams = list(binwidth = .1, fill = "grey"),
+           yparams = list(binwidth = .1, fill = "#E69F00")
+           )
+
+scatter_3d_acute
+
+ggsave(here("plots/acute_3d.pdf"), scatter_3d_acute, height=4, width=4)
+
+```
+
+
+# Differential gene expression in hypoxia
+
+## si3e vs sictrl in hypoxia
+
+```{r}
+
+#organize metadata
+metadata_hypox_si3e <- metadata_norm %>% 
+  filter(treatment== "si3e"| treatment=="sictrl") %>% 
+  filter(condition=="hypoxia") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+metadata_hypox_si3e$library <- relevel(factor(metadata_hypox_si3e$library), ref = "rna")
+metadata_hypox_si3e$treatment <- relevel(factor(metadata_hypox_si3e$treatment), ref = "sictrl")
+
+levels(metadata_hypox_si3e$library)
+levels(metadata_hypox_si3e$treatment)
+
+names <- as.character(metadata_hypox_si3e$name)
+
+hypox_si3e <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_hypox_si3e <- DESeqDataSetFromMatrix(
+  countData = hypox_si3e,
+  colData = metadata_hypox_si3e,
+  design = ~treatment + library + treatment:library
+  )
+
+ddsMat_hypox_si3e <- DESeq(ddsMat_hypox_si3e)
+resultsNames(ddsMat_hypox_si3e)
+res_hypox_si3e <- results(ddsMat_hypox_si3e, name=resultsNames(ddsMat_hypox_si3e)[4], cooksCutoff=F, independentFiltering=F)
+
+
+res_hypox_si3e <- lfcShrink(dds = ddsMat_hypox_si3e, coef = resultsNames(ddsMat_hypox_si3e)[4], res = res_hypox_si3e) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_hypox_si3e %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_hypox_si3e %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+dataset= "hypoxia_3e"
+
+all_counts_hypox_si3e <- data.frame(dataset, upreg, downreg)
+all_counts_hypox_si3e
+
+write_csv(res_hypox_si3e, here("counts/hypoxia_si_ctrl_3e.csv"))
+
+```
+
+
+## si3d vs sictrl in hypoxia
+
+```{r}
+
+#organize metadata
+metadata_hypox_si3d <- metadata_norm %>% 
+  filter(treatment== "si3d"| treatment=="sictrl") %>% 
+  filter(condition=="hypoxia") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+metadata_hypox_si3d$library <- relevel(factor(metadata_hypox_si3d$library), ref = "rna")
+metadata_hypox_si3d$treatment <- relevel(factor(metadata_hypox_si3d$treatment), ref = "sictrl")
+
+levels(metadata_hypox_si3d$library)
+levels(metadata_hypox_si3d$treatment)
+
+names <- as.character(metadata_hypox_si3d$name)
+
+hypox_si3d <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_hypox_si3d <- DESeqDataSetFromMatrix(
+  countData = hypox_si3d,
+  colData = metadata_hypox_si3d,
+  design = ~treatment + library + treatment:library
+  )
+
+ddsMat_hypox_si3d <- DESeq(ddsMat_hypox_si3d)
+resultsNames(ddsMat_hypox_si3d)
+res_hypox_si3d <- results(ddsMat_hypox_si3d, name=resultsNames(ddsMat_hypox_si3d)[4], cooksCutoff=F, independentFiltering=F)
+
+
+res_hypox_si3d <- lfcShrink(dds = ddsMat_hypox_si3d, coef = resultsNames(ddsMat_hypox_si3d)[4], res = res_hypox_si3d) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+write_csv(res_hypox_si3d, here("counts/hypoxia_si_ctrl_3d.csv"))
+
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_hypox_si3d %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_hypox_si3d %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+dataset="hypoxia_3d"
+
+all_counts_hypox_si3d <- data.frame(dataset, upreg, downreg)
+all_counts_hypox_si3d
+
+
+```
+
+### Pull in normoxia DEG from previous analysis
+To compare normoxia to hypoxia
+```{r}
+
+#3d
+res_normox_si3d <-read_csv(here("counts/normoxia_sictrl_3d.csv"))
+
+upreg <- res_normox_si3d %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_normox_si3d %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+dataset="normoxia_3d"
+
+all_counts_normox_si3d <- data.frame(dataset, upreg, downreg)
+all_counts_normox_si3d
+
+#3e
+
+res_normox_si3e <-read_csv(here("counts/normoxia_sictrl_3e.csv"))
+
+upreg <- res_normox_si3e %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_normox_si3e %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+dataset="normoxia_3e"
+
+
+all_counts_normox_si3e <- data.frame(dataset, upreg, downreg)
+all_counts_normox_si3e
+
+
+```
+
+### Visualize normoxic vs hyoxic response
+```{r}
+
+hyp_vs_norm_kds <- rbind(all_counts_normox_si3e, all_counts_normox_si3d,
+                         all_counts_hypox_si3e, all_counts_hypox_si3d) %>%
+  melt() %>%
+  mutate(
+    condition = str_extract(dataset, "^(normox|hypox)"),
+    sample = str_extract(dataset, "3[ed]")
+  )
+  
+```
+
+# effect of si3e KD norm and hypoxia
+```{r}
+
+eif3e_counts <- hyp_vs_norm_kds %>% 
+  filter(sample=="3e")
+
+eif3e_bar <- ggbarplot(data = eif3e_counts, x = "condition", y = "value", fill = "variable", palette = c("#2492a6",si3e_col), position = position_dodge(0.75), label = T, title= "eIF3e")+
+  ylab("Transcript counts")+
+  xlab("")+
+  theme_prism()+
+  # theme_cowplot(font_size = 12)+
+  scale_y_continuous(limits = c(0, 1600))
+
+eif3e_bar
+
+ggsave(here("plots/eIF3ebars.pdf"), eif3e_bar, width = 4, height = 4)
+
+```
+
+
+# effect of si3d KD norm and hypoxia
+
+```{r}
+
+eif3d_counts <- hyp_vs_norm_kds %>% 
+  filter(sample=="3d")
+
+eif3d_bar <- ggbarplot(data = eif3d_counts, x = "condition", y = "value", fill = "variable", palette = c("#ffd412",si3d_col), position = position_dodge(0.75), label = T, title= "eIF3d")+
+  ylab("Transcript counts")+
+  xlab("")+
+  theme_prism()+
+  # theme_cowplot(font_size = 12)+
+  scale_y_continuous(limits = c(0, 1600))
+
+eif3d_bar
+
+ggsave(here("plots/eIF3dbars.pdf"), eif3d_bar, width = 4, height = 4)
+
+```
+

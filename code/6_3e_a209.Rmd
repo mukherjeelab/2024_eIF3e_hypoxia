@@ -1,0 +1,1035 @@
+---
+title: "3e_a209"
+author: "Kate"
+date: "2024-06-12"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r install packages, echo=FALSE}
+library(here)
+library(janitor)
+library(tximport)
+library(tidyverse)
+library(EnhancedVolcano)
+library(msigdbr)
+library(viridis)
+library(gridExtra)
+library(ggthemes)
+library(ggrepel)
+library(scales)
+library(DESeq2)
+library(limma)
+library(clusterProfiler)
+library(plotly)
+library(ggokabeito)
+library(ggvenn)
+library(ggpubr)
+library(DT)
+library(edgeR)
+library(cowplot)
+library(ggExtra)
+library(ggprism)
+library(GeneOverlap)
+library(writexl)
+library(reshape2)
+```
+
+colors
+```{r}
+
+a209_col = "#CC79A7"
+si3e_col = "#56B4E9"
+si3d_col = "#E69F00"
+```
+
+## load metadata
+```{r}
+metadata <- read_csv(here("counts/calculate_te/metadata.csv"))
+
+metadata_norm <- metadata %>% 
+  filter(treatment %in% c("DMSO","a209"))
+
+```
+
+```{r}
+geneInfo <- read_csv(here("accessories","gencode.v26.primary.info.csv.gz"), col_names = F) %>%
+  filter(!str_detect(X2, "pre_"))
+
+colnames(geneInfo) <- c("gene_id","transcript_id","biotype","symbol")
+
+#map transcripts to gene
+tx2gene <- geneInfo[,c(2,1)]
+gene_symbol <- geneInfo %>% dplyr::select(gene_id, symbol) %>% unique()
+
+```
+
+## Separate ribo counts, rna counts, and te counts
+```{r}
+raw_counts <- read_csv(here("counts/calculate_te/raw_filtered_allCounts.csv")) %>% 
+  column_to_rownames("gene_id")
+
+
+raw_counts_edit <- raw_counts %>%
+  dplyr::select(matches("DMSO|a209"))
+
+ribo_counts <- as.matrix(raw_counts_edit[,grep(pattern = "ribo",colnames(raw_counts_edit))])
+rna_counts <- as.matrix(raw_counts_edit[,grep(pattern = "rna",colnames(raw_counts_edit))])
+
+
+rna_ribo_counts <- as.matrix(raw_counts_edit)
+
+```
+
+## HIF1alpha levels after compound treatment
+
+```{r}
+
+all_gene_te <- read_csv(here("counts/calculate_te/complete_te_list.csv"))
+
+all_gene_te_long <- all_gene_te %>% 
+  melt() %>% 
+tidyr::extract(variable, into = c("condition", "treatment", "rep", "type"), regex = "([^_]+)_([^_]+)_([^_]+)_([^_]+)") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment == "a209"| treatment =="DMSO")
+
+all_gene_te_long$treatment <- relevel(factor(all_gene_te_long$treatment), ref = "DMSO")
+
+
+hif <-all_gene_te_long %>% 
+  filter(symbol=="HIF1A") %>% 
+  filter(type != "TE")
+
+hif_summary <- hif %>%
+  group_by(symbol, type, treatment) %>%
+  summarise(
+    mean_value = mean(value),
+    sd = sd(value)  # Standard deviation
+  )
+
+hif_summary$type <- factor(hif_summary$type, levels=c("rna","ribo"))
+
+ggplot(hif_summary, aes(x = treatment, y = mean_value, fill = treatment)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin = mean_value - sd, ymax = mean_value + sd), 
+                width = 0.2, position = position_dodge(0.9)) +
+  facet_wrap(~ symbol + type) +
+  scale_fill_manual(values = c("grey",a209_col)) +
+  theme_cowplot()+
+    theme(legend.position = "none")
+
+ggsave(here("plots/hif_a209_hypoxia.pdf"), width = 4, height = 3)
+
+```
+
+## Acute hypoxic response: DMSO normoxia to hypoxia.
+
+### TE changes
+```{r}
+
+#organize metadata
+metadata_acute_DMSO <- metadata_norm %>% 
+  filter(treatment== "DMSO") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+metadata_acute_DMSO$library <- relevel(factor(metadata_acute_DMSO$library), ref = "rna")
+metadata_acute_DMSO$condition <- relevel(factor(metadata_acute_DMSO$condition), ref = "normoxia")
+
+levels(metadata_acute_DMSO$library)
+levels(metadata_acute_DMSO$condition)
+
+names <- as.character(metadata_acute_DMSO$name)
+
+acute_DMSO <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_acute_DMSO <- DESeqDataSetFromMatrix(
+  countData = acute_DMSO,
+  colData = metadata_acute_DMSO,
+  design = ~condition + library + condition:library
+  )
+
+ddsMat_acute_DMSO <- DESeq(ddsMat_acute_DMSO)
+resultsNames(ddsMat_acute_DMSO)
+res_acute_DMSO <- results(ddsMat_acute_DMSO, name=resultsNames(ddsMat_acute_DMSO)[4], cooksCutoff=F, independentFiltering=F)
+
+
+res_acute_DMSO <- lfcShrink(dds = ddsMat_acute_DMSO, coef = resultsNames(ddsMat_acute_DMSO)[4], res = res_acute_DMSO) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_acute_DMSO %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_acute_DMSO %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+all_counts_acute_DMSO <- data.frame(upreg, downreg)
+
+```
+
+
+### RNA changes
+```{r}
+
+#organize metadata
+metadata_acute_DMSO_rna <- metadata_norm %>% 
+  filter(treatment== "DMSO") %>% 
+  filter(library=="rna") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+
+metadata_acute_DMSO_rna$condition <- relevel(factor(metadata_acute_DMSO_rna$condition), ref = "normoxia")
+
+levels(metadata_acute_DMSO_rna$condition)
+
+names <- as.character(metadata_acute_DMSO_rna$name)
+
+acute_DMSO_rna <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_acute_DMSO_rna <- DESeqDataSetFromMatrix(
+  countData = acute_DMSO_rna,
+  colData = metadata_acute_DMSO_rna,
+  design = ~condition
+  )
+
+ddsMat_acute_DMSO_rna <- DESeq(ddsMat_acute_DMSO_rna)
+resultsNames(ddsMat_acute_DMSO_rna)
+res_acute_DMSO_rna <- results(ddsMat_acute_DMSO_rna, name=resultsNames(ddsMat_acute_DMSO_rna)[2], cooksCutoff=F, independentFiltering=F)
+
+
+res_acute_DMSO_rna <- lfcShrink(dds = ddsMat_acute_DMSO_rna, coef = resultsNames(ddsMat_acute_DMSO_rna)[2], res = res_acute_DMSO_rna) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_acute_DMSO_rna %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_acute_DMSO_rna %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+dataset="rna"
+
+all_counts_acute_DMSO_rna <- data.frame(dataset, upreg, downreg)
+
+```
+
+
+### RIBO changes
+
+```{r}
+
+#organize metadata
+metadata_acute_DMSO_ribo <- metadata_norm %>% 
+  filter(treatment== "DMSO") %>% 
+  filter(library=="ribo") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+
+metadata_acute_DMSO_ribo$condition <- relevel(factor(metadata_acute_DMSO_ribo$condition), ref = "normoxia")
+
+levels(metadata_acute_DMSO_ribo$condition)
+
+names <- as.character(metadata_acute_DMSO_ribo$name)
+
+acute_DMSO_ribo <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_acute_DMSO_ribo <- DESeqDataSetFromMatrix(
+  countData = acute_DMSO_ribo,
+  colData = metadata_acute_DMSO_ribo,
+  design = ~condition
+  )
+
+ddsMat_acute_DMSO_ribo <- DESeq(ddsMat_acute_DMSO_ribo)
+resultsNames(ddsMat_acute_DMSO_ribo)
+res_acute_DMSO_ribo <- results(ddsMat_acute_DMSO_ribo, name=resultsNames(ddsMat_acute_DMSO_ribo)[2], cooksCutoff=F, independentFiltering=F)
+
+
+res_acute_DMSO_ribo <- lfcShrink(dds = ddsMat_acute_DMSO_ribo, coef = resultsNames(ddsMat_acute_DMSO_ribo)[2], res = res_acute_DMSO_ribo) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_acute_DMSO_ribo %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_acute_DMSO_ribo %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+dataset="ribo"
+
+all_counts_acute_DMSO_ribo <- data.frame(dataset, upreg, downreg)
+
+```
+
+## Visualize DMSO acute hypoxic changes
+```{r}
+
+acute_ctrl_counts <- rbind(all_counts_acute_DMSO_rna, all_counts_acute_DMSO_ribo) %>% melt()
+
+acute_ctrl_counts$dataset <- as.factor(acute_ctrl_counts$dataset)
+acute_ctrl_counts$dataset <- relevel(acute_ctrl_counts$dataset, ref = "rna")
+
+ggbarplot(acute_ctrl_counts, x="variable", y="value")+
+  facet_wrap(~dataset)+
+    geom_text(aes(label = value), vjust = -0.3)+
+  theme_cowplot()
+
+ggsave(here("plots/acute_DMSO_counts.pdf"), width=4, height=4)
+
+
+```
+
+
+## Acute hypoxic response: a209 normoxia to hypoxia.
+
+### TE changes
+```{r}
+
+#organize metadata
+metadata_acute_a209 <- metadata_norm %>% 
+  filter(treatment== "a209") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+metadata_acute_a209$library <- relevel(factor(metadata_acute_a209$library), ref = "rna")
+metadata_acute_a209$condition <- relevel(factor(metadata_acute_a209$condition), ref = "normoxia")
+
+levels(metadata_acute_a209$library)
+levels(metadata_acute_a209$condition)
+
+names <- as.character(metadata_acute_a209$name)
+
+acute_a209 <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_acute_a209 <- DESeqDataSetFromMatrix(
+  countData = acute_a209,
+  colData = metadata_acute_a209,
+  design = ~condition + library + condition:library
+  )
+
+ddsMat_acute_a209 <- DESeq(ddsMat_acute_a209)
+resultsNames(ddsMat_acute_a209)
+res_acute_a209 <- results(ddsMat_acute_a209, name=resultsNames(ddsMat_acute_a209)[4], cooksCutoff=F, independentFiltering=F)
+
+
+res_acute_a209 <- lfcShrink(dds = ddsMat_acute_a209, coef = resultsNames(ddsMat_acute_a209)[4], res = res_acute_a209) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_acute_a209 %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_acute_a209 %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+all_counts_acute_a209 <- data.frame(upreg, downreg)
+all_counts_acute_a209
+```
+
+### RNA changes
+```{r}
+
+#organize metadata
+metadata_acute_a209_rna <- metadata_norm %>% 
+  filter(treatment== "a209") %>% 
+  filter(library=="rna") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+
+metadata_acute_a209_rna$condition <- relevel(factor(metadata_acute_a209_rna$condition), ref = "normoxia")
+
+levels(metadata_acute_a209_rna$condition)
+
+names <- as.character(metadata_acute_a209_rna$name)
+
+acute_a209_rna <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_acute_a209_rna <- DESeqDataSetFromMatrix(
+  countData = acute_a209_rna,
+  colData = metadata_acute_a209_rna,
+  design = ~condition
+  )
+
+ddsMat_acute_a209_rna <- DESeq(ddsMat_acute_a209_rna)
+resultsNames(ddsMat_acute_a209_rna)
+res_acute_a209_rna <- results(ddsMat_acute_a209_rna, name=resultsNames(ddsMat_acute_a209_rna)[2], cooksCutoff=F, independentFiltering=F)
+
+
+res_acute_a209_rna <- lfcShrink(dds = ddsMat_acute_a209_rna, coef = resultsNames(ddsMat_acute_a209_rna)[2], res = res_acute_a209_rna) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_acute_a209_rna %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_acute_a209_rna %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+dataset="rna"
+
+all_counts_acute_a209_rna <- data.frame(dataset, upreg, downreg)
+
+```
+
+
+### RIBO changes
+
+```{r}
+
+#organize metadata
+metadata_acute_a209_ribo <- metadata_norm %>% 
+  filter(treatment== "a209") %>% 
+  filter(library=="ribo") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+
+metadata_acute_a209_ribo$condition <- relevel(factor(metadata_acute_a209_ribo$condition), ref = "normoxia")
+
+levels(metadata_acute_a209_ribo$condition)
+
+names <- as.character(metadata_acute_a209_ribo$name)
+
+acute_a209_ribo <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_acute_a209_ribo <- DESeqDataSetFromMatrix(
+  countData = acute_a209_ribo,
+  colData = metadata_acute_a209_ribo,
+  design = ~condition
+  )
+
+ddsMat_acute_a209_ribo <- DESeq(ddsMat_acute_a209_ribo)
+resultsNames(ddsMat_acute_a209_ribo)
+res_acute_a209_ribo <- results(ddsMat_acute_a209_ribo, name=resultsNames(ddsMat_acute_a209_ribo)[2], cooksCutoff=F, independentFiltering=F)
+
+
+res_acute_a209_ribo <- lfcShrink(dds = ddsMat_acute_a209_ribo, coef = resultsNames(ddsMat_acute_a209_ribo)[2], res = res_acute_a209_ribo) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_acute_a209_ribo %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_acute_a209_ribo %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+dataset="ribo"
+
+all_counts_acute_a209_ribo <- data.frame(dataset, upreg, downreg)
+
+```
+
+
+## Visualize acute hypoxic response in DMSO 
+Export all acute changes as a single table
+
+```{r}
+
+DMSO_te <- res_acute_DMSO[,c(1,2,4,7)]
+colnames(DMSO_te)[3] ="LFC_te_DMSO"
+colnames(DMSO_te)[4] ="padj_te_DMSO"
+
+DMSO_ribo <- res_acute_DMSO_ribo[,c(1,4,7)]
+colnames(DMSO_ribo)[2] ="LFC_ribo_DMSO"
+colnames(DMSO_ribo)[3] ="padj_ribo_DMSO"
+
+DMSO_rna <- res_acute_DMSO_rna[,c(1,4,7)]
+colnames(DMSO_rna)[2] ="LFC_rna_DMSO"
+colnames(DMSO_rna)[3] ="padj_rna_DMSO"
+
+a209_te <- res_acute_a209[,c(1,4,7)]
+colnames(a209_te)[2] ="LFC_te_a209"
+colnames(a209_te)[3] ="padj_te_a209"
+
+a209_ribo <- res_acute_a209_ribo[,c(1,4,7)]
+colnames(a209_ribo)[2] ="LFC_ribo_a209"
+colnames(a209_ribo)[3] ="padj_ribo_a209"
+
+a209_rna <- res_acute_a209_rna[,c(1,4,7)]
+colnames(a209_rna)[2] ="LFC_rna_a209"
+colnames(a209_rna)[3] ="padj_rna_a209"
+
+#bind cols ----------------------------------------------------------------------
+
+all_changes_dmso_a209 <- purrr::reduce(list(DMSO_te,DMSO_ribo,DMSO_rna,a209_te,a209_ribo,a209_rna), dplyr::left_join, by = 'gene_id') %>% 
+  as.data.frame()
+
+write_csv(all_changes_dmso_a209, here("counts/all_norm_to_hyp_changes_compound.csv"))
+```
+
+
+
+## Visualize acute hypoxic response with histograms
+
+## Acute hypoxic changes
+
+```{r}
+
+DMSO <- all_changes_dmso_a209 %>% 
+  filter(padj_rna_DMSO < 0.05 | padj_ribo_DMSO < 0.05)
+
+DMSO_acute <- ggplot(data = DMSO, aes(x = LFC_rna_DMSO, y = LFC_ribo_DMSO)) + 
+  ylim(-2,2) + 
+  xlim(-2,2) +
+  geom_hline(yintercept = 0, color = "grey") + 
+  geom_vline(xintercept = 0, color = "grey") +
+  geom_point(alpha=.25) +
+  ylab(bquote(Log[2]~"DMSO LFC"~"RIBO: hypoxia vs normoxia")) +
+  xlab(bquote(Log[2]~"DMSO LFC"~"RNA: hypoxia vs normoxia")) +
+    theme_cowplot(font_size = 5)+
+  theme_prism()
+
+DMSO_acute <- ggMarginal(DMSO_acute, type = "histogram",
+           xparams = list(binwidth = .1, fill = "grey"),
+           yparams = list(binwidth = .1, fill = "red")
+           )
+
+ggsave(filename = here("plots/rna_ribo_DMSO_acute.pdf"), DMSO_acute, width = 4, height = 4)
+
+DMSO_acute
+```
+
+
+## TE changes - a209
+
+```{r}
+
+sig_DMSO <- all_changes_dmso_a209 %>% 
+  filter(padj_te_DMSO <0.05)
+
+#counts DMSO
+sig_DMSO %>% 
+  filter(LFC_te_DMSO < 0) %>% 
+  filter(padj_te_DMSO < 0.05) %>% 
+  nrow()
+
+sig_DMSO %>% 
+  filter(LFC_te_DMSO > 0) %>% 
+  filter(padj_te_DMSO < 0.05) %>% 
+  nrow()
+
+#counts a209
+sig_DMSO %>% 
+  filter(LFC_te_a209 < 0) %>% 
+  filter(padj_te_a209 < 0.05) %>% 
+  nrow()
+
+sig_DMSO %>% 
+  filter(LFC_te_a209 > 0) %>% 
+  filter(padj_te_a209 < 0.05) %>% 
+  nrow()
+
+
+
+scatter_acute_dmso_a209 <- ggplot(data = sig_DMSO, aes(x = LFC_te_DMSO, y = LFC_te_a209)) + 
+  ylim(-2,2) + 
+  xlim(-2,2) +
+  geom_hline(yintercept = 0, color = "grey") + 
+  geom_vline(xintercept = 0, color = "grey") +
+  geom_point(alpha=.25) +
+  ylab(bquote(Log[2]~"a209 LFC"~"TE: hypoxia vs normoxia")) +
+  xlab(bquote(Log[2]~"DMSO LFC"~"TE: hypoxia vs normoxia")) +
+    theme_cowplot(font_size = 9)+
+  theme_prism()
+
+scatter_acute_dmso_a209 <- ggMarginal(scatter_acute_dmso_a209, type = "histogram",
+           xparams = list(binwidth = .1, fill = "grey"),
+           yparams = list(binwidth = .1, fill = "#CC79A7")
+           )
+
+scatter_acute_dmso_a209
+
+ggsave(filename= here("plots/acute_dmso_a209.pdf"), scatter_acute_dmso_a209, height=4, width=4)
+
+```
+
+
+# Differential gene expression for a209 compared to DMSO in normoxia
+
+```{r}
+
+#organize metadata
+metadata_normox_a209 <- metadata_norm %>% 
+  filter(treatment== "a209"| treatment=="DMSO") %>% 
+  filter(condition=="normoxia") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+metadata_normox_a209$library <- relevel(factor(metadata_normox_a209$library), ref = "rna")
+metadata_normox_a209$treatment <- relevel(factor(metadata_normox_a209$treatment), ref = "DMSO")
+
+levels(metadata_normox_a209$library)
+levels(metadata_normox_a209$treatment)
+
+names <- as.character(metadata_normox_a209$name)
+
+names
+
+normox_a209 <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_normox_a209 <- DESeqDataSetFromMatrix(
+  countData = normox_a209,
+  colData = metadata_normox_a209,
+  design = ~treatment + library + treatment:library
+  )
+
+ddsMat_normox_a209 <- DESeq(ddsMat_normox_a209)
+resultsNames(ddsMat_normox_a209)
+res_normox_a209 <- results(ddsMat_normox_a209, name=resultsNames(ddsMat_normox_a209)[4], cooksCutoff=F, independentFiltering=F)
+
+
+res_normox_a209 <- lfcShrink(dds = ddsMat_normox_a209, coef = resultsNames(ddsMat_normox_a209)[4], res = res_normox_a209) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_normox_a209 %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_normox_a209 %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+dataset= "normoxia_a209"
+
+all_counts_normox_a209 <- data.frame(dataset, upreg, downreg)
+all_counts_normox_a209
+
+write_csv(res_normox_a209, here("counts/normoxia_dmso_a209.csv"))
+
+
+
+```
+
+
+# Differential gene expression for a209 compared to DMSO in hypoxia
+
+```{r}
+
+#organize metadata
+metadata_hypox_a209 <- metadata_norm %>% 
+  filter(treatment== "a209"| treatment=="DMSO") %>% 
+  filter(condition=="hypoxia") %>% 
+  mutate("name" = paste(condition, treatment, rep, library, sep = "_"))
+
+metadata_hypox_a209$library <- relevel(factor(metadata_hypox_a209$library), ref = "rna")
+metadata_hypox_a209$treatment <- relevel(factor(metadata_hypox_a209$treatment), ref = "DMSO")
+
+levels(metadata_hypox_a209$library)
+levels(metadata_hypox_a209$treatment)
+
+names <- as.character(metadata_hypox_a209$name)
+
+names
+
+hypox_a209 <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+
+
+ddsMat_hypox_a209 <- DESeqDataSetFromMatrix(
+  countData = hypox_a209,
+  colData = metadata_hypox_a209,
+  design = ~treatment + library + treatment:library
+  )
+
+ddsMat_hypox_a209 <- DESeq(ddsMat_hypox_a209)
+resultsNames(ddsMat_hypox_a209)
+res_hypox_a209 <- results(ddsMat_hypox_a209, name=resultsNames(ddsMat_hypox_a209)[4], cooksCutoff=F, independentFiltering=F)
+
+
+res_hypox_a209 <- lfcShrink(dds = ddsMat_hypox_a209, coef = resultsNames(ddsMat_hypox_a209)[4], res = res_hypox_a209) %>% 
+  as.data.frame %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+
+# count table -------------------------------------------------------------------
+
+upreg <- res_hypox_a209 %>%
+  filter(padj < .05 & log2FoldChange >0) %>%
+  nrow()
+
+downreg <- res_hypox_a209 %>%
+  filter(padj < .05 & log2FoldChange <0) %>%
+  nrow()
+
+dataset= "hypoxia_a209"
+
+all_counts_hypox_a209 <- data.frame(dataset, upreg, downreg)
+all_counts_hypox_a209
+
+write_csv(res_hypox_a209, here("counts/hypoxia_dmso_a209.csv"))
+
+
+
+```
+
+### Visualize normoxic vs hyoxic response for a209
+```{r}
+hyp_vs_norm_a209 <- rbind(all_counts_normox_a209, all_counts_hypox_a209) %>% 
+  melt() %>% 
+extract(dataset, into = c("condition", "sample"), regex = "([^_]+)_([^_]+)")
+```
+
+# effect of si3e KD norm and hypoxia
+```{r}
+
+a209_bar <- ggbarplot(data = hyp_vs_norm_a209, x = "condition", y = "value", fill = "variable", palette = c("#eba4e4",a209_col), position = position_dodge(0.75), label = T, title= "a209")+
+  ylab("Transcript counts")+
+  xlab("")+
+  theme_prism()+
+  theme_cowplot(font_size = 12)+
+  scale_y_continuous(limits = c(0, 300))
+
+a209_bar
+
+ggsave(here("plots/a209bars.pdf"), a209_bar, width = 3, height = 4)
+
+```
+
+# Compare a209 to eIF3d and eIF3e
+## Import TE changes for eIF3d and eIF3e in normoxia nad hypoxia
+Pull normoxia data from previous analysis
+```{r}
+
+#3d
+
+#up
+res_normox_si3d <-read_csv(here("counts/normoxia_sictrl_3d.csv"))
+
+si3d_normoxia_up <- res_normox_si3d %>% 
+  as.data.frame() %>% 
+  filter(padj < .05 & log2FoldChange > 0) %>%
+dplyr::select(symbol)
+
+si3d_normoxia_up$gs_name <- rep("si3d_normoxia_up")
+
+
+#down
+
+si3d_normoxia_down <- res_normox_si3d %>% 
+  as.data.frame() %>% 
+  filter(padj < .05 & log2FoldChange < 0) %>%
+dplyr::select(symbol)
+
+si3d_normoxia_down$gs_name <- rep("si3d_normoxia_down")
+
+
+#3e
+#up
+res_normox_si3e <-read_csv(here("counts/normoxia_sictrl_3e.csv"))
+
+
+si3e_normoxia_up <- res_normox_si3e %>% 
+  as.data.frame() %>% 
+  filter(padj < .05 & log2FoldChange > 0) %>%
+dplyr::select(symbol)
+
+si3e_normoxia_up$gs_name <- rep("si3e_normoxia_up")
+
+#down
+
+si3e_normoxia_down <- res_normox_si3e %>% 
+  as.data.frame() %>% 
+  filter(padj < .05 & log2FoldChange < 0) %>%
+dplyr::select(symbol)
+
+si3e_normoxia_down$gs_name <- rep("si3e_normoxia_down")
+
+
+```
+
+Import hypoxia data from previous analysis
+```{r}
+
+#3d
+res_hypox_si3d <-read_csv(here("counts/hypoxia_si_ctrl_3d.csv"))
+
+
+si3d_hypoxia_up <- res_hypox_si3d %>% 
+  as.data.frame() %>% 
+  filter(padj < .05 & log2FoldChange > 0) %>%
+dplyr::select(symbol)
+
+si3d_hypoxia_up$gs_name <- rep("si3d_hypoxia_up")
+
+
+#down
+
+si3d_hypoxia_down <- res_hypox_si3d %>% 
+  as.data.frame() %>% 
+  filter(padj < .05 & log2FoldChange < 0) %>%
+dplyr::select(symbol)
+
+si3d_hypoxia_down$gs_name <- rep("si3d_hypoxia_down")
+
+
+
+#3e
+res_hypox_si3e <-read_csv(here("counts/hypoxia_si_ctrl_3e.csv"))
+
+
+si3e_hypoxia_up <- res_hypox_si3e %>% 
+  as.data.frame() %>% 
+  filter(padj < .05 & log2FoldChange > 0) %>%
+dplyr::select(symbol)
+
+si3e_hypoxia_up$gs_name <- rep("si3e_hypoxia_up")
+
+#down
+
+si3e_hypoxia_down <- res_hypox_si3e %>% 
+  as.data.frame() %>% 
+  filter(padj < .05 & log2FoldChange < 0) %>%
+dplyr::select(symbol)
+
+si3e_hypoxia_down$gs_name <- rep("si3e_hypoxia_down")
+
+
+```
+
+## Gene lists for a209 in normoxia and hypoxia
+
+```{r}
+
+#normoxia 
+
+#up
+a209_normoxia_up <- res_normox_a209 %>% 
+  as.data.frame() %>% 
+  filter(padj < .05 & log2FoldChange > 0) %>%
+dplyr::select(symbol)
+
+a209_normoxia_up$gs_name <- rep("a209_normoxia_up")
+
+#down
+
+a209_normoxia_down <- res_normox_a209 %>% 
+  as.data.frame() %>% 
+  filter(padj < .05 & log2FoldChange < 0) %>%
+dplyr::select(symbol)
+
+a209_normoxia_down$gs_name <- rep("a209_normoxia_down")
+
+
+#hypoxia
+
+#up
+
+a209_hypoxia_up <- res_hypox_a209 %>% 
+  as.data.frame() %>% 
+  filter(padj < .05 & log2FoldChange > 0) %>%
+dplyr::select(symbol)
+
+a209_hypoxia_up$gs_name <- rep("a209_hypoxia_up")
+
+#down
+
+a209_hypoxia_down <- res_hypox_a209 %>% 
+  as.data.frame() %>% 
+  filter(padj < .05 & log2FoldChange < 0) %>%
+dplyr::select(symbol)
+
+a209_hypoxia_down$gs_name <- rep("a209_hypoxia_down")
+
+
+```
+
+
+
+
+# Odds ratios for a209 3e and 3d overlap in normoxia
+
+The following analysis determines the number of genes that overlap in each condition and the statistical significance (p-value) of their overlap (odds ratio).
+
+
+Create a matrix that compares each condition for gene overlap analysis.
+```{r}
+all_lists <- bind_rows(si3e_normoxia_up, si3d_normoxia_up, a209_normoxia_up, si3e_normoxia_down, si3d_normoxia_down, a209_normoxia_down, 
+                       si3e_hypoxia_up, si3d_hypoxia_up, a209_hypoxia_up, si3e_hypoxia_down, si3d_hypoxia_down, a209_hypoxia_down) %>% 
+extract(gs_name,
+        into = c("sample", "condition", "direction"),
+        regex = "([^_]+)_([^_]+)_([^_]+)")
+```
+
+
+### get number of expressed genes for universe value
+```{r}
+all_209_symbols_expressed <- rbind(
+res_normox_a209,
+res_hypox_a209)
+
+universe <- unique(all_209_symbols_expressed$symbol)
+
+```
+
+
+### Normoxia analysis
+```{r}
+
+norm_matrix <- all_lists %>%
+  filter(condition=="normoxia") %>% 
+  dplyr::select(-condition)
+
+
+norm_matrix_comb <- norm_matrix %>% 
+  tidyr::unite("description", 2:3, sep=', ')
+
+gom.allsamples <- split(norm_matrix_comb$symbol, norm_matrix_comb$description)
+
+#double check genome size here
+
+gom.all <- newGOM(gom.allsamples, gom.allsamples, genome.size = 11629)
+
+norm_all.odds.matrix <- getMatrix(gom.all, "odds")
+norm_all.pval.matrix <- getMatrix(gom.all, "pval")
+
+
+```
+
+# plot odds ratios as bars with p values
+```{r}
+
+#merge odds and pval matricies
+
+odds <- norm_all.odds.matrix %>% 
+  as.data.frame() %>% 
+  rownames_to_column("sample") %>% 
+  pivot_longer(2:7, names_to = "comparison", values_to="odds_value")
+
+pval <- norm_all.pval.matrix %>% 
+  as.data.frame() %>% 
+  rownames_to_column("sample") %>% 
+  pivot_longer(2:7, names_to = "comparison", values_to="pval_value")
+
+
+odds_pval <- left_join(odds, pval, by=c("sample", "comparison")) %>% 
+  tidyr::unite("comparison", 1:2, sep="-") %>% 
+  filter(comparison == "a209, up-si3e, up"| 
+         comparison =="a209, down-si3e, down"|
+           comparison == "a209, up-si3d, up"|
+           comparison == "a209, down-si3d, down") %>% 
+  mutate(comparison_with_a209 = sub(".*-", "", comparison)) %>% 
+  mutate(pvalue_plot = signif(pval_value, digits=3)) %>% 
+  mutate(label = paste0("p = ", pvalue_plot, sep=" "))
+
+odds_pval$comparison_with_a209 <- factor(odds_pval$comparison_with_a209, levels = c("si3e, up", "si3e, down", "si3d, up", "si3d, down"))
+
+odds_pval <- odds_pval %>% 
+  mutate(group = ifelse(comparison== "a209, down-si3d, down" | comparison== "a209, up-si3d, up", "si3d", "si3e"))
+
+
+ggpubr::ggbarplot(odds_pval, x="comparison_with_a209", y="odds_value", fill="group", label = odds_pval$label, title="a209 overlaps in normoxia", palette = c(si3d_col, si3e_col), ylim=(c(0,7)))+
+  geom_hline(aes(yintercept=1))
+
+
+ggsave(here("plots/normoverlap.pdf"), width=4, height=4)
+
+```
+
+### Hypoxia analysis
+```{r}
+
+hyp_matrix <- all_lists %>%
+  filter(condition=="hypoxia") %>% 
+  dplyr::select(-condition)
+
+
+hyp_matrix_comb <- hyp_matrix %>% 
+  tidyr::unite("description", 2:3, sep=', ')
+
+gom.allsamples <- split(hyp_matrix_comb$symbol, hyp_matrix_comb$description)
+
+gom.all <- newGOM(gom.allsamples, gom.allsamples, genome.size = 11629)
+
+hyp_all.odds.matrix <- getMatrix(gom.all, "odds")
+hyp_all.pval.matrix <- getMatrix(gom.all, "pval")
+
+
+```
+
+# plot odds ratios as bars with p values
+
+```{r}
+
+#merge odds and pval matricies
+
+odds <- hyp_all.odds.matrix %>% 
+  as.data.frame() %>% 
+  rownames_to_column("sample") %>% 
+  pivot_longer(2:7, names_to = "comparison", values_to="odds_value")
+
+pval <- hyp_all.pval.matrix %>% 
+  as.data.frame() %>% 
+  rownames_to_column("sample") %>% 
+  pivot_longer(2:7, names_to = "comparison", values_to="pval_value")
+
+
+odds_pval <- left_join(odds, pval, by=c("sample", "comparison")) %>% 
+  tidyr::unite("comparison", 1:2, sep="-") %>% 
+  filter(comparison == "a209, up-si3e, up"| 
+         comparison =="a209, down-si3e, down"|
+           comparison == "a209, up-si3d, up"|
+           comparison == "a209, down-si3d, down") %>% 
+  mutate(comparison_with_a209 = sub(".*-", "", comparison)) %>% 
+  mutate(pvalue_plot = signif(pval_value, digits=3)) %>% 
+  mutate(label = paste0("p = ", pvalue_plot, sep=" "))
+
+odds_pval$comparison_with_a209 <- factor(odds_pval$comparison_with_a209, levels = c("si3e, up", "si3e, down", "si3d, up", "si3d, down"))
+
+odds_pval <- odds_pval %>% 
+  mutate(group = ifelse(comparison== "a209, down-si3d, down" | comparison== "a209, up-si3d, up", "si3d", "si3e"))
+
+ggpubr::ggbarplot(odds_pval, x="comparison_with_a209", y="odds_value", fill="group", label = odds_pval$label, title="a209 overlaps in hypoxia", palette = c(si3d_col, si3e_col), ylim=(c(0,7)))+
+  geom_hline(aes(yintercept=1))
+
+
+ggsave(filename=here("plots/hypoverlap.pdf"), width=4, height=4)
+
+
+
+```
+

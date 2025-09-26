@@ -1,0 +1,413 @@
+---
+title: "QC"
+author: "Kate"
+date: "2023-11-01"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r install packages, include=FALSE}
+library(here)
+library(tximport)
+library(tidyverse)
+library(EnhancedVolcano)
+library(janitor)
+library(ggthemes)
+library(DESeq2)
+library(plotly)
+```
+
+```{r}
+a209_col = "#CC79A7"
+si3e_col = "#56B4E9"
+si3d_col = "#E69F00"
+```
+
+## Load transcript-level data
+
+Importing metadata and all salmon counts
+```{r meta data}
+metadata <- read_csv(here("accessories","metadata_NM.csv"), skip = 0) %>% 
+  clean_names()
+
+metadata <- metadata %>% 
+  mutate(library = ifelse(library_prep_kit=="Qiagen_miRNA", "riboseq", "rnaseq"))
+
+#ribosome lysate = ribosome seq
+#rRNA depletion = RNA seq
+#rename variables remove outlier
+
+metadata <- metadata %>% 
+  # filter(sample_id != "NM2023_0113") %>%
+  dplyr::rename("treatment" = "treatment1") %>% 
+  dplyr::rename("rep" = "treatment2") %>% 
+  dplyr::rename("condition" = "genotype")
+
+#edit factor levels
+metadata$library <- relevel(x = factor(metadata$library), ref = "rnaseq")
+metadata$library <- recode(metadata$library, rnaseq = "rna", riboseq = "ribo")
+
+metadata$treatment <- relevel(x = factor(metadata$treatment), ref = "sictrl")
+metadata$condition <- relevel(x = factor(metadata$condition), ref = "Normoxic")
+metadata$condition <- recode(metadata$condition, Normoxic = "normoxia", Hypoxic = "hypoxia")
+metadata$rep <- recode(metadata$rep, RepA = "a", RepB = "b", RepC = "c")
+
+metadata <- metadata %>%
+dplyr::select(sample_id, library, treatment, condition, rep) 
+
+```
+
+```{r import gene info}
+
+#import key on RNA type, remove premRNA
+geneInfo <- read_csv(here("accessories","gencode.v26.primary.info.csv.gz"), col_names = F) %>%
+  filter(!str_detect(X2, "pre_"))
+
+colnames(geneInfo) <- c("gene_id","transcript_id","biotype","symbol")
+
+#import transcripts for gene to transcript mapping
+tx2gene <- geneInfo[,c(2,1)]
+gene_symbol <- geneInfo %>% dplyr::select(gene_id, symbol) %>% unique()
+
+```
+
+
+
+```{r txi import, include=FALSE}
+#name files to import
+myquantfiles <- paste(here(), "/salmon/",
+                      metadata$sample_id,
+                      "/quant.sf.gz",
+                      sep = "")
+
+names(myquantfiles) <- paste(metadata$condition, metadata$treatment, metadata$rep, metadata$library, sep = "_")
+
+#import salmon files
+myTxi <- tximport(myquantfiles, type = "salmon", tx2gene = tx2gene)
+
+# visualize distribution of counts
+hist_count <- hist(log2(rowSums(myTxi$counts)), breaks = 50)
+#determine threshold
+
+#distribution of abundance histogram
+hist_abundance <- hist(log2(rowSums(myTxi$abundance)), breaks = 50)
+
+#only keeping rows with counts  log2> 10 across all samples - want around 10-15k genes - want genes that are highly expressed
+keepGenes <- rownames(myTxi$counts[log2(rowSums(myTxi$counts)) > 10 ,])
+
+#removes noise and keeps only highly expressed genes
+# results show bimodal distribution
+#1 RNA per cell = 1 TPM
+
+```
+
+```{r standard deviation filtering}
+# log transforming with pseudocount to avoid undefined numbers
+qcinput <- log2(myTxi$abundance[keepGenes,] + 1) 
+
+qcinput <- qcinput[rowSds(qcinput) > 1,] 
+
+dim(qcinput)
+```
+Split normoxia and hypoxia
+```{r}
+
+qc_input_normoxia <- qcinput[, grep("normoxia", colnames(qcinput))]
+
+qc_input_hypoxia <- qcinput[, grep("hypoxia", colnames(qcinput))]
+
+```
+
+# Visualizations
+
+# Figure: Normoxia, knockdowns
+
+```{r}
+#KDs
+qc_input_normoxia_kds <- qc_input_normoxia[, grep("si", colnames(qc_input_normoxia))]
+mycor_norm_kds <- cor(qc_input_normoxia_kds, method = "pearson")
+
+colnames(mycor_norm_kds) <- gsub("^normoxia_", "", colnames(mycor_norm_kds))  # Remove "normoxia_" prefix
+rownames(mycor_norm_kds) <- gsub("^normoxia_", "", rownames(mycor_norm_kds))  # Same for row names
+
+# Replace underscores with spaces
+colnames(mycor_norm_kds) <- gsub("_", " ", colnames(mycor_norm_kds))
+rownames(mycor_norm_kds) <- gsub("_", " ", rownames(mycor_norm_kds))
+
+# Create the heatmap with the cleaned-up names
+heatmap_normoxia <- pheatmap::pheatmap(
+  mat = mycor_norm_kds,
+  border_color = "black",  # Black borders around cells
+   #color = colorRampPalette(c("blue", "white", "red"))(100),  # Custom color gradient
+   scale = "none",  
+  cluster_rows = TRUE,  
+  cluster_cols = TRUE,  
+  fontsize = 12 
+)
+
+
+heatmap_normoxia
+ggsave(heatmap_normoxia, filename=here("plots/qc/heatmap_normoxia_kds.pdf"), width=4.5, height=4)
+
+# RIBO average correlation coefficient
+
+qc_input_normoxia_kds_ribo <- qc_input_normoxia_kds[, grep("ribo", colnames(qc_input_normoxia_kds))]
+
+mycor_ribo_norm_kds <- cor(qc_input_normoxia_kds_ribo, method = "pearson")
+
+# Extract the lower triangular part of the matrix without the diagonal
+lower_tri <- mycor_ribo_norm_kds[lower.tri(mycor_ribo_norm_kds, diag=FALSE)]
+
+# Calculate the average correlation coefficient (excluding diagonal)
+average_correlation <- mean(lower_tri)
+
+# Print the result
+average_correlation
+
+
+# rna average correlation coefficient
+
+qc_input_normoxia_kds_rna <- qc_input_normoxia_kds[, grep("rna", colnames(qc_input_normoxia_kds))]
+
+mycor_rna_norm_kds <- cor(qc_input_normoxia_kds_rna, method = "pearson")
+
+
+# Extract the lower triangular part of the matrix without the diagonal
+lower_tri <- mycor_rna_norm_kds[lower.tri(mycor_rna_norm_kds, diag=FALSE)]
+
+# Calculate the average correlation coefficient (excluding diagonal)
+average_correlation <- mean(lower_tri)
+
+# Print the result
+average_correlation
+
+```
+
+
+# Figure: Hypoxia, knockdowns
+
+```{r}
+
+qc_input_hypoxia_kds <- qc_input_hypoxia[, grep("si", colnames(qc_input_hypoxia))]
+
+qc_input_hypoxia_kds_no_outlier <- qc_input_hypoxia_kds[,colnames(qc_input_hypoxia_kds) != "hypoxia_si3e_b_rna"] 
+
+```
+
+Heatmap
+
+```{r}
+mycor_hyp_kds <- cor(qc_input_hypoxia_kds, method = "pearson")
+
+colnames(mycor_hyp_kds) <- gsub("^hypoxia_", "", colnames(mycor_hyp_kds))  # Remove "hypoxia_" prefix
+rownames(mycor_hyp_kds) <- gsub("^hypoxia_", "", rownames(mycor_hyp_kds))  # Same for row names
+
+# Replace underscores with spaces
+colnames(mycor_hyp_kds) <- gsub("_", " ", colnames(mycor_hyp_kds))
+rownames(mycor_hyp_kds) <- gsub("_", " ", rownames(mycor_hyp_kds))
+
+# Create the heatmap with the cleaned-up names
+heatmap_hypoxia <- pheatmap::pheatmap(
+  mat = mycor_hyp_kds,
+  border_color = "black",  # Black borders around cells
+   #color = colorRampPalette(c("blue", "white", "red"))(100),  # Custom color gradient
+   scale = "none",  
+  cluster_rows = TRUE,  
+  cluster_cols = TRUE,  
+  fontsize = 12 
+)
+
+
+heatmap_hypoxia
+ggsave(heatmap_hypoxia, filename=here("plots/qc/heatmap_hyp_kds_w_outlier.pdf"), width=4.5, height=4)
+
+```
+
+```{r}
+
+# RIBO average correlation coefficient
+
+qc_input_hypoxia_kds_ribo <- qc_input_hypoxia_kds_no_outlier[, grep("ribo", colnames(qc_input_hypoxia_kds_no_outlier))]
+
+mycor_ribo_hyp_kds <- cor(qc_input_hypoxia_kds_ribo, method = "pearson")
+
+
+# Extract the lower triangular part of the matrix without the diagonal
+lower_tri <- mycor_ribo_hyp_kds[lower.tri(mycor_ribo_hyp_kds, diag=FALSE)]
+
+# Calculate the average correlation coefficient (excluding diagonal)
+average_correlation <- mean(lower_tri)
+
+# Print the result
+average_correlation
+
+
+
+# rna average correlation coefficient
+
+qc_input_hypoxia_kds_rna <- qc_input_hypoxia_kds_no_outlier[, grep("rna", colnames(qc_input_hypoxia_kds_no_outlier))]
+
+mycor_rna_hyp_kds <- cor(qc_input_hypoxia_kds_rna, method = "pearson")
+
+
+# Extract the lower triangular part of the matrix without the diagonal
+lower_tri <- mycor_rna_hyp_kds[lower.tri(mycor_rna_hyp_kds, diag=FALSE)]
+
+# Calculate the average correlation coefficient (excluding diagonal)
+average_correlation <- mean(lower_tri)
+
+# Print the result
+average_correlation
+
+
+```
+
+# Figure: DMSO, a209, Normoxia, Hypoxia
+
+Normoxia Heatmap
+```{r}
+
+#heatmap
+
+qc_input_normoxia_compound <- qc_input_normoxia[, grep("si", colnames(qc_input_normoxia), invert=TRUE)]
+
+mycor_norm_compound <- cor(qc_input_normoxia_compound, method = "pearson")
+
+colnames(mycor_norm_compound) <- gsub("^normoxia_", "", colnames(mycor_norm_compound))  # Remove "normoxia_" prefix
+rownames(mycor_norm_compound) <- gsub("^normoxia_", "", rownames(mycor_norm_compound))  # Same for row names
+
+# Replace underscores with spaces
+colnames(mycor_norm_compound) <- gsub("_", " ", colnames(mycor_norm_compound))
+rownames(mycor_norm_compound) <- gsub("_", " ", rownames(mycor_norm_compound))
+
+# Create the heatmap with the cleaned-up names
+heatmap_normoxia_compound <- pheatmap::pheatmap(
+  mat = mycor_norm_compound,
+  border_color = "black",  # Black borders around cells
+   #color = colorRampPalette(c("blue", "white", "red"))(100),  # Custom color gradient
+   scale = "none",  
+  cluster_rows = TRUE,  
+  cluster_cols = TRUE,  
+  fontsize = 12 
+)
+
+
+heatmap_normoxia_compound
+ggsave(heatmap_normoxia_compound, filename=here("plots/qc/heatmap_normoxia_compounds.pdf"), width=4.5, height=4)
+
+
+# correlation coefficients
+
+# RIBO average correlation coefficient
+
+qc_input_normoxia_compound_ribo <- qc_input_normoxia_compound[, grep("ribo", colnames(qc_input_normoxia_compound))]
+
+mycor_ribo_norm_compound <- cor(qc_input_normoxia_compound_ribo, method = "pearson")
+
+
+# Extract the lower triangular part of the matrix without the diagonal
+lower_tri <- mycor_ribo_norm_compound[lower.tri(mycor_ribo_norm_compound, diag=FALSE)]
+
+# Calculate the average correlation coefficient (excluding diagonal)
+average_correlation <- mean(lower_tri)
+
+# Print the result
+average_correlation
+
+
+
+# rna average correlation coefficient
+
+qc_input_normoxia_compound_rna <- qc_input_normoxia_compound[, grep("rna", colnames(qc_input_normoxia_compound))]
+
+mycor_rna_norm_compound <- cor(qc_input_normoxia_compound_rna, method = "pearson")
+
+
+# Extract the lower triangular part of the matrix without the diagonal
+lower_tri <- mycor_rna_norm_compound[lower.tri(mycor_rna_norm_compound, diag=FALSE)]
+
+# Calculate the average correlation coefficient (excluding diagonal)
+average_correlation <- mean(lower_tri)
+
+# Print the result
+average_correlation
+
+
+```
+
+Hypoxia heatmap
+```{r}
+
+#heatmap
+qc_input_hypoxia_compound <- qc_input_hypoxia[, grep("si", colnames(qc_input_hypoxia), invert=TRUE)]
+
+mycor_hyp_compound <- cor(qc_input_hypoxia_compound, method = "pearson")
+
+colnames(mycor_hyp_compound) <- gsub("^hypoxia_", "", colnames(mycor_hyp_compound))  # Remove "hypoxia_" prefix
+rownames(mycor_hyp_compound) <- gsub("^hypoxia_", "", rownames(mycor_hyp_compound))  # Same for row names
+
+# Replace underscores with spaces
+colnames(mycor_hyp_compound) <- gsub("_", " ", colnames(mycor_hyp_compound))
+rownames(mycor_hyp_compound) <- gsub("_", " ", rownames(mycor_hyp_compound))
+
+# Create the heatmap with the cleaned-up names
+heatmap_hypoxia_compound <- pheatmap::pheatmap(
+  mat = mycor_hyp_compound,
+  border_color = "black",  # Black borders around cells
+   #color = colorRampPalette(c("blue", "white", "red"))(100),  # Custom color gradient
+   scale = "none",  
+  cluster_rows = TRUE,  
+  cluster_cols = TRUE,  
+  fontsize = 12 
+)
+
+
+heatmap_hypoxia_compound
+ggsave(heatmap_hypoxia_compound, filename=here("plots/qc/heatmap_hypoxia_compounds.pdf"), width=4.5, height=4)
+
+
+
+# correlation coefficients
+
+# RIBO average correlation coefficient
+
+qc_input_hypoxia_compound_ribo <- qc_input_hypoxia_compound[, grep("ribo", colnames(qc_input_hypoxia_compound))]
+
+mycor_ribo_hyp_compound <- cor(qc_input_hypoxia_compound_ribo, method = "pearson")
+
+
+# Extract the lower triangular part of the matrix without the diagonal
+lower_tri <- mycor_ribo_hyp_compound[lower.tri(mycor_ribo_hyp_compound, diag=FALSE)]
+
+# Calculate the average correlation coefficient (excluding diagonal)
+average_correlation <- mean(lower_tri)
+
+# Print the result
+average_correlation
+
+
+
+# rna average correlation coefficient
+
+qc_input_hypoxia_compound_rna <- qc_input_hypoxia_compound[, grep("rna", colnames(qc_input_hypoxia_compound))]
+
+mycor_rna_hyp_compound <- cor(qc_input_hypoxia_compound_rna, method = "pearson")
+
+
+# Extract the lower triangular part of the matrix without the diagonal
+lower_tri <- mycor_rna_hyp_compound[lower.tri(mycor_rna_hyp_compound, diag=FALSE)]
+
+# Calculate the average correlation coefficient (excluding diagonal)
+average_correlation <- mean(lower_tri)
+
+# Print the result
+average_correlation
+
+
+```
+

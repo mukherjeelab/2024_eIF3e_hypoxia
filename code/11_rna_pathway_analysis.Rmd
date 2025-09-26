@@ -1,0 +1,711 @@
+---
+title: "RNA pathway analysis"
+author: "Kate"
+date: "2025-03-11"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+Done exactly the same way as the TE pathway analysis. But just with RNA. e.g. eiF3d KD compared to sictrl
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r install packages, echo=FALSE}
+
+library(here)
+library(janitor)
+library(tximport)
+library(tidyverse)
+library(EnhancedVolcano)
+library(msigdbr)
+library(viridis)
+library(gridExtra)
+library(ggthemes)
+library(ggrepel)
+library(scales)
+library(DESeq2)
+library(limma)
+library(clusterProfiler)
+library(plotly)
+library(ggokabeito)
+library(ggvenn)
+library(ggpubr)
+library(DT)
+library(edgeR)
+library(ggprism)
+library(ggExtra)
+library(reshape2)
+library(pheatmap)
+library(enrichplot)
+library(GeneOverlap)
+library(viridis)
+
+
+```
+
+## load metadata
+```{r}
+metadata <- read_csv(here("counts/calculate_te/metadata.csv"))
+```
+
+```{r}
+geneInfo <- read_csv(here("accessories","gencode.v26.primary.info.csv.gz"), col_names = F) %>%
+  filter(!str_detect(X2, "pre_"))
+
+colnames(geneInfo) <- c("gene_id","transcript_id","biotype","symbol")
+
+#map transcripts to gene
+tx2gene <- geneInfo[,c(2,1)]
+gene_symbol <- geneInfo %>% dplyr::select(gene_id, symbol) %>% unique()
+
+```
+
+## Load raw counts for DeSEQ analyses
+```{r}
+raw_counts <- read_csv(here("counts/calculate_te/raw_filtered_allCounts.csv")) %>% 
+  column_to_rownames("gene_id")
+
+rna_counts <- as.matrix(raw_counts[,grep(pattern = "rna",colnames(raw_counts))])
+
+rna_ribo_counts <- as.matrix(raw_counts)
+
+```
+
+
+# RNA signatures
+3e KD, 3d KD, a209
+Need to do deseq on these
+
+## 3e normoxia rna
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="normoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3e")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("sictrl", "si3e"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  rna_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_norm_3e <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+  
+  #make sure it is negative
+  print(res_norm_3e %>% filter(symbol=="EIF3E"))
+  
+  
+
+```
+
+
+
+
+## 3d normoxia rna
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="normoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3d")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("sictrl", "si3d"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  rna_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_norm_3d <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+  
+  #make sure it is negative
+  print(res_norm_3d %>% filter(symbol=="EIF3D"))
+  
+
+    
+
+```
+
+
+
+
+
+## a209 normoxia rna
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="normoxia") %>% 
+  filter(treatment=="DMSO"|treatment=="a209")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("DMSO", "a209"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  rna_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_norm_a209 <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+  
+    
+
+```
+
+
+
+
+
+
+
+# Hypoxia
+
+
+## 3e hypoxia rna
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3e")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("sictrl", "si3e"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  rna_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_hyp_3e <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+  
+  #make sure it is negative
+  print(res_hyp_3e %>% filter(symbol=="EIF3E"))
+  
+  
+
+
+```
+
+
+
+
+## 3d hypoxia rna
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment=="sictrl"|treatment=="si3d")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("sictrl", "si3d"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  rna_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_hyp_3d <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+  
+  #make sure it is negative
+  print(res_hyp_3d %>% filter(symbol=="EIF3D"))
+  
+  
+
+
+```
+
+
+
+
+
+## a209 hypoxia rna
+```{r}
+metadata_loop <- metadata %>% 
+  filter(library=="rna") %>% 
+  filter(condition=="hypoxia") %>% 
+  filter(treatment=="DMSO"|treatment=="a209")
+
+metadata_loop$treatment <- factor(metadata_loop$treatment, levels= c("DMSO", "a209"))
+levels(metadata_loop$treatment)
+
+sample_info <- metadata_loop %>% 
+    mutate("name" = 
+  paste(condition, treatment, rep, library, sep = "_"))
+  
+  names <- as.character(sample_info$name)
+  names
+  
+  rna_subset <- rna_ribo_counts[, colnames(rna_ribo_counts) %in% names]
+  
+  print(levels(sample_info$treatment))
+
+  
+# Deseq analysis ----------------------------------------------------------------
+  
+  dds <- DESeqDataSetFromMatrix(countData = rna_subset, 
+                                 colData = sample_info, 
+                                 design = ~treatment)
+  dds <- DESeq(dds)
+  
+  print(resultsNames(dds))
+
+  res <- results(dds, name=resultsNames(dds)[2], cooksCutoff=FALSE, independentFiltering=FALSE)
+
+  res_hyp_a209 <- lfcShrink(dds = dds, coef = resultsNames(dds)[2], res = res) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "gene_id") %>%
+  inner_join(gene_symbol, .)
+
+  
+
+```
+
+
+
+
+# Pathway analysis: hallmark and kegg
+
+
+### Make lists
+```{r}
+eif3d_rna_norm <- res_norm_3d$log2FoldChange
+names(eif3d_rna_norm) <- res_norm_3d$symbol
+
+eif3d_rna_norm <- sort(eif3d_rna_norm, decreasing = TRUE)
+
+eif3d_rna_norm <- eif3d_rna_norm[!duplicated(names(eif3d_rna_norm))]
+```
+
+```{r}
+eif3e_rna_norm <- res_norm_3e$log2FoldChange
+names(eif3e_rna_norm) <- res_norm_3e$symbol
+
+eif3e_rna_norm <- sort(eif3e_rna_norm, decreasing = TRUE)
+
+eif3e_rna_norm <- eif3e_rna_norm[!duplicated(names(eif3e_rna_norm))]
+```
+
+```{r}
+a209_rna_norm <- res_norm_3e$log2FoldChange
+names(a209_rna_norm) <- res_norm_3e$symbol
+
+a209_rna_norm <- sort(a209_rna_norm, decreasing = TRUE)
+
+a209_rna_norm <- a209_rna_norm[!duplicated(names(a209_rna_norm))]
+```
+
+
+
+
+```{r}
+eif3d_rna_hyp <- res_hyp_3d$log2FoldChange
+names(eif3d_rna_hyp) <- res_hyp_3d$symbol
+
+eif3d_rna_hyp <- sort(eif3d_rna_hyp, decreasing = TRUE)
+
+eif3d_rna_hyp <- eif3d_rna_hyp[!duplicated(names(eif3d_rna_hyp))]
+```
+
+```{r}
+eif3e_rna_hyp <- res_hyp_3e$log2FoldChange
+names(eif3e_rna_hyp) <- res_hyp_3e$symbol
+
+eif3e_rna_hyp <- sort(eif3e_rna_hyp, decreasing = TRUE)
+
+eif3e_rna_hyp <- eif3e_rna_hyp[!duplicated(names(eif3e_rna_hyp))]
+```
+
+```{r}
+a209_rna_hyp <- res_hyp_3e$log2FoldChange
+names(a209_rna_hyp) <- res_hyp_3e$symbol
+
+a209_rna_hyp <- sort(a209_rna_hyp, decreasing = TRUE)
+
+a209_rna_hyp <- a209_rna_hyp[!duplicated(names(a209_rna_hyp))]
+```
+
+
+### Source pathways
+```{r prep GSEA analysis}
+
+m_df_h <- msigdbr(species = "Homo sapiens") %>%
+  filter(gs_cat == "H") %>% 
+  dplyr::select(gs_name, gene_symbol)
+
+  m_df_c2 <- msigdbr(species = "Homo sapiens") %>%
+  filter(gs_cat == "C2" & gs_subcat != "CGP") %>% 
+  dplyr::select(gs_name, gene_symbol)
+
+```
+
+
+### Run analysis - hallmark
+```{r}
+eIF3d_rna_norm_hallmark <- GSEA(
+  geneList = eif3d_rna_norm,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+norm_rna_3d_hallmark <-
+  eIF3d_rna_norm_hallmark@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+```
+
+```{r}
+eIF3e_rna_norm_hallmark <- GSEA(
+  geneList = eif3e_rna_norm,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+norm_rna_3e_hallmark <-
+  eIF3e_rna_norm_hallmark@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+```
+
+
+```{r}
+a209_rna_norm_hallmark <- GSEA(
+  geneList = a209_rna_norm,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+norm_rna_a209_hallmark <-
+  a209_rna_norm_hallmark@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+```
+
+
+
+```{r}
+eIF3d_rna_hyp_hallmark <- GSEA(
+  geneList = eif3d_rna_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+hyp_rna_3d_hallmark <-
+  eIF3d_rna_hyp_hallmark@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+```
+
+```{r}
+eIF3e_rna_hyp_hallmark <- GSEA(
+  geneList = eif3e_rna_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+hyp_rna_3e_hallmark <-
+  eIF3e_rna_hyp_hallmark@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+```
+
+
+```{r}
+a209_rna_hyp_hallmark <- GSEA(
+  geneList = a209_rna_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_h
+  )
+
+hyp_rna_a209_hallmark <-
+  a209_rna_hyp_hallmark@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+```
+
+### Export RNA hallmark pathway analysis
+
+```{r}
+rna_hallmark <- list("norm_rna_3d_hallmark"=norm_rna_3d_hallmark,
+            "norm_rna_3e_hallmark"=norm_rna_3e_hallmark,
+            "norm_rna_a209_hallmark"=norm_rna_a209_hallmark,
+            "hyp_rna_3d_hallmark"=hyp_rna_3d_hallmark,
+            "hyp_rna_3e_hallmark"=hyp_rna_3e_hallmark,
+            "hyp_rna_a209_hallmark"=hyp_rna_a209_hallmark
+            
+            )
+
+writexl::write_xlsx(rna_hallmark, here("pathway_tables/rna_hallmark_pathways_kd_vs_control.xlsx"))
+
+
+```
+
+
+
+
+
+
+### Run analysis - kegg
+```{r}
+eIF3d_rna_norm_kegg <- GSEA(
+  geneList = eif3d_rna_norm,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+    TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))
+  )
+
+norm_rna_3d_kegg <-
+  eIF3d_rna_norm_kegg@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+```
+
+```{r}
+eIF3e_rna_norm_kegg <- GSEA(
+  geneList = eif3e_rna_norm,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+  TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))  
+  )
+
+norm_rna_3e_kegg <-
+  eIF3e_rna_norm_kegg@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+```
+
+
+```{r}
+a209_rna_norm_kegg <- GSEA(
+  geneList = a209_rna_norm,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+    TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))
+  )
+
+norm_rna_a209_kegg <-
+  a209_rna_norm_kegg@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+```
+
+
+
+```{r}
+eIF3d_rna_hyp_kegg <- GSEA(
+  geneList = eif3d_rna_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+    TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))
+  )
+
+hyp_rna_3d_kegg <-
+  eIF3d_rna_hyp_kegg@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+```
+
+```{r}
+eIF3e_rna_hyp_kegg <- GSEA(
+  geneList = eif3e_rna_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+    TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))
+  )
+
+hyp_rna_3e_kegg <-
+  eIF3e_rna_hyp_kegg@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+```
+
+
+```{r}
+a209_rna_hyp_kegg <- GSEA(
+  geneList = a209_rna_hyp,
+  eps = 0,
+  pAdjustMethod = "fdr",
+  pvalueCutoff = 1,
+  minGSSize = 20,
+  maxGSSize = 1000,
+    TERM2GENE = m_df_c2 %>%
+  filter(grepl('^KEGG', gs_name))
+  )
+
+hyp_rna_a209_kegg <-
+  a209_rna_hyp_kegg@result %>%
+  dplyr::select(ID,NES,p.adjust,core_enrichment) 
+
+```
+
+### Export RNA kegg pathway analysis
+
+```{r}
+rna_kegg <- list("norm_rna_3d_kegg"=norm_rna_3d_kegg,
+            "norm_rna_3e_kegg"=norm_rna_3e_kegg,
+            "norm_rna_a209_kegg"=norm_rna_a209_kegg,
+            "hyp_rna_3d_kegg"=hyp_rna_3d_kegg,
+            "hyp_rna_3e_kegg"=hyp_rna_3e_kegg,
+            "hyp_rna_a209_kegg"=hyp_rna_a209_kegg
+            
+            )
+
+writexl::write_xlsx(rna_kegg, here("pathway_tables/rna_kegg_pathways_kd_vs_control.xlsx"))
+
+
+```
+
